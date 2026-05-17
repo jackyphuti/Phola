@@ -1,0 +1,55 @@
+<svg width="100%" viewBox="0 0 680 680" role="img" xmlns="http://www.w3.org/2000/svg" style="">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Phola app icon</title>
+  <desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">A rounded square app icon for Phola — a GBV reporting app. Deep teal background with a stylised shield containing a gentle leaf/hand motif, and the word Phola below.</desc>
+
+  <defs>
+    <clipPath id="iconClip">
+      <rect x="140" y="40" width="400" height="400" rx="88"/>
+    </clipPath>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0D6E6E"/>
+      <stop offset="100%" stop-color="#084F4F"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon rounded square background -->
+  <rect x="140" y="40" width="400" height="400" rx="88" fill="url(#bgGrad)" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Subtle inner texture ring -->
+  <rect x="140" y="40" width="400" height="400" rx="88" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.08" style="fill:none;stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Shield body -->
+  <path d="M340 108 L420 142 L420 232 C420 278 384 316 340 332 C296 316 260 278 260 232 L260 142 Z" fill="url(#shieldGrad)" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.3" stroke-linejoin="round" style="stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:2px;stroke-linecap:butt;stroke-linejoin:round;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Inner shield fill -->
+  <path d="M340 118 L412 149 L412 230 C412 272 379 307 340 322 C301 307 268 272 268 230 L268 149 Z" fill="none" stroke="#FFFFFF" stroke-width="1" stroke-opacity="0.15" style="fill:none;stroke:rgb(255, 255, 255);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Stylised leaf / protective hand motif inside shield -->
+  <!-- Central stem -->
+  <line x1="340" y1="290" x2="340" y2="185" stroke="#A8EDCD" stroke-width="2.5" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(168, 237, 205);color:rgb(255, 255, 255);stroke-width:2.5px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Left leaf -->
+  <path d="M340 240 C316 218 296 200 302 178 C312 172 332 188 340 210 Z" fill="#A8EDCD" fill-opacity="0.9" style="fill:rgb(168, 237, 205);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Right leaf -->
+  <path d="M340 240 C364 218 384 200 378 178 C368 172 348 188 340 210 Z" fill="#7DDBB4" fill-opacity="0.85" style="fill:rgb(125, 219, 180);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Top bud -->
+  <ellipse cx="340" cy="178" rx="9" ry="13" fill="#E0F7EE" fill-opacity="0.95" style="fill:rgb(224, 247, 238);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Small protective dots at shield base — community feel -->
+  <circle cx="310" cy="296" r="4" fill="#A8EDCD" fill-opacity="0.6" style="fill:rgb(168, 237, 205);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <circle cx="340" cy="304" r="4" fill="#A8EDCD" fill-opacity="0.7" style="fill:rgb(168, 237, 205);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <circle cx="370" cy="296" r="4" fill="#A8EDCD" fill-opacity="0.6" style="fill:rgb(168, 237, 205);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- App name: Phola -->
+  <text x="340" y="494" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="700" fill="#FFFFFF" text-anchor="middle" letter-spacing="6" style="fill:rgb(255, 255, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Georgia, &quot;Times New Roman&quot;, serif;font-size:52px;font-weight:700;text-anchor:middle;dominant-baseline:auto">PHOLA</text>
+
+  <!-- Tagline -->
+  <text x="340" y="524" font-family="Georgia, 'Times New Roman', serif" font-size="17" font-weight="400" fill="#A8EDCD" text-anchor="middle" letter-spacing="3.5" style="fill:rgb(168, 237, 205);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Georgia, &quot;Times New Roman&quot;, serif;font-size:17px;font-weight:400;text-anchor:middle;dominant-baseline:auto">safe. discreet. yours.</text>
+
+</svg>

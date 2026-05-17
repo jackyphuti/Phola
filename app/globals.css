@@ -1,0 +1,165 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Phola purple / white palette */
+  --background: #ffffff;
+  --foreground: #0f172a; /* slate-900 */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #6B21A8; /* purple-800 */
+  --primary-foreground: #ffffff;
+  --secondary: #E9D5FF; /* purple-100 */
+  --secondary-foreground: #2b0236;
+  --muted: #f8f7fb;
+  --muted-foreground: #6b7280;
+  --accent: #8b5cf6;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e6e6e9;
+  --input: #ffffff;
+  --ring: #9b5cf6;
+  --chart-1: #6B21A8;
+  --chart-2: #8b5cf6;
+  --chart-3: #c084fc;
+  --chart-4: #a78bfa;
+  --chart-5: #c084fc;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #6B21A8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3e8ff;
+  --sidebar-accent-foreground: #2b0236;
+  --sidebar-border: #e6e6e9;
+  --sidebar-ring: #9b5cf6;
+}
+
+.dark {
+  --background: #12071a; /* deep purple */
+  --foreground: #ffffff;
+  --card: #1b0433;
+  --card-foreground: #ffffff;
+  --popover: #1b0433;
+  --popover-foreground: #ffffff;
+  --primary: #9b5cf6;
+  --primary-foreground: #1b0433;
+  --secondary: #2b0236;
+  --secondary-foreground: #ffffff;
+  --muted: #1b0730;
+  --muted-foreground: #c7b9ff;
+  --accent: #c084fc;
+  --accent-foreground: #1b0433;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #2a1633;
+  --input: #1b0433;
+  --ring: #c084fc;
+  --chart-1: #9b5cf6;
+  --chart-2: #8b5cf6;
+  --chart-3: #c084fc;
+  --chart-4: #a78bfa;
+  --chart-5: #c084fc;
+  --sidebar: #12071a;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #9b5cf6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2b0236;
+  --sidebar-accent-foreground: #f5e8ff;
+  --sidebar-border: #2a1633;
+  --sidebar-ring: #c084fc;
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback';
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Splash animation */
+@keyframes phola-splash {
+  0% { opacity: 0; transform: scale(0.7); }
+  10% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+
+.animate-splash {
+  animation: phola-splash 1.8s cubic-bezier(.2,.8,.2,1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-splash { animation: none; }
+}
+
+/* While splash is active, dim/blur the main app content and prevent interaction */
+.phola-splash-active .app-content {
+  opacity: 0.12;
+  filter: blur(4px) saturate(0.95);
+  transform: scale(0.995);
+  transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease;
+  pointer-events: none;
+}
+
+.app-content {
+  transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease;
+}
+
+/* PWA safe area padding for mobile */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

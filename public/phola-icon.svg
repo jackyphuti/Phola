@@ -1,0 +1,65 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Phola app icon</title>
+  <desc>Phola GBV reporting app icon — teal rounded square with a shield, leaf motif, and wordmark.</desc>
+
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0D6E6E"/>
+      <stop offset="100%" stop-color="#084F4F"/>
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bgGrad)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-opacity="0.08"/>
+
+  <!-- Shield body -->
+  <path d="M512 160 L700 248 L700 500 C700 620 616 720 512 760 C408 720 324 620 324 500 L324 248 Z"
+        fill="url(#shieldGrad)" stroke="#FFFFFF" stroke-width="4" stroke-opacity="0.3" stroke-linejoin="round"/>
+
+  <!-- Inner shield -->
+  <path d="M512 178 L682 260 L682 498 C682 612 603 708 512 746 C421 708 342 612 342 498 L342 260 Z"
+        fill="none" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.15"/>
+
+  <!-- Central stem -->
+  <line x1="512" y1="660" x2="512" y2="420" stroke="#A8EDCD" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Left leaf -->
+  <path d="M512 548 C462 504 420 464 432 418 C452 408 494 434 512 474 Z"
+        fill="#A8EDCD" fill-opacity="0.9"/>
+
+  <!-- Right leaf -->
+  <path d="M512 548 C562 504 604 464 592 418 C572 408 530 434 512 474 Z"
+        fill="#7DDBB4" fill-opacity="0.85"/>
+
+  <!-- Top bud -->
+  <ellipse cx="512" cy="416" rx="22" ry="32" fill="#E0F7EE" fill-opacity="0.95"/>
+
+  <!-- Community dots at shield base -->
+  <circle cx="452" cy="680" r="10" fill="#A8EDCD" fill-opacity="0.6"/>
+  <circle cx="512" cy="696" r="10" fill="#A8EDCD" fill-opacity="0.7"/>
+  <circle cx="572" cy="680" r="10" fill="#A8EDCD" fill-opacity="0.6"/>
+
+  <!-- Wordmark -->
+  <text x="512" y="860"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="128"
+        font-weight="700"
+        fill="#FFFFFF"
+        text-anchor="middle"
+        letter-spacing="14">PHOLA</text>
+
+  <!-- Tagline -->
+  <text x="512" y="930"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="42"
+        font-weight="400"
+        fill="#A8EDCD"
+        text-anchor="middle"
+        letter-spacing="8">safe. discreet. yours.</text>
+
+</svg>
