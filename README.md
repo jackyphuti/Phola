@@ -12,6 +12,11 @@ Cloudflare Pages
 - Build command: `npm run build`
 - Build output directory: `.next` (if using Next.js on Pages) or `public` for a static export. See Cloudflare docs for Next.js compatibility (`next-on-pages`).
 
+Next.js on Cloudflare Pages
+- This repo uses the Cloudflare Pages adapter in the GitHub Action to make Next.js work on Pages.
+- The action runs `npm run build` and then `npx @cloudflare/next-on-pages --output-dir=.next` before publishing.
+- Ensure your Pages project is configured to use `.next` as the build output directory in the Cloudflare Pages settings.
+
 Native APK
 - After deploy, set the `CAPACITOR_SERVER_URL` environment variable to your deployed origin, then run:
   ```bash

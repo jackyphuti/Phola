@@ -17,6 +17,9 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Prepare Next for Cloudflare Pages
+        # Use the official adapter to convert Next output for Pages
+        run: npx @cloudflare/next-on-pages --output-dir=.next
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
