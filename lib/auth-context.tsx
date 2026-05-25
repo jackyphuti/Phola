@@ -48,14 +48,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        await fetchProfile(user.id)
-      } else {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+        if (user) {
+          await fetchProfile(user.id)
+        } else {
+          setIsLocked(true)
+        }
+      } catch (error) {
+        console.error('Failed to initialize Supabase auth session', error)
+        setUser(null)
+        setProfile(null)
         setIsLocked(true)
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
 
     getUser()
