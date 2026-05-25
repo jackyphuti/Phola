@@ -1,6 +1,7 @@
+export const runtime = 'edge'
+
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import crypto from 'node:crypto'
 
 const PHOTO_BUCKET = 'profile-photos'
 
@@ -18,8 +19,16 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
 
-function buildPhotoPath(email: string) {
-  const emailHash = crypto.createHash('sha256').update(normalizeEmail(email)).digest('hex')
+async function sha256Hex(value: string) {
+  const data = new TextEncoder().encode(value)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+async function buildPhotoPath(email: string) {
+  const emailHash = await sha256Hex(normalizeEmail(email))
   return `${emailHash}.jpg`
 }
 
