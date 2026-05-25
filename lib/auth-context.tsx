@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(true)
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   const supabase = createClient()
 
@@ -51,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(user)
       if (user) {
         await fetchProfile(user.id)
+      } else {
+        setIsLocked(true)
       }
       setIsLoading(false)
     }
@@ -65,15 +68,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (event === 'SIGNED_IN') {
             setIsLocked(true)
           }
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setProfile(null)
           setIsLocked(true)
+        } else {
+          setProfile(null)
         }
       }
     )
 
     return () => subscription.unsubscribe()
   }, [supabase, fetchProfile])
+
+  useEffect(() => {
+    if (!user) {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      return
+    }
+
+    const idleMs = 5 * 60 * 1000
+
+    const resetIdleTimer = () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+      }
+
+      idleTimerRef.current = setTimeout(() => {
+        setIsLocked(true)
+      }, idleMs)
+    }
+
+    const lockOnHide = () => {
+      if (document.visibilityState === 'hidden') {
+        setIsLocked(true)
+      }
+    }
+
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const
+
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }))
+    document.addEventListener('visibilitychange', lockOnHide)
+    window.addEventListener('blur', lockOnHide)
+
+    resetIdleTimer()
+
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetIdleTimer))
+      document.removeEventListener('visibilitychange', lockOnHide)
+      window.removeEventListener('blur', lockOnHide)
+    }
+  }, [user])
 
   const signOut = async () => {
     await supabase.auth.signOut()

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { useAuth } from '@/lib/auth-context'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
@@ -98,6 +100,8 @@ function estimateDuration(km: number): string {
 
 export function SOSMap() {
   const router = useRouter()
+  const { user } = useAuth()
+  const supabase = createClient()
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [safePlaces, setSafePlaces] = useState<SafePlace[]>([])
   const [selectedPlace, setSelectedPlace] = useState<SafePlace | null>(null)
@@ -109,7 +113,10 @@ export function SOSMap() {
   const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
   const [mapReady, setMapReady] = useState(false)
   const [sosActivated, setSosActivated] = useState(false)
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState<string | null>(null)
   const lastTapRef = useRef<number>(0)
+  const watchIdRef = useRef<number | null>(null)
+  const initialLocationRequestedRef = useRef(false)
   
   // Load Leaflet CSS
   useEffect(() => {
@@ -122,6 +129,42 @@ export function SOSMap() {
       document.head.removeChild(link)
     }
   }, [])
+
+  useEffect(() => {
+    const loadEmergencyContact = async () => {
+      if (!user?.id) {
+        setEmergencyContactPhone(null)
+        return
+      }
+
+      const { data } = await supabase
+        .from('emergency_contacts')
+        .select('phone, is_primary, created_at')
+        .eq('user_id', user.id)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+      setEmergencyContactPhone(data?.[0]?.phone ?? null)
+    }
+
+    loadEmergencyContact()
+  }, [supabase, user?.id])
+
+  const callNumber = useCallback((number: string) => {
+    const cleaned = number.replace(/[^\d+]/g, '')
+    if (!cleaned) return
+    window.location.href = `tel:${cleaned}`
+  }, [])
+
+  const handleSpeedDial = useCallback(() => {
+    if (emergencyContactPhone) {
+      callNumber(emergencyContactPhone)
+      return
+    }
+
+    callNumber('112')
+  }, [callNumber, emergencyContactPhone])
 
   // Double-tap SOS activation
   useEffect(() => {
@@ -154,38 +197,69 @@ export function SOSMap() {
     }
   }, [])
 
-  // Get user's current location
-  useEffect(() => {
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by your browser')
       setIsLoading(false)
       return
     }
 
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const newLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }
-        setCurrentLocation(newLocation)
-        setLocationError(null)
-        setIsLoading(false)
-      },
-      (error) => {
-        console.log('[v0] Geolocation error:', error.message)
-        setLocationError('Unable to get your location. Please enable location services.')
-        setIsLoading(false)
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 30000,
-      }
-    )
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current)
+      watchIdRef.current = null
+    }
 
-    return () => navigator.geolocation.clearWatch(watchId)
+    setIsLoading(true)
+    setLocationError(null)
+
+    const handleSuccess = (position: GeolocationPosition) => {
+      const newLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }
+      setCurrentLocation(newLocation)
+      setLocationError(null)
+      setIsLoading(false)
+
+      if (watchIdRef.current === null) {
+        watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 30000,
+        })
+      }
+    }
+
+    const handleError = (error: GeolocationPositionError) => {
+      console.log('[v0] Geolocation error:', error.message)
+      setCurrentLocation(null)
+      setLocationError('Unable to get your location. Tap Allow Location Access and enable location services.')
+      setIsLoading(false)
+    }
+
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 30000,
+    })
   }, [])
+
+  // Get user's current location
+  useEffect(() => {
+    if (initialLocationRequestedRef.current) {
+      return
+    }
+
+    initialLocationRequestedRef.current = true
+    requestLocation()
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+    }
+  }, [requestLocation])
 
   // Search for nearby safe places using Overpass API (OpenStreetMap)
   const searchNearbyPlaces = useCallback(async () => {
@@ -356,7 +430,7 @@ export function SOSMap() {
     if (isUser) {
       return L.divIcon({
         className: 'custom-marker',
-        html: `<div style="width: 20px; height: 20px; background: #6366f1; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
+        html: `<div style="width: 20px; height: 20px; background: #0D6E6E; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
         iconSize: [20, 20],
         iconAnchor: [10, 10],
       })
@@ -437,6 +511,15 @@ export function SOSMap() {
                 </p>
               )}
               <div className="space-y-2">
+                {emergencyContactPhone && (
+                  <Button 
+                    className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    onClick={() => callNumber(emergencyContactPhone)}
+                  >
+                    <Phone className="w-4 h-4 mr-2" />
+                    Call Emergency Contact
+                  </Button>
+                )}
                 <Button 
                   className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                   onClick={() => window.location.href = 'tel:10111'}
@@ -501,11 +584,14 @@ export function SOSMap() {
                 <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-foreground font-medium">Location Access Required</p>
                 <p className="text-sm text-muted-foreground mt-2">{locationError}</p>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Press Allow if your browser asks for permission.
+                </p>
                 <Button 
                   className="mt-4"
-                  onClick={() => window.location.reload()}
+                  onClick={() => requestLocation()}
                 >
-                  Try Again
+                  Allow Location Access
                 </Button>
               </CardContent>
             </Card>
@@ -526,7 +612,7 @@ export function SOSMap() {
             {currentLocation && (
               <Marker
                 position={[currentLocation.lat, currentLocation.lng]}
-                icon={createIcon('#6366f1', true)}
+                icon={createIcon('#0D6E6E', true)}
               >
                 <Popup>You are here</Popup>
               </Marker>
@@ -537,7 +623,7 @@ export function SOSMap() {
               <Marker
                 key={place.id}
                 position={[place.location.lat, place.location.lng]}
-                icon={createIcon(place.type === 'hospital' ? '#10b981' : '#3b82f6')}
+                icon={createIcon(place.type === 'hospital' ? '#41b89d' : '#0D6E6E')}
                 eventHandlers={{
                   click: () => setSelectedPlace(place),
                 }}
@@ -571,7 +657,7 @@ export function SOSMap() {
             {route && (
               <Polyline
                 positions={route.coordinates}
-                pathOptions={{ color: '#6366f1', weight: 4 }}
+                pathOptions={{ color: '#0D6E6E', weight: 4 }}
               />
             )}
           </MapContainer>
@@ -583,14 +669,14 @@ export function SOSMap() {
           className="absolute top-4 right-4 z-[1000]"
         >
           <button
-            onClick={() => setShowEmergencyPanel(true)}
+            onClick={handleSpeedDial}
             className="w-14 h-14 rounded-full bg-destructive text-destructive-foreground shadow-lg flex items-center justify-center animate-pulse hover:scale-105 transition-transform"
-            aria-label="Emergency SOS - Double tap for quick access"
+            aria-label="Emergency SOS - tap to call your emergency contact"
           >
             <span className="text-sm font-bold">SOS</span>
           </button>
           <p className="text-[10px] text-center text-muted-foreground mt-1 bg-background/80 rounded px-1">
-            Double-tap
+            Tap to call
           </p>
         </div>
 
@@ -601,9 +687,9 @@ export function SOSMap() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    {selectedPlace.type === 'hospital' && <Hospital className="w-4 h-4 text-emerald-600" />}
-                    {selectedPlace.type === 'police' && <Shield className="w-4 h-4 text-blue-600" />}
-                    {selectedPlace.type === 'shelter' && <Building2 className="w-4 h-4 text-purple-600" />}
+                    {selectedPlace.type === 'hospital' && <Hospital className="w-4 h-4 text-emerald-700" />}
+                    {selectedPlace.type === 'police' && <Shield className="w-4 h-4 text-primary" />}
+                    {selectedPlace.type === 'shelter' && <Building2 className="w-4 h-4 text-primary" />}
                     <span className="font-medium text-foreground line-clamp-1">{selectedPlace.name}</span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">

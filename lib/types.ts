@@ -1,6 +1,7 @@
 export interface Profile {
   id: string
   display_name: string | null
+  profile_photo_path?: string | null
   pin_hash: string | null
   biometric_enabled: boolean
   created_at: string

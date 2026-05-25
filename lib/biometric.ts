@@ -5,6 +5,8 @@ export interface BiometricCredential {
   publicKey: string
 }
 
+let biometricCredentialId: string | null = null
+
 export function isBiometricSupported(): boolean {
   return typeof window !== 'undefined' && 
     'PublicKeyCredential' in window &&
@@ -55,7 +57,7 @@ export async function registerBiometric(userId: string): Promise<BiometricCreden
       publicKey: {
         challenge,
         rp: {
-          name: 'My Notes',
+          name: 'Phola',
           id: window.location.hostname,
         },
         user: {
@@ -119,17 +121,14 @@ export async function authenticateBiometric(credentialId?: string): Promise<bool
   }
 }
 
-// Store credential ID in localStorage (encrypted in production)
-const CREDENTIAL_KEY = 'notes_biometric_credential'
-
 export function saveCredentialId(credentialId: string): void {
-  localStorage.setItem(CREDENTIAL_KEY, credentialId)
+  biometricCredentialId = credentialId
 }
 
 export function getCredentialId(): string | null {
-  return localStorage.getItem(CREDENTIAL_KEY)
+  return biometricCredentialId
 }
 
 export function clearCredentialId(): void {
-  localStorage.removeItem(CREDENTIAL_KEY)
+  biometricCredentialId = null
 }

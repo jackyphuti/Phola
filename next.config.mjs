@@ -1,11 +1,11 @@
 /** @type {import('next').NextConfig} */
+const isStaticExport = process.env.NEXT_OUTPUT_EXPORT === 'true'
+
 const nextConfig = {
-  output: "export",
-  images: { unoptimized: true },
-  output: "export",
+  ...(isStaticExport ? { output: 'export' } : {}),
   // Whitelist external dev origin(s) for Hot Module Replacement (HMR)
-  // Add your device IP here so the browser on that device can connect.
-  allowedDevOrigins: ['http://172.16.4.151'],
+  // Allow common local development origins used by Android Studio, emulators, and local browsers.
+  allowedDevOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://10.0.2.2:3000'],
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -13,6 +13,10 @@ const nextConfig = {
     unoptimized: true,
   },
   async headers() {
+    if (isStaticExport) {
+      return []
+    }
+
     return [
       {
         source: '/(.*)',

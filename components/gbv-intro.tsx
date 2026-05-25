@@ -1,13 +1,15 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type MediaItem = { src: string; type: 'image' | 'video' }
+
+let gbvIntroSeen = false
 
 export default function GBVIntro() {
   const [items, setItems] = useState<MediaItem[]>([])
   const [index, setIndex] = useState(0)
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(false)
   const touchStartY = useRef<number | null>(null)
   const touchStartX = useRef<number | null>(null)
 
@@ -27,23 +29,22 @@ export default function GBVIntro() {
         setItems([])
       }
     }
+
     load()
   }, [])
 
   useEffect(() => {
-    // auto-hide after user has seen once in this session
-    try {
-      if (sessionStorage.getItem('pholaGvbSeen')) {
-        setVisible(false)
-      }
-    } catch {}
+    if (gbvIntroSeen) {
+      return
+    }
+
+    const timer = setTimeout(() => setVisible(true), 1000)
+    return () => clearTimeout(timer)
   }, [])
 
   function close() {
+    gbvIntroSeen = true
     setVisible(false)
-    try {
-      sessionStorage.setItem('pholaGvbSeen', '1')
-    } catch {}
   }
 
   function onTouchStart(e: React.TouchEvent) {
@@ -53,7 +54,6 @@ export default function GBVIntro() {
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    // prevent scrolling while intro
     e.preventDefault()
   }
 
@@ -61,12 +61,12 @@ export default function GBVIntro() {
     const t = e.changedTouches[0]
     const dy = touchStartY.current !== null ? t.clientY - touchStartY.current : 0
     const dx = touchStartX.current !== null ? t.clientX - touchStartX.current : 0
-    // swipe down to dismiss
+
     if (dy > 120 && Math.abs(dy) > Math.abs(dx)) {
       close()
       return
     }
-    // horizontal swipe to change
+
     if (dx < -40) {
       setIndex((i) => Math.min(i + 1, items.length - 1))
     } else if (dx > 40) {
@@ -88,7 +88,9 @@ export default function GBVIntro() {
     >
       <div className="w-full h-full flex items-center justify-center relative">
         <div className="absolute top-4 left-4 text-white">
-          <button onClick={close} className="px-3 py-1 bg-white/10 rounded">Skip</button>
+          <button onClick={close} className="px-3 py-1 bg-white/10 rounded">
+            Skip
+          </button>
         </div>
         <div className="max-w-full max-h-full flex items-center justify-center">
           {current.type === 'image' ? (

@@ -1,0 +1,100 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import crypto from 'node:crypto'
+
+const PHOTO_BUCKET = 'profile-photos'
+
+function toBuffer(dataUrl: string) {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/)
+  if (!match) return null
+
+  return {
+    contentType: match[1],
+    buffer: Buffer.from(match[2], 'base64'),
+  }
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase()
+}
+
+function buildPhotoPath(email: string) {
+  const emailHash = crypto.createHash('sha256').update(normalizeEmail(email)).digest('hex')
+  return `${emailHash}.jpg`
+}
+
+export async function POST(request: Request) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ error: 'Photo upload is not configured' }, { status: 500 })
+  }
+
+  const body = await request.json().catch(() => null)
+  const email = body?.email as string | undefined
+  const userId = body?.userId as string | undefined
+  const fullName = body?.fullName as string | undefined
+  const photoDataUrl = body?.photoDataUrl as string | undefined
+
+  if (!email || !userId || !fullName) {
+    return NextResponse.json({ error: 'Missing signup data' }, { status: 400 })
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+  let photoPath: string | undefined
+
+  if (photoDataUrl) {
+    const photo = toBuffer(photoDataUrl)
+    if (!photo) {
+      return NextResponse.json({ error: 'Invalid photo' }, { status: 400 })
+    }
+
+    photoPath = buildPhotoPath(email)
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(PHOTO_BUCKET)
+      .upload(photoPath, photo.buffer, {
+        contentType: photo.contentType,
+        upsert: true,
+      })
+
+    if (uploadError) {
+      return NextResponse.json({ error: uploadError.message }, { status: 500 })
+    }
+  }
+
+  const userMetadata: Record<string, string> = {
+    display_name: fullName,
+    full_name: fullName,
+  }
+  if (photoPath) {
+    userMetadata.profile_photo_path = photoPath
+  }
+
+  const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: userMetadata,
+  })
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
+
+  const profileData: Record<string, unknown> = {
+    id: userId,
+    display_name: fullName,
+    updated_at: new Date().toISOString(),
+  }
+  if (photoPath) {
+    profileData.profile_photo_path = photoPath
+  }
+
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .upsert(profileData)
+
+  if (profileError) {
+    return NextResponse.json({ error: profileError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ photoPath: photoPath || null })
+}

@@ -2,9 +2,10 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
 import { LockScreen } from '@/components/lock-screen'
-import { BookText, ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -31,17 +32,36 @@ export default function HomePage() {
     return <LockScreen />
   }
 
+  const handleQuickExit = () => {
+    window.location.replace('https://www.google.com')
+  }
+
   // Show landing page for unauthenticated users
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 safe-top safe-bottom">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="fixed right-4 top-4 z-20 rounded-full border-border/70 bg-background/90 px-4 shadow-sm backdrop-blur"
+        onClick={handleQuickExit}
+      >
+        Quick Exit
+      </Button>
       <div className="w-full max-w-sm space-y-12">
-        {/* Hero */}
         <div className="flex flex-col items-center space-y-6 text-center">
-          <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center">
-            <BookText className="w-12 h-12 text-primary" />
+          <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center overflow-hidden shadow-sm">
+            <Image
+              src="/phola-icon.svg"
+              alt="Phola"
+              width={88}
+              height={88}
+              className="h-16 w-16"
+              priority
+            />
           </div>
           <div>
-            <h1 className="text-3xl font-semibold text-foreground">My Notes</h1>
+            <h1 className="text-3xl font-semibold text-foreground">Phola</h1>
             <p className="text-muted-foreground mt-3 text-lg leading-relaxed">
               Your private space for thoughts and memories. Secure, simple, always with you.
             </p>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -16,8 +16,10 @@ import {
   getCredentialId,
   clearCredentialId
 } from '@/lib/biometric'
+import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { 
   ArrowLeft, 
+  Camera,
   Fingerprint, 
   KeyRound, 
   User,
@@ -26,15 +28,24 @@ import {
   LogOut,
   Loader2,
   Check,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react'
 
 export function SettingsPage() {
   const router = useRouter()
   const { user, profile, signOut, lock, refreshProfile } = useAuth()
   const supabase = createClient()
+  const photoInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
   
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
+  const [photoDataUrl, setPhotoDataUrl] = useState('')
+  const [photoZoom, setPhotoZoom] = useState(1)
+  const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false)
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [cameraError, setCameraError] = useState('')
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -58,6 +69,157 @@ export function SettingsPage() {
     }
   }, [profile])
 
+  useEffect(() => {
+    return () => {
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    }
+  }, [])
+
+  const currentPhotoUrl = getProfilePhotoUrl(profile?.profile_photo_path || user?.user_metadata?.profile_photo_path)
+
+  const resizePhoto = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+
+      reader.onload = () => {
+        const image = new window.Image()
+
+        image.onload = () => {
+          const maxSize = 320
+          const scale = Math.min(maxSize / image.width, maxSize / image.height, 1)
+          const width = Math.round(image.width * scale)
+          const height = Math.round(image.height * scale)
+
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+
+          const context = canvas.getContext('2d')
+          if (!context) {
+            reject(new Error('Unable to process photo'))
+            return
+          }
+
+          context.drawImage(image, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', 0.82))
+        }
+
+        image.onerror = () => reject(new Error('Unable to load photo'))
+        image.src = reader.result as string
+      }
+
+      reader.onerror = () => reject(new Error('Unable to read photo'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handlePhotoPick = async (file?: File) => {
+    if (!file) return
+
+    try {
+      const compressedPhoto = await resizePhoto(file)
+      setPhotoDataUrl(compressedPhoto)
+      setPhotoZoom(1)
+      setIsPhotoPreviewOpen(true)
+      setMessage(null)
+    } catch {
+      setMessage({ type: 'error', text: 'Please take a clear photo or choose another image.' })
+    }
+  }
+
+  const openCamera = async () => {
+    setCameraError('')
+    setIsCameraOpen(true)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      })
+
+      cameraStreamRef.current = stream
+
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream
+        await cameraVideoRef.current.play()
+      }
+    } catch {
+      setCameraError('Camera access is blocked. You can still choose a photo file.')
+    }
+  }
+
+  const closeCamera = () => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
+    cameraStreamRef.current = null
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null
+    }
+    setIsCameraOpen(false)
+    setCameraError('')
+  }
+
+  const captureCameraPhoto = () => {
+    const video = cameraVideoRef.current
+    if (!video) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth || 720
+    canvas.height = video.videoHeight || 720
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      setCameraError('Unable to capture camera photo.')
+      return
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    setPhotoDataUrl(canvas.toDataURL('image/jpeg', 0.85))
+    setPhotoZoom(1)
+    setIsPhotoPreviewOpen(true)
+    setMessage(null)
+    closeCamera()
+  }
+
+  const closePhotoPreview = () => {
+    setIsPhotoPreviewOpen(false)
+    setPhotoDataUrl('')
+    setPhotoZoom(1)
+  }
+
+  const cropPhotoForUpload = (sourceDataUrl: string, zoom: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const image = new window.Image()
+
+      image.onload = () => {
+        const outputSize = 512
+        const canvas = document.createElement('canvas')
+        canvas.width = outputSize
+        canvas.height = outputSize
+
+        const context = canvas.getContext('2d')
+        if (!context) {
+          reject(new Error('Unable to process photo'))
+          return
+        }
+
+        const baseScale = Math.max(outputSize / image.width, outputSize / image.height)
+        const renderScale = baseScale * zoom
+        const renderWidth = image.width * renderScale
+        const renderHeight = image.height * renderScale
+        const renderX = (outputSize - renderWidth) / 2
+        const renderY = (outputSize - renderHeight) / 2
+
+        context.fillStyle = '#000000'
+        context.fillRect(0, 0, outputSize, outputSize)
+        context.drawImage(image, renderX, renderY, renderWidth, renderHeight)
+        resolve(canvas.toDataURL('image/jpeg', 0.84))
+      }
+
+      image.onerror = () => reject(new Error('Unable to load photo'))
+      image.src = sourceDataUrl
+    })
+  }
+
   const handleSaveProfile = async () => {
     if (!user) return
     
@@ -79,6 +241,42 @@ export function SettingsPage() {
       setMessage({ type: 'success', text: 'Profile updated successfully' })
     } catch {
       setMessage({ type: 'error', text: 'Failed to update profile' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSavePhoto = async () => {
+    if (!user || !photoDataUrl) return
+
+    setIsSaving(true)
+    setMessage(null)
+
+    try {
+      const croppedPhoto = await cropPhotoForUpload(photoDataUrl, photoZoom)
+      const response = await fetch('/api/profile-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          fullName: displayName || profile?.display_name || user.user_metadata?.full_name || user.email || 'User',
+          photoDataUrl: croppedPhoto,
+        }),
+      })
+
+      if (!response.ok) {
+        const { error } = await response.json().catch(() => ({ error: 'Photo upload failed' }))
+        throw new Error(error)
+      }
+
+      setPhotoDataUrl('')
+      setPhotoZoom(1)
+      setIsPhotoPreviewOpen(false)
+      await refreshProfile()
+      setMessage({ type: 'success', text: 'Profile photo updated successfully' })
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update photo' })
     } finally {
       setIsSaving(false)
     }
@@ -162,6 +360,93 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
+      {isPhotoPreviewOpen && photoDataUrl && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Camera className="w-4 h-4" />
+                Adjust Photo
+              </CardTitle>
+              <CardDescription>Zoom in to center the part you want shown.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoDataUrl}
+                  alt="Selected photo preview"
+                  className="h-full w-full object-cover"
+                  style={{ transform: `scale(${photoZoom})`, transformOrigin: 'center' }}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Zoom</span>
+                  <span>{photoZoom.toFixed(2)}x</span>
+                </div>
+                <Input
+                  type="range"
+                  min="1"
+                  max="2.5"
+                  step="0.01"
+                  value={photoZoom}
+                  onChange={(e) => setPhotoZoom(Number(e.target.value))}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={closePhotoPreview} disabled={isSaving}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" onClick={handleSavePhoto} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Photo'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Camera Preview Modal */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Take Photo
+                </CardTitle>
+                <CardDescription>Use the live camera preview to capture your profile photo.</CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closeCamera}>
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="overflow-hidden rounded-2xl bg-black aspect-square">
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              {cameraError && <p className="text-sm text-destructive">{cameraError}</p>}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={closeCamera}>
+                  Cancel
+                </Button>
+                <Button className="flex-1" onClick={captureCameraPhoto}>
+                  Capture
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -244,6 +529,45 @@ export function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Profile Photo</Label>
+              <div className="rounded-2xl border border-border p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
+                    {(photoDataUrl || currentPhotoUrl) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoDataUrl || currentPhotoUrl || ''} alt="Profile photo" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground text-center px-2">No photo</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">Your current photo</p>
+                    <p className="text-xs text-muted-foreground">Update it anytime.</p>
+                  </div>
+                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="hidden"
+                  onChange={(e) => handlePhotoPick(e.target.files?.[0])}
+                />
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={openCamera}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    Camera
+                  </Button>
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => photoInputRef.current?.click()}>
+                    Change Photo
+                  </Button>
+                </div>
+                {photoDataUrl && !isPhotoPreviewOpen && (
+                  <p className="text-xs text-muted-foreground">Photo ready to review.</p>
+                )}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="displayName">Display Name</Label>
               <Input

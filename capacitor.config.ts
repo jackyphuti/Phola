@@ -1,7 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
-const useDevServer = process.env.CAPACITOR_DEV_SERVER === '1';
 const prodServerUrl = process.env.CAPACITOR_SERVER_URL || process.env.PROD_SERVER_URL;
+const devServerUrl = process.env.CAPACITOR_DEV_SERVER_URL || 'http://10.0.2.2:3000';
+const useDevServer = !prodServerUrl || process.env.CAPACITOR_DEV_SERVER === '1';
 
 const config: CapacitorConfig = {
   appId: 'com.phola.phola',
@@ -17,8 +18,9 @@ const config: CapacitorConfig = {
     : useDevServer
     ? {
         // For development: load the running dev server on your machine.
-        // Enable by setting `CAPACITOR_DEV_SERVER=1` in the environment used for the native build.
-        url: 'http://172.16.4.151:3000',
+      // This is the default native mode until CAPACITOR_SERVER_URL is set.
+      // Override CAPACITOR_DEV_SERVER_URL if you need a physical-device IP instead of the emulator default.
+        url: devServerUrl,
         androidScheme: 'http',
       }
     : undefined,

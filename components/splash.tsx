@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 
 const SPLASH_MS = 1800
+let splashShown = false
 
 export default function Splash() {
   const [visible, setVisible] = useState(false)
@@ -11,12 +12,8 @@ export default function Splash() {
     // Mode: 'once' (default) or 'always' — controlled via NEXT_PUBLIC_PHOLA_SPLASH_MODE
     const mode = (process.env.NEXT_PUBLIC_PHOLA_SPLASH_MODE as string) || 'once'
 
-    if (mode === 'once') {
-      try {
-        if (sessionStorage.getItem('pholaSplashShown')) return
-      } catch {
-        // ignore
-      }
+    if (mode === 'once' && splashShown) {
+      return
     }
 
     setVisible(true)
@@ -26,9 +23,7 @@ export default function Splash() {
     const t = setTimeout(() => {
       setVisible(false)
       document.documentElement.classList.remove('phola-splash-active')
-      try {
-        sessionStorage.setItem('pholaSplashShown', '1')
-      } catch {}
+      splashShown = true
     }, SPLASH_MS)
 
     return () => {

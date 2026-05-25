@@ -3,6 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.phola.phola"
     compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
     defaultConfig {
         applicationId "com.phola.phola"
         minSdkVersion rootProject.ext.minSdkVersion

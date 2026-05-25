@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
+import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import type { Incident } from '@/lib/types'
@@ -22,29 +23,82 @@ import {
 
 export function Dashboard() {
   const router = useRouter()
-  const { profile, signOut, lock } = useAuth()
+  const { user, profile, signOut, lock } = useAuth()
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showSafeExit, setShowSafeExit] = useState(false)
   
   const supabase = createClient()
 
+  const refreshIncidents = async () => {
+    const { data } = await supabase
+      .from('incidents')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    if (data) {
+      setIncidents(data as Incident[])
+    }
+  }
+
   useEffect(() => {
-    const fetchIncidents = async () => {
-      const { data } = await supabase
-        .from('incidents')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5)
-      
-      if (data) {
-        setIncidents(data as Incident[])
-      }
+    refreshIncidents().finally(() => {
       setIsLoading(false)
+    })
+  }, [supabase])
+
+  useEffect(() => {
+    if (!user?.id) return
+
+    let isActive = true
+    let broadcastChannel: ReturnType<typeof supabase.channel> | null = null
+
+    const setupBroadcastChannel = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!isActive || !session?.access_token) {
+        return
+      }
+
+      await supabase.realtime.setAuth(session.access_token)
+
+      broadcastChannel = supabase
+        .channel(`user:${user.id}:incidents`, {
+          config: { private: true },
+        })
+        .on('broadcast', { event: '*' }, () => {
+          refreshIncidents()
+        })
+        .subscribe()
     }
 
-    fetchIncidents()
-  }, [supabase])
+    setupBroadcastChannel()
+
+    const postgresChannel = supabase
+      .channel(`incidents:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'incidents',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          refreshIncidents()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      isActive = false
+      if (broadcastChannel) {
+        supabase.removeChannel(broadcastChannel)
+      }
+      supabase.removeChannel(postgresChannel)
+    }
+  }, [supabase, user?.id])
 
   // Safe exit - clears screen immediately
   const handleSafeExit = () => {
@@ -69,6 +123,9 @@ export function Dashboard() {
     if (hour < 18) return 'Good afternoon'
     return 'Good evening'
   }
+
+  const displayName = profile?.display_name || user?.user_metadata?.full_name || 'Phola'
+  const profilePhoto = getProfilePhotoUrl(profile?.profile_photo_path || user?.user_metadata?.profile_photo_path)
 
   return (
     <div className="min-h-screen bg-background safe-top safe-bottom">
@@ -99,9 +156,18 @@ export function Dashboard() {
       {/* Header */}
       <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-40">
         <div className="flex items-center justify-between p-4">
-          <div>
-            <p className="text-sm text-muted-foreground">{greeting()}</p>
-            <h1 className="text-xl font-semibold text-foreground">My Notes</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 overflow-hidden shrink-0">
+              {profilePhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profilePhoto} alt={displayName} className="w-full h-full object-cover" />
+              ) : null}
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{greeting()}</p>
+              <h1 className="text-xl font-semibold text-foreground">{displayName}</h1>
+              <p className="text-xs text-muted-foreground">Phola</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
