@@ -85,23 +85,31 @@ const resources: Record<SupportedLanguage, { translation: TranslationResource }>
 
 export const supportedLanguages = Object.keys(resources) as SupportedLanguage[]
 
+const i18nInitOptions = {
+  resources,
+  lng: DEFAULT_LANGUAGE,
+  fallbackLng: DEFAULT_LANGUAGE,
+  interpolation: {
+    escapeValue: false,
+  },
+  returnEmptyString: false,
+  load: 'languageOnly' as const,
+  initImmediate: false,
+  react: {
+    useSuspense: false,
+  },
+}
+
 export async function initI18n() {
-  if (i18n.isInitialized) {
-    return i18n
+  if (!i18n.isInitialized) {
+    await i18n.use(initReactI18next).init(i18nInitOptions)
   }
 
-  await i18n.use(initReactI18next).init({
-    resources,
-    lng: DEFAULT_LANGUAGE,
-    fallbackLng: DEFAULT_LANGUAGE,
-    interpolation: {
-      escapeValue: false,
-    },
-    returnEmptyString: false,
-    load: 'languageOnly',
-  })
-
   return i18n
+}
+
+if (!i18n.isInitialized) {
+  void i18n.use(initReactI18next).init(i18nInitOptions)
 }
 
 export default i18n
