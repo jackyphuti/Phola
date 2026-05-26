@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,10 +13,14 @@ import { Loader2, AlertCircle, ArrowRight, Fingerprint } from 'lucide-react'
 import Link from 'next/link'
 import { authenticateBiometric, getCredentialId, isBiometricAvailable } from '@/lib/biometric'
 import { authenticateWithPasskey, isPasskeyAvailable } from '@/lib/passkey'
+import { safeExit } from '@/lib/safe-exit'
+import { LanguageSelector } from '@/components/language-selector'
+import { getAuthCallbackUrl } from '@/lib/auth-url'
 
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslation()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -39,7 +44,7 @@ export default function LoginPage() {
   }, [])
 
   const handleQuickExit = () => {
-    window.location.replace('https://www.google.com')
+    safeExit()
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -129,7 +134,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthCallbackUrl('/dashboard'),
         },
       })
 
@@ -152,9 +157,10 @@ export default function LoginPage() {
         className="fixed right-4 top-4 z-20 rounded-full border-border/70 bg-background/90 px-4 shadow-sm backdrop-blur"
         onClick={handleQuickExit}
       >
-        Quick Exit
+        {t('quickExit')}
       </Button>
       <div className="w-full max-w-sm space-y-8">
+        <LanguageSelector compact />
         <div className="flex flex-col items-center space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden shadow-sm">
             <Image
@@ -168,16 +174,16 @@ export default function LoginPage() {
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-semibold text-foreground">Phola</h1>
-            <p className="text-muted-foreground mt-1">Sign in to continue</p>
+            <p className="text-muted-foreground mt-1">{t('signInToContinue')}</p>
           </div>
         </div>
 
         {/* OAuth & Quick Sign-In */}
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Welcome back</CardTitle>
+            <CardTitle className="text-lg">{t('welcomeBack')}</CardTitle>
             <CardDescription>
-              Sign in with your preferred method
+              {t('preferredMethod')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -238,7 +244,7 @@ export default function LoginPage() {
                       <span className="w-full border-t border-border" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                      <span className="bg-card px-2 text-muted-foreground">{t('orContinueWith')}</span>
                     </div>
                   </div>
 
@@ -289,13 +295,13 @@ export default function LoginPage() {
                   <span className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or email</span>
+                  <span className="bg-card px-2 text-muted-foreground">{t('email')}</span>
                 </div>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t('email')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -308,7 +314,7 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('password')}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -329,7 +335,7 @@ export default function LoginPage() {
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      Sign In
+                      {t('signIn')}
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}

@@ -71,27 +71,40 @@ int main(int argc, char* argv[]) {
         const std::string path = trim(fields[2]);
         const std::string status = trim(fields[3]);
         const std::uint64_t bytes = static_cast<std::uint64_t>(std::stoull(trim(fields[4])));
+        const std::string& timestamp = trim(fields[0]);
+        const auto timePoint = std::chrono::system_clock::from_time_t(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())); // Placeholder for actual timestamp parsing
+        
 
         (void)method;
         (void)status;
+        (void)timestamp;
+        (void)timePoint;
 
         ++totalRequests;
         totalBytes += bytes;
         byPath[path].requests += 1;
         byPath[path].bytes += bytes;
+        
     }
 
     std::vector<std::pair<std::string, EndpointStats>> ranked(byPath.begin(), byPath.end());
     std::sort(ranked.begin(), ranked.end(), [](const auto& left, const auto& right) {
         if (left.second.requests == right.second.requests) {
             return left.first < right.first;
+
         }
         return left.second.requests > right.second.requests;
     });
 
     std::cout << "Traffic report\n";
+    std::cout << "-------------\n";
     std::cout << "Requests: " << totalRequests << '\n';
     std::cout << "Bytes: " << totalBytes << '\n';
+    std::cout << ""-------------\n";
+    std::cout << "unique endpoints: " << byPath.size() << '\n';
+    std::cout << "Top endpoints are ranked by request count\n";
+    std::cout << "Endpoints with requests >= threshold are flagged with HIGH_TRAFFIC\n";
+    std::cout << "Use --threshold N to set a custom threshold (default is 100 requests)\n";
     std::cout << "Threshold: " << spikeThreshold << " requests\n";
 
     if (!ranked.empty()) {

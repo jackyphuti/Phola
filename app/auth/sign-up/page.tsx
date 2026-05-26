@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,10 +12,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, AlertCircle, ArrowRight, Check, Info, Fingerprint } from 'lucide-react'
 import Link from 'next/link'
 import { registerPasskey, savePasskeyToDatabase, isPasskeyAvailable } from '@/lib/passkey'
+import { safeExit } from '@/lib/safe-exit'
+import { LanguageSelector } from '@/components/language-selector'
+import { getAuthCallbackUrl } from '@/lib/auth-url'
+import { PrivacyConsent } from '@/components/privacy-consent'
 
 export default function SignUpPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslation()
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   
   const [email, setEmail] = useState('')
@@ -27,6 +33,7 @@ export default function SignUpPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false)
+  const [showConsent, setShowConsent] = useState(true)
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [showPasskeyOption, setShowPasskeyOption] = useState(false)
@@ -80,7 +87,7 @@ export default function SignUpPage() {
   }
 
   const handleQuickExit = () => {
-    window.location.replace('https://www.google.com')
+    safeExit()
   }
 
   const handleOAuthSignUp = async (provider: 'google' | 'apple') => {
@@ -91,7 +98,7 @@ export default function SignUpPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthCallbackUrl('/dashboard'),
         },
       })
 
@@ -107,6 +114,10 @@ export default function SignUpPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!showConsent) {
+      setError('Please review and accept the consent screen before continuing.')
+      return
+    }
     setIsLoading(true)
     setError('')
 
@@ -134,10 +145,12 @@ export default function SignUpPage() {
         password,
         options: {
           emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? 
-            `${window.location.origin}/auth/callback`,
+            getAuthCallbackUrl('/auth/login'),
           data: {
             display_name: fullName.trim(),
             full_name: fullName.trim(),
+            consent_to_processing: true,
+            consent_at: new Date().toISOString(),
           },
         },
       })
@@ -270,7 +283,7 @@ export default function SignUpPage() {
                     className="flex-1"
                     onClick={() => router.push('/auth/login')}
                   >
-                    Sign In
+                    {t('signIn')}
                   </Button>
                   <Button
                     className="flex-1"
@@ -292,9 +305,10 @@ export default function SignUpPage() {
         className="fixed right-4 top-4 z-20 rounded-full border-border/70 bg-background/90 px-4 shadow-sm backdrop-blur"
         onClick={handleQuickExit}
       >
-        Quick Exit
+        {t('quickExit')}
       </Button>
       <div className="w-full max-w-sm space-y-8">
+        <LanguageSelector compact />
         <div className="flex flex-col items-center space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden shadow-sm">
             <Image
@@ -308,23 +322,29 @@ export default function SignUpPage() {
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-semibold text-foreground">Phola</h1>
-            <p className="text-muted-foreground mt-1">Create your secure account</p>
+            <p className="text-muted-foreground mt-1">{t('createSecureAccount')}</p>
           </div>
         </div>
+
+        {showConsent && (
+          <PrivacyConsent
+            onAccept={() => setShowConsent(false)}
+          />
+        )}
 
         {/* Sign Up Form */}
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">Get started</CardTitle>
+            <CardTitle className="text-lg">{t('getStarted')}</CardTitle>
             <CardDescription className="space-y-2">
-              <div>Your data is private and encrypted</div>
+              <div>{t('privateSecureBody')}</div>
               <button
                 type="button"
                 onClick={() => setShowPrivacyInfo((current) => !current)}
                 className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
                 <Info className="w-3.5 h-3.5" />
-                How we protect you
+                {t('howWeProtectYou')}
               </button>
               {showPrivacyInfo && (
                 <p className="text-xs leading-relaxed text-muted-foreground">

@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,8 @@ import {
   clearCredentialId
 } from '@/lib/biometric'
 import { getProfilePhotoUrl } from '@/lib/profile-photo'
+import { LanguageSelector } from '@/components/language-selector'
+import { clearSensitiveLocalData } from '@/lib/privacy'
 import { 
   ArrowLeft, 
   Camera,
@@ -35,6 +38,7 @@ import {
 export function SettingsPage() {
   const router = useRouter()
   const { user, profile, signOut, lock, refreshProfile } = useAuth()
+  const { t } = useTranslation()
   const supabase = createClient()
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -343,6 +347,8 @@ export function SettingsPage() {
         .delete()
         .eq('user_id', user.id)
 
+      clearSensitiveLocalData()
+
       setMessage({ type: 'success', text: 'All data deleted successfully' })
       setShowDeleteConfirm(false)
     } catch {
@@ -498,12 +504,18 @@ export function SettingsPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+          <h1 className="text-lg font-semibold text-foreground">{t('settingsTitle')}</h1>
         </div>
       </header>
 
       {/* Content */}
       <main className="p-4 space-y-6 pb-8">
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <LanguageSelector />
+          </CardContent>
+        </Card>
+
         {/* Message */}
         {message && (
           <Card className={message.type === 'success' ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}>

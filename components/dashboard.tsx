@@ -11,6 +11,7 @@ import type { Incident } from '@/lib/types'
 import { 
   Plus, 
   BookOpen, 
+  Bot,
   Phone, 
   Settings, 
   Clock,
@@ -220,6 +221,19 @@ export function Dashboard() {
               </div>
               <span className="font-medium text-foreground">Reference</span>
               <span className="text-xs text-muted-foreground">Help & info</span>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:bg-accent/50 transition-colors border-primary/20"
+            onClick={() => router.push('/assistant')}
+          >
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center min-h-[100px]">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                <Bot className="w-5 h-5 text-primary" />
+              </div>
+              <span className="font-medium text-foreground">Gemini Help</span>
+              <span className="text-xs text-muted-foreground">Step-by-step guidance</span>
             </CardContent>
           </Card>
         </div>

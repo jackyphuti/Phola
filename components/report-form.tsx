@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +16,8 @@ import {
   SEVERITY_OPTIONS,
   type IncidentType 
 } from '@/lib/types'
+import { queueIncidentSubmission } from '@/lib/offline-queue'
+import { safeExit } from '@/lib/safe-exit'
 import { 
   ArrowLeft, 
   Save, 
@@ -39,12 +42,22 @@ interface ReportFormProps {
   }
 }
 
+type ReportFormState = {
+  incident_type: string
+  description: string
+  location: string
+  date_occurred: string
+  perpetrator_relationship: string
+  severity: string
+}
+
 export function ReportForm({ incidentId, initialData }: ReportFormProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const { t } = useTranslation()
   const supabase = createClient()
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ReportFormState>({
     incident_type: initialData?.incident_type || '',
     description: initialData?.description || '',
     location: initialData?.location || '',
@@ -59,20 +72,35 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
   const [showSafeExit, setShowSafeExit] = useState(false)
 
   const handleSafeExit = () => {
-    window.location.href = 'https://www.google.com'
+    safeExit()
   }
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  const handleChange = (field: keyof typeof formData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
     setError('')
   }
 
   const validateForm = () => {
     if (!formData.incident_type) {
-      setError('Please select a category')
+      setError(t('category'))
       return false
     }
     return true
+  }
+
+  const queueAndReturn = async (isDraft: boolean) => {
+    if (!user) return
+
+    await queueIncidentSubmission({
+      userId: user.id,
+      incidentId,
+      payload: {
+        ...formData,
+        is_draft: isDraft,
+      },
+    })
+
+    router.push('/dashboard')
   }
 
   const saveAsDraft = async () => {
@@ -82,6 +110,11 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
     setError('')
 
     try {
+      if (!navigator.onLine) {
+        await queueAndReturn(true)
+        return
+      }
+
       if (incidentId) {
         await supabase
           .from('incidents')
@@ -118,6 +151,11 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
     setError('')
 
     try {
+      if (!navigator.onLine) {
+        await queueAndReturn(false)
+        return
+      }
+
       if (incidentId) {
         await supabase
           .from('incidents')
@@ -155,20 +193,20 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
       {showSafeExit && (
         <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-6">
           <div className="text-center space-y-6 max-w-sm">
-            <p className="text-lg text-foreground">Leave without saving?</p>
+            <p className="text-lg text-foreground">{t('leaveWithoutSaving')}</p>
             <div className="flex gap-4">
               <Button 
                 variant="outline" 
                 className="flex-1"
                 onClick={() => setShowSafeExit(false)}
               >
-                Stay
+                {t('stay')}
               </Button>
               <Button 
                 className="flex-1"
                 onClick={handleSafeExit}
               >
-                Exit Now
+                {t('exitNow')}
               </Button>
             </div>
           </div>
@@ -187,7 +225,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-lg font-semibold text-foreground">
-              {incidentId ? 'Edit Note' : 'New Note'}
+              {incidentId ? t('saveNote') : t('saveDraft')}
             </h1>
           </div>
           <Button
@@ -214,7 +252,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
 
         {/* Category Selection */}
         <div className="space-y-3">
-          <Label className="text-foreground">Category</Label>
+          <Label className="text-foreground">{t('category')}</Label>
           <div className="grid grid-cols-2 gap-2">
             {(Object.entries(INCIDENT_TYPE_LABELS) as [IncidentType, string][]).map(([value, label]) => (
               <Button
@@ -233,17 +271,17 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         {/* Description */}
         <div className="space-y-2">
           <Label htmlFor="description" className="text-foreground">
-            What happened?
+            {t('whatHappened')}
           </Label>
           <Textarea
             id="description"
             placeholder="Describe what happened in your own words..."
             value={formData.description}
-            onChange={(e) => handleChange('description', e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => handleChange('description', e.target.value)}
             className="min-h-[120px] resize-none"
           />
           <p className="text-xs text-muted-foreground">
-            Take your time. Only share what you feel comfortable with.
+            {t('takeYourTime')}
           </p>
         </div>
 
@@ -251,13 +289,13 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         <div className="space-y-2">
           <Label htmlFor="date" className="text-foreground flex items-center gap-2">
             <Calendar className="w-4 h-4" />
-            When did this happen?
+            {t('whenDidThisHappen')}
           </Label>
           <Input
             id="date"
             type="date"
             value={formData.date_occurred}
-            onChange={(e) => handleChange('date_occurred', e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange('date_occurred', e.target.value)}
             max={new Date().toISOString().split('T')[0]}
           />
         </div>
@@ -266,19 +304,19 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         <div className="space-y-2">
           <Label htmlFor="location" className="text-foreground flex items-center gap-2">
             <MapPin className="w-4 h-4" />
-            Location (optional)
+            {t('locationOptional')}
           </Label>
           <Input
             id="location"
             placeholder="Where did this happen?"
             value={formData.location}
-            onChange={(e) => handleChange('location', e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => handleChange('location', e.target.value)}
           />
         </div>
 
         {/* Relationship */}
         <div className="space-y-3">
-          <Label className="text-foreground">Relationship to person involved</Label>
+          <Label className="text-foreground">{t('relationshipToPerson')}</Label>
           <div className="flex flex-wrap gap-2">
             {RELATIONSHIP_OPTIONS.map((option) => (
               <Button
@@ -296,7 +334,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
 
         {/* Severity */}
         <div className="space-y-3">
-          <Label className="text-foreground">How serious does this feel?</Label>
+          <Label className="text-foreground">{t('howSerious')}</Label>
           <div className="space-y-2">
             {SEVERITY_OPTIONS.map((option) => (
               <Card
@@ -341,7 +379,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            Save Draft
+            {t('saveDraft')}
           </Button>
           <Button
             className="flex-1"
@@ -353,7 +391,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
             ) : (
               <Send className="w-4 h-4 mr-2" />
             )}
-            Save Note
+            {t('saveNote')}
           </Button>
         </div>
       </div>
