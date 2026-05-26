@@ -72,11 +72,15 @@ export default function EditReportPage() {
       incidentId={incident.id}
       initialData={{
         incident_type: incident.incident_type,
+        crime_type: incident.crime_type,
         description: incident.description,
         location: incident.location,
         date_occurred: incident.date_occurred,
         perpetrator_relationship: incident.perpetrator_relationship,
         severity: incident.severity,
+        anonymous_report: incident.anonymous_report,
+        case_reference: incident.case_reference,
+        incident_metadata: incident.incident_metadata,
         is_draft: incident.is_draft,
       }}
     />

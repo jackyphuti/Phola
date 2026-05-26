@@ -16,6 +16,7 @@ import { safeExit } from '@/lib/safe-exit'
 import { LanguageSelector } from '@/components/language-selector'
 import { getAuthCallbackUrl } from '@/lib/auth-url'
 import { PrivacyConsent } from '@/components/privacy-consent'
+import InstallPrompt from '@/components/install-prompt'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -222,6 +223,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 safe-top safe-bottom">
+      <InstallPrompt />
       {success && (
         <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center p-6">
           <div className="w-full max-w-sm rounded-3xl border border-border bg-background p-6 shadow-2xl space-y-5">
@@ -308,7 +310,7 @@ export default function SignUpPage() {
         {t('quickExit')}
       </Button>
       <div className="w-full max-w-sm space-y-8">
-        <LanguageSelector compact />
+        <LanguageSelector dropdown />
         <div className="flex flex-col items-center space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden shadow-sm">
             <Image

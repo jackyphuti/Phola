@@ -10,7 +10,6 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { safeExit } from '@/lib/safe-exit'
-import { LanguageSelector } from '@/components/language-selector'
 
 export default function HomePage() {
   const router = useRouter()
@@ -53,7 +52,6 @@ export default function HomePage() {
         {t('quickExit')}
       </Button>
       <div className="w-full max-w-sm space-y-12">
-        <LanguageSelector compact />
         <div className="flex flex-col items-center space-y-6 text-center">
           <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center overflow-hidden shadow-sm">
             <Image

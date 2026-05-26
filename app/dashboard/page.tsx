@@ -4,12 +4,12 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { LockScreen } from '@/components/lock-screen'
-import { Dashboard } from '@/components/dashboard'
+import { SuperHome } from '@/components/super-home'
 import { Loader2 } from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, isLoading, isLocked } = useAuth()
+  const { user, profile, isLoading, isLocked } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -33,5 +33,7 @@ export default function DashboardPage() {
     return <LockScreen />
   }
 
-  return <Dashboard />
+  const name = profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'friend'
+
+  return <SuperHome name={name} />
 }

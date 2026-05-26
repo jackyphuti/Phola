@@ -4,7 +4,6 @@ import { Providers } from '@/components/providers'
 import './globals.css'
 import Splash from '@/components/splash'
 import GBVIntro from '@/components/gbv-intro'
-import InstallPrompt from '@/components/install-prompt'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -56,7 +55,6 @@ export default function RootLayout({
       <body className="font-sans antialiased min-h-screen">
         <GBVIntro />
         <Splash />
-        <InstallPrompt />
         <div className="app-content">
           <Providers>
             {children}

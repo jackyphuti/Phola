@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { triggerIncidentPushEvent } from '@/lib/push-notifications'
 
 const INCIDENT_QUEUE_KEY = 'phola-pending-incidents'
 
@@ -8,11 +9,18 @@ export type QueuedIncident = {
   incidentId?: string
   payload: {
     incident_type: string
+    crime_type?: string
     description: string
     location: string
     date_occurred: string
     perpetrator_relationship: string
     severity: string
+    anonymous_report?: boolean
+    case_reference?: string
+    saps_station_name?: string
+    saps_station_code?: string
+    incident_metadata?: Record<string, unknown>
+    evidence_files?: Array<Record<string, unknown>>
     is_draft: boolean
   }
   queuedAt: string
@@ -90,6 +98,14 @@ export async function syncQueuedIncidentSubmissions() {
     const { error } = await operation
     if (error) {
       remaining.push(entry)
+      continue
+    }
+
+    if (!entry.payload.is_draft) {
+      await triggerIncidentPushEvent({
+        crimeType: entry.payload.crime_type || entry.payload.incident_type,
+        location: entry.payload.location || undefined,
+      })
     }
   }
 

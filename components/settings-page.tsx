@@ -19,6 +19,7 @@ import {
 } from '@/lib/biometric'
 import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { LanguageSelector } from '@/components/language-selector'
+import InstallPrompt from '@/components/install-prompt'
 import { clearSensitiveLocalData } from '@/lib/privacy'
 import { 
   ArrowLeft, 
@@ -53,6 +54,7 @@ export function SettingsPage() {
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isEnablingBiometric, setIsEnablingBiometric] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -225,7 +227,7 @@ export function SettingsPage() {
   }
 
   const handleSaveProfile = async () => {
-    if (!user) return
+    if (!user || !isEditingProfile) return
     
     setIsSaving(true)
     setMessage(null)
@@ -243,6 +245,7 @@ export function SettingsPage() {
 
       await refreshProfile()
       setMessage({ type: 'success', text: 'Profile updated successfully' })
+      setIsEditingProfile(false)
     } catch {
       setMessage({ type: 'error', text: 'Failed to update profile' })
     } finally {
@@ -251,7 +254,7 @@ export function SettingsPage() {
   }
 
   const handleSavePhoto = async () => {
-    if (!user || !photoDataUrl) return
+    if (!user || !photoDataUrl || !isEditingProfile) return
 
     setIsSaving(true)
     setMessage(null)
@@ -284,6 +287,21 @@ export function SettingsPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleStartEditingProfile = () => {
+    setMessage(null)
+    setIsEditingProfile(true)
+  }
+
+  const handleCancelEditingProfile = () => {
+    setDisplayName(profile?.display_name || '')
+    setPhotoDataUrl('')
+    setPhotoZoom(1)
+    setIsPhotoPreviewOpen(false)
+    closeCamera()
+    setMessage(null)
+    setIsEditingProfile(false)
   }
 
   const handleToggleBiometric = async () => {
@@ -511,8 +529,29 @@ export function SettingsPage() {
       {/* Content */}
       <main className="p-4 space-y-6 pb-8">
         <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Account Settings</CardTitle>
+            <CardDescription>
+              Manage your profile, language, and security preferences.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card>
           <CardContent className="p-4 space-y-3">
             <LanguageSelector />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Install App</CardTitle>
+            <CardDescription>
+              Install Phola on this device any time.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InstallPrompt autoOpen={false} showTrigger />
           </CardContent>
         </Card>
 
@@ -534,11 +573,21 @@ export function SettingsPage() {
 
         {/* Profile Settings */}
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-3">
             <CardTitle className="text-base flex items-center gap-2">
               <User className="w-4 h-4" />
               Profile
             </CardTitle>
+            <CardDescription>
+              {isEditingProfile
+                ? 'Editing is enabled. Save or cancel when done.'
+                : 'Profile is locked. Tap Edit Profile to make changes.'}
+            </CardDescription>
+            {!isEditingProfile && (
+              <Button type="button" variant="outline" onClick={handleStartEditingProfile}>
+                Edit Profile
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -567,11 +616,17 @@ export function SettingsPage() {
                   onChange={(e) => handlePhotoPick(e.target.files?.[0])}
                 />
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" className="flex-1" onClick={openCamera}>
+                  <Button type="button" variant="outline" className="flex-1" onClick={openCamera} disabled={!isEditingProfile}>
                     <Camera className="w-4 h-4 mr-2" />
                     Camera
                   </Button>
-                  <Button type="button" variant="outline" className="flex-1" onClick={() => photoInputRef.current?.click()}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={!isEditingProfile}
+                  >
                     Change Photo
                   </Button>
                 </div>
@@ -587,6 +642,7 @@ export function SettingsPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Your name"
+                disabled={!isEditingProfile}
               />
             </div>
             <div className="space-y-2">
@@ -597,16 +653,29 @@ export function SettingsPage() {
                 className="bg-muted"
               />
             </div>
-            <Button
-              onClick={handleSaveProfile}
-              disabled={isSaving || displayName === profile?.display_name}
-              className="w-full"
-            >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : null}
-              Save Changes
-            </Button>
+            {isEditingProfile && (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleCancelEditingProfile}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={isSaving || displayName === profile?.display_name}
+                  className="flex-1"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
+                  Save Changes
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

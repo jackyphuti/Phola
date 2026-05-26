@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
+import { notifySOSActivated } from '@/lib/push-notifications'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
@@ -63,6 +64,8 @@ interface RouteInfo {
   duration: string
 }
 
+const SEARCH_RADIUS_METERS = 50000
+
 const defaultCenter = {
   lat: -26.2041,
   lng: 28.0473,
@@ -106,6 +109,7 @@ export function SOSMap() {
   const [safePlaces, setSafePlaces] = useState<SafePlace[]>([])
   const [selectedPlace, setSelectedPlace] = useState<SafePlace | null>(null)
   const [route, setRoute] = useState<RouteInfo | null>(null)
+  const [isNavigating, setIsNavigating] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
@@ -158,6 +162,8 @@ export function SOSMap() {
   }, [])
 
   const handleSpeedDial = useCallback(() => {
+    void notifySOSActivated()
+
     if (emergencyContactPhone) {
       callNumber(emergencyContactPhone)
       return
@@ -174,6 +180,7 @@ export function SOSMap() {
         // Double tap detected - activate SOS
         setSosActivated(true)
         setShowEmergencyPanel(true)
+        void notifySOSActivated()
         // Vibrate if supported
         if (navigator.vibrate) {
           navigator.vibrate([200, 100, 200])
@@ -267,12 +274,12 @@ export function SOSMap() {
 
     setIsLoadingPlaces(true)
     
-    const radius = 10000 // 10km radius
+    const radius = SEARCH_RADIUS_METERS
     const { lat, lng } = currentLocation
     
     // Overpass API query for hospitals and police stations
     const query = `
-      [out:json][timeout:25];
+      [out:json][timeout:40];
       (
         node["amenity"="hospital"](around:${radius},${lat},${lng});
         way["amenity"="hospital"](around:${radius},${lat},${lng});
@@ -329,7 +336,7 @@ export function SOSMap() {
           }
         })
         .sort((a: SafePlace, b: SafePlace) => a.distance - b.distance)
-        .slice(0, 20) // Limit to 20 closest places
+        .slice(0, 40)
 
       setSafePlaces(places)
     } catch (error) {
@@ -385,6 +392,16 @@ export function SOSMap() {
   const clearRoute = () => {
     setRoute(null)
     setSelectedPlace(null)
+    setIsNavigating(false)
+  }
+
+  const startInAppNavigation = async (place: SafePlace) => {
+    await getRoute(place)
+    setIsNavigating(true)
+  }
+
+  const stopInAppNavigation = () => {
+    setIsNavigating(false)
   }
 
   // Open external maps for navigation
@@ -468,7 +485,7 @@ export function SOSMap() {
               <h1 className="font-semibold text-foreground">Find Safety</h1>
               <p className="text-xs text-muted-foreground">
                 {currentLocation 
-                  ? `${safePlaces.length} locations nearby` 
+                  ? `${safePlaces.length} locations within 50 km` 
                   : 'Getting your location...'}
               </p>
             </div>
@@ -646,7 +663,7 @@ export function SOSMap() {
                       onClick={() => getRoute(place)}
                       className="mt-3 w-full bg-primary text-primary-foreground text-sm py-2 px-3 rounded-md hover:bg-primary/90"
                     >
-                      Get Directions
+                      View Route In App
                     </button>
                   </div>
                 </Popup>
@@ -710,14 +727,21 @@ export function SOSMap() {
               <div className="flex gap-2 mt-3">
                 <Button 
                   className="flex-1"
-                  onClick={() => openExternalNavigation(selectedPlace)}
+                  onClick={() => {
+                    if (isNavigating) {
+                      stopInAppNavigation()
+                    } else {
+                      void startInAppNavigation(selectedPlace)
+                    }
+                  }}
                 >
                   <Navigation className="w-4 h-4 mr-2" />
-                  Navigate
+                  {isNavigating ? 'Stop Navigation' : 'Navigate In App'}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => openExternalNavigation(selectedPlace)}
+                  title="Open in Google Maps"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </Button>
@@ -777,7 +801,7 @@ export function SOSMap() {
             ) : filteredPlaces.length === 0 ? (
               <div className="text-center py-8">
                 <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No places found nearby</p>
+                <p className="text-sm text-muted-foreground">No places found within 50 km</p>
               </div>
             ) : (
               filteredPlaces.map((place) => (
@@ -814,8 +838,9 @@ export function SOSMap() {
                         className="shrink-0"
                         onClick={(e) => {
                           e.stopPropagation()
-                          openExternalNavigation(place)
+                          void startInAppNavigation(place)
                         }}
+                        title="Navigate in app"
                       >
                         <Navigation className="w-4 h-4" />
                       </Button>

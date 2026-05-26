@@ -10,9 +10,10 @@ import { Card } from '@/components/ui/card'
 
 interface LanguageSelectorProps {
   compact?: boolean
+  dropdown?: boolean
 }
 
-export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
+export function LanguageSelector({ compact = false, dropdown = false }: LanguageSelectorProps) {
   const { t } = useTranslation()
   const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>('en')
 
@@ -29,6 +30,28 @@ export function LanguageSelector({ compact = false }: LanguageSelectorProps) {
     await i18n.changeLanguage(language)
     await saveLanguagePreference(language)
     document.documentElement.lang = language
+  }
+
+  if (dropdown) {
+    return (
+      <div className="space-y-2">
+        <label htmlFor="language-select" className="text-sm font-medium text-foreground">
+          {t('languageTitle')}
+        </label>
+        <select
+          id="language-select"
+          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          value={activeLanguage}
+          onChange={(event) => void handleChange(event.target.value as SupportedLanguage)}
+        >
+          {SUPPORTED_LANGUAGES.map((language) => (
+            <option key={language.code} value={language.code}>
+              {language.nativeName} ({language.englishName})
+            </option>
+          ))}
+        </select>
+      </div>
+    )
   }
 
   if (compact) {
