@@ -1,4 +1,6 @@
+import { captureException } from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, rateLimitResponse, withTimeout } from '@/lib/api'
 
 export const runtime = 'edge'
 
@@ -109,8 +111,14 @@ function getSourceWhitelist(): string[] {
 }
 
 export async function GET(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, 'api:news', { limit: 120, windowMs: 5 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
+  }
+
   const category = normalizeCategory(request.nextUrl.searchParams.get('category'))
-  const limit = Number(request.nextUrl.searchParams.get('limit') || '10')
+  const limitRaw = Number(request.nextUrl.searchParams.get('limit') || '10')
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 20)) : 10
   const apiKey = process.env.NEWS_API_KEY || process.env.NEWSAPI_KEY
 
   if (!apiKey) {
@@ -133,12 +141,11 @@ export async function GET(request: NextRequest) {
   })
 
   try {
-    const response = await fetch(`https://newsapi.org/v2/top-headlines?${params.toString()}`, {
+    const response = await withTimeout(`https://newsapi.org/v2/top-headlines?${params.toString()}`, {
       headers: {
         Accept: 'application/json',
       },
-      cache: 'no-store',
-    })
+    }, 12000)
 
     if (!response.ok) {
       throw new Error('news api request failed')
@@ -174,7 +181,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ items, source: 'newsapi' })
-  } catch {
+  } catch (error) {
+    captureException(error)
     return NextResponse.json({
       items: (FALLBACK_NEWS[category] || FALLBACK_NEWS.top).slice(0, limit),
       source: 'fallback',

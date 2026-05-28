@@ -1,8 +1,11 @@
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { captureException } from '@sentry/nextjs'
 import { sendWebPushBatch } from '@/lib/server-web-push'
+import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
+import { z } from 'zod'
 
 type PushEventType = 'sos' | 'loadshedding' | 'incident'
 
@@ -13,6 +16,14 @@ type TriggerBody = {
   href?: string
   metadata?: Record<string, unknown>
 }
+
+const triggerSchema = z.object({
+  eventType: z.enum(['sos', 'loadshedding', 'incident']),
+  title: z.string().trim().max(120).optional(),
+  message: z.string().trim().max(500).optional(),
+  href: z.string().trim().min(1).max(200).optional(),
+  metadata: z.record(z.unknown()).optional(),
+})
 
 function getEnv() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -78,6 +89,11 @@ function buildDefaultPayload(eventType: PushEventType) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, 'api:push-trigger', { limit: 10, windowMs: 10 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
+  }
+
   const env = getEnv()
   if (!env) {
     return NextResponse.json({ error: 'Push trigger API is not configured' }, { status: 500 })
@@ -88,10 +104,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json().catch(() => null)) as TriggerBody | null
-  if (!body?.eventType) {
-    return NextResponse.json({ error: 'eventType is required' }, { status: 400 })
+  const parsedBody = validateJsonBody(await request.json().catch(() => null), triggerSchema)
+  if (!parsedBody.ok) {
+    return NextResponse.json({ error: parsedBody.error }, { status: 400 })
   }
+
+  const body = parsedBody.data as TriggerBody
 
   const defaults = buildDefaultPayload(body.eventType)
   const payload = {
@@ -112,6 +130,7 @@ export async function POST(request: NextRequest) {
     .eq('is_active', true)
 
   if (subscriptionsError) {
+    captureException(new Error(subscriptionsError.message))
     return NextResponse.json({ error: subscriptionsError.message }, { status: 500 })
   }
 
@@ -122,7 +141,7 @@ export async function POST(request: NextRequest) {
   const result = await sendWebPushBatch(subscriptions, payload)
 
   if (result.successIds.length > 0) {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('push_subscriptions')
       .update({
         last_success_at: new Date().toISOString(),
@@ -130,10 +149,14 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .in('id', result.successIds)
+
+    if (error) {
+      captureException(new Error(error.message))
+    }
   }
 
   if (result.staleIds.length > 0) {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('push_subscriptions')
       .update({
         is_active: false,
@@ -141,17 +164,25 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .in('id', result.staleIds)
+
+    if (error) {
+      captureException(new Error(error.message))
+    }
   }
 
   if (result.failures.length > 0) {
     for (const failure of result.failures) {
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from('push_subscriptions')
         .update({
           last_error: failure.reason,
           updated_at: new Date().toISOString(),
         })
         .eq('id', failure.id)
+
+      if (error) {
+        captureException(new Error(error.message))
+      }
     }
   }
 

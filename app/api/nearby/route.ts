@@ -1,4 +1,6 @@
+import { captureException } from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, rateLimitResponse } from '@/lib/api'
 
 export const runtime = 'edge'
 
@@ -32,6 +34,47 @@ const TAXI_RANKS = [
   { id: 'durban-workshop', name: 'Durban Workshop Taxi Rank', lat: -29.8587, lng: 31.0218, address: 'Durban Central' },
   { id: 'cape-town-station', name: 'Cape Town Station Taxi Rank', lat: -33.922, lng: 18.4231, address: 'Cape Town CBD' },
 ]
+
+const ALLOWED_CATEGORIES: NearbyCategory[] = [
+  'taxi_ranks',
+  'malls_shops',
+  'clinics_hospitals',
+  'police_stations',
+  'schools',
+  'spaza_shops',
+  'petrol_stations',
+  'shelters_ngos',
+  'banks_atms',
+  'post_offices',
+]
+
+const DEFAULT_LAT = -26.2041
+const DEFAULT_LNG = 28.0473
+const REQUEST_TIMEOUT_MS = 12000
+
+function parseCoordinate(raw: string | null, fallback: number, min: number, max: number): number {
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < min || value > max) {
+    return fallback
+  }
+
+  return value
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 function categoryToPlacesType(category: NearbyCategory): { type?: string; keyword?: string } {
   switch (category) {
@@ -97,9 +140,7 @@ async function fetchFromGoogle(lat: number, lng: number, category: NearbyCategor
   if (mapping.type) params.set('type', mapping.type)
   if (mapping.keyword) params.set('keyword', mapping.keyword)
 
-  const response = await fetch(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params.toString()}`, {
-    cache: 'no-store',
-  })
+  const response = await fetchWithTimeout(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?${params.toString()}`)
 
   if (!response.ok) {
     throw new Error('google places request failed')
@@ -171,13 +212,12 @@ async function fetchFromOverpass(lat: number, lng: number, category: NearbyCateg
 
   const query = `[out:json][timeout:30];(${queryParts.join('')});out center;`
 
-  const response = await fetch('https://overpass-api.de/api/interpreter', {
+  const response = await fetchWithTimeout('https://overpass-api.de/api/interpreter', {
     method: 'POST',
     body: `data=${encodeURIComponent(query)}`,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    cache: 'no-store',
   })
 
   if (!response.ok) {
@@ -210,25 +250,17 @@ async function fetchFromOverpass(lat: number, lng: number, category: NearbyCateg
 }
 
 export async function GET(request: NextRequest) {
-  const lat = Number(request.nextUrl.searchParams.get('lat') || '-26.2041')
-  const lng = Number(request.nextUrl.searchParams.get('lng') || '28.0473')
+  const rateLimit = checkRateLimit(request, 'api:nearby', { limit: 120, windowMs: 5 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
+  }
+
+  const lat = parseCoordinate(request.nextUrl.searchParams.get('lat'), DEFAULT_LAT, -90, 90)
+  const lng = parseCoordinate(request.nextUrl.searchParams.get('lng'), DEFAULT_LNG, -180, 180)
   const category = (request.nextUrl.searchParams.get('category') || 'malls_shops') as NearbyCategory
   const googleKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY
 
-  const allowedCategories: NearbyCategory[] = [
-    'taxi_ranks',
-    'malls_shops',
-    'clinics_hospitals',
-    'police_stations',
-    'schools',
-    'spaza_shops',
-    'petrol_stations',
-    'shelters_ngos',
-    'banks_atms',
-    'post_offices',
-  ]
-
-  if (!allowedCategories.includes(category)) {
+  if (!ALLOWED_CATEGORIES.includes(category)) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
 
@@ -242,7 +274,8 @@ export async function GET(request: NextRequest) {
       results,
       source: googleKey ? 'google' : 'overpass',
     })
-  } catch {
+  } catch (error) {
+    captureException(error)
     try {
       const fallback = await fetchFromOverpass(lat, lng, category)
       return NextResponse.json({
@@ -250,7 +283,8 @@ export async function GET(request: NextRequest) {
         results: fallback,
         source: 'overpass',
       })
-    } catch {
+    } catch (fallbackError) {
+      captureException(fallbackError)
       return NextResponse.json({
         category,
         results: [],

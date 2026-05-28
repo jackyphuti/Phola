@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import '@/sentry.client.config'
 import { I18nextProvider } from 'react-i18next'
 import { AuthProvider } from '@/lib/auth-context'
 import i18n, { initI18n } from '@/lib/i18n'

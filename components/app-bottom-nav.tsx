@@ -16,7 +16,7 @@ export function AppBottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#343941] bg-[#202328]/95 backdrop-blur safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-emerald-100 bg-white/95 backdrop-blur-xl safe-bottom shadow-[0_-10px_30px_rgba(5,40,40,0.06)]">
       <div className="mx-auto grid max-w-2xl grid-cols-5 px-1 py-1">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href || pathname?.startsWith(`${tab.href}/`)
@@ -28,7 +28,7 @@ export function AppBottomNav() {
               type="button"
               onClick={() => router.push(tab.href)}
               className={`flex flex-col items-center justify-center rounded-md py-2 text-[11px] transition-colors ${
-                isActive ? 'text-[#F97316]' : 'text-[#B8BCC4] hover:text-[#F2F4F7]'
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               }`}
               aria-label={tab.label}
             >

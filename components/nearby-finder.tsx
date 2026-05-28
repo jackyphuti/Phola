@@ -133,14 +133,17 @@ export function NearbyFinder() {
   }
 
   return (
-    <div className="min-h-screen bg-[#ECE9E4] pb-24 safe-top safe-bottom">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-4">
-        <section className="flex items-center justify-between">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_45%,#f6fbf8_100%)] pb-24 safe-top safe-bottom">
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <section className="rounded-[1.75rem] border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Nearby</h1>
-            <p className="text-sm text-muted-foreground">Find services around you quickly</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Nearby services</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Find shops, taxi ranks, and essential services fast.</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Results are tailored to your location and cached for faster return visits.</p>
           </div>
-          <Button variant="outline" onClick={() => router.push('/dashboard')}>Back Home</Button>
+            <Button variant="outline" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => router.push('/dashboard')}>Back Home</Button>
+          </div>
         </section>
 
         <section className="flex gap-2 overflow-x-auto pb-1">
@@ -149,7 +152,7 @@ export function NearbyFinder() {
               key={item.value}
               size="sm"
               variant={item.value === category ? 'default' : 'outline'}
-              className="shrink-0"
+              className={`shrink-0 rounded-full ${item.value === category ? 'bg-primary text-white shadow-sm' : 'border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50'}`}
               onClick={() => setCategory(item.value)}
             >
               {item.label}
@@ -158,7 +161,7 @@ export function NearbyFinder() {
         </section>
 
         <section>
-          <Card>
+          <Card className="border-emerald-100 bg-white shadow-sm">
             <CardContent className="flex items-center justify-between p-3">
               <div>
                 <p className="text-sm font-medium text-foreground">{categoryLabel}</p>
@@ -171,24 +174,24 @@ export function NearbyFinder() {
 
         <section className="space-y-2">
           {results.length === 0 ? (
-            <Card>
+            <Card className="border-emerald-100 bg-white shadow-sm">
               <CardContent className="p-4 text-sm text-muted-foreground">
                 No places yet. Enable location to load nearby results.
               </CardContent>
             </Card>
           ) : (
             results.map((result) => (
-              <Card key={result.id} className="border-[#D4D6DA] bg-[#262A2F]">
+              <Card key={result.id} className="border-emerald-100 bg-white shadow-sm">
                 <CardContent className="space-y-3 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#F2F3F5]">{result.name}</p>
-                      <p className="text-xs text-[#BFC4CC]">{result.address || 'Address unavailable'}</p>
+                      <p className="font-semibold text-foreground">{result.name}</p>
+                      <p className="text-xs text-muted-foreground">{result.address || 'Address unavailable'}</p>
                     </div>
-                    <div className="text-sm font-semibold text-[#F97316]">{formatDistance(result.distanceKm)}</div>
+                    <div className="text-sm font-semibold text-primary">{formatDistance(result.distanceKm)}</div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-[#BFC4CC]">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     {typeof result.rating === 'number' && (
                       <span className="inline-flex items-center gap-1"><Star className="h-3 w-3" />{result.rating.toFixed(1)}</span>
                     )}
@@ -199,10 +202,10 @@ export function NearbyFinder() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button className="flex-1 bg-[#F97316] hover:bg-[#EA6B0A] text-white" onClick={() => openDirections(result, 'google')}>
+                    <Button className="flex-1 bg-primary text-white shadow-sm hover:bg-primary/90" onClick={() => openDirections(result, 'google')}>
                       <Navigation className="mr-2 h-4 w-4" />Google Maps
                     </Button>
-                    <Button variant="outline" className="flex-1" onClick={() => openDirections(result, 'waze')}>
+                    <Button variant="outline" className="flex-1 border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => openDirections(result, 'waze')}>
                       <Navigation className="mr-2 h-4 w-4" />Waze
                     </Button>
                   </div>

@@ -1,7 +1,16 @@
+import { captureException } from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { buildGeminiPrompt, type GeminiAssistantRequest, type GeminiAssistantResponse } from '@/lib/gemini'
+import { checkRateLimit, rateLimitResponse, validateJsonBody, withTimeout } from '@/lib/api'
+import { z } from 'zod'
 
 export const runtime = 'edge'
+
+const assistantRequestSchema = z.object({
+  message: z.string().trim().min(1),
+  language: z.string().trim().optional(),
+  mode: z.string().trim().optional(),
+})
 
 function safeJsonParse(rawText: string): GeminiAssistantResponse {
   try {
@@ -81,12 +90,18 @@ function buildFallbackResponse(message: string): GeminiAssistantResponse {
 }
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as GeminiAssistantRequest | null
-  const message = body?.message?.trim()
-
-  if (!message) {
-    return NextResponse.json({ error: 'Message is required.' }, { status: 400 })
+  const rateLimit = checkRateLimit(request, 'api:assistant', { limit: 30, windowMs: 5 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
   }
+
+  const parsedBody = validateJsonBody(await request.json().catch(() => null), assistantRequestSchema)
+  if (!parsedBody.ok) {
+    return NextResponse.json({ error: parsedBody.error }, { status: 400 })
+  }
+
+  const body = parsedBody.data as GeminiAssistantRequest
+  const message = body.message.trim()
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY
   const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
@@ -102,7 +117,7 @@ export async function POST(request: NextRequest) {
   })
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const response = await withTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -120,7 +135,7 @@ export async function POST(request: NextRequest) {
           maxOutputTokens: 512,
         },
       }),
-    })
+    }, 10000)
 
     if (!response.ok) {
       return NextResponse.json(buildFallbackResponse(message))
@@ -134,7 +149,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(safeJsonParse(text))
-  } catch {
+  } catch (error) {
+    captureException(error)
     return NextResponse.json(buildFallbackResponse(message))
   }
 }

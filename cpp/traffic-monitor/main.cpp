@@ -10,6 +10,8 @@
 struct EndpointStats {
     std::uint64_t requests = 0;
     std::uint64_t bytes = 0;
+    std::chrono::system_clock::time_point lastRequestTime;
+
 };
 
 static std::vector<std::string> split(const std::string& input, char delimiter) {
@@ -67,6 +69,12 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
+        const std::string& timestamp = trim(fields[0]);
+        if (timestamp.empty()){
+            std::cerr << "skipping line with empty timestamp: " << line << '\n';
+            continue;
+        }
+
         const std::string method = trim(fields[1]);
         const std::string path = trim(fields[2]);
         const std::string status = trim(fields[3]);
@@ -84,7 +92,7 @@ int main(int argc, char* argv[]) {
         totalBytes += bytes;
         byPath[path].requests += 1;
         byPath[path].bytes += bytes;
-        
+        byPath[path].lastRequestTime = timePoint;
     }
 
     std::vector<std::pair<std::string, EndpointStats>> ranked(byPath.begin(), byPath.end());

@@ -27,14 +27,25 @@ function useBatteryLevel() {
   const [charging, setCharging] = useState(false)
 
   useEffect(() => {
-    let battery: BatteryManager | null = null
+    type BatteryLike = {
+      level: number
+      charging: boolean
+      addEventListener: (type: 'levelchange' | 'chargingchange', listener: () => void) => void
+      removeEventListener: (type: 'levelchange' | 'chargingchange', listener: () => void) => void
+    }
+
+    let battery: BatteryLike | null = null
 
     const attach = async () => {
-      if (!('getBattery' in navigator)) {
+      const batteryNavigator = navigator as Navigator & {
+        getBattery?: () => Promise<BatteryLike>
+      }
+
+      if (typeof batteryNavigator.getBattery !== 'function') {
         return
       }
 
-      battery = await navigator.getBattery()
+      battery = await batteryNavigator.getBattery()
 
       const update = () => {
         setBatteryLevel(battery?.level ?? null)

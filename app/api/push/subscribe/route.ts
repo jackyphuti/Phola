@@ -1,7 +1,10 @@
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { captureException } from '@sentry/nextjs'
+import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
+import { z } from 'zod'
 
 type PushSubscriptionPayload = {
   endpoint: string
@@ -11,6 +14,17 @@ type PushSubscriptionPayload = {
     auth?: string
   }
 }
+
+const subscribeSchema = z.object({
+  subscription: z.object({
+    endpoint: z.string().url(),
+    expirationTime: z.number().nullable().optional(),
+    keys: z.object({
+      p256dh: z.string().min(1),
+      auth: z.string().min(1),
+    }),
+  }),
+})
 
 function getEnv() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -52,6 +66,11 @@ async function getAuthenticatedUser(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, 'api:push-subscribe', { limit: 20, windowMs: 10 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
+  }
+
   const env = getEnv()
   if (!env) {
     return NextResponse.json({ error: 'Push subscription API is not configured' }, { status: 500 })
@@ -62,12 +81,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json().catch(() => null)) as { subscription?: PushSubscriptionPayload } | null
-  const subscription = body?.subscription
-
-  if (!subscription?.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
-    return NextResponse.json({ error: 'Invalid push subscription payload' }, { status: 400 })
+  const parsedBody = validateJsonBody(await request.json().catch(() => null), subscribeSchema)
+  if (!parsedBody.ok) {
+    return NextResponse.json({ error: parsedBody.error }, { status: 400 })
   }
+
+  const subscription = parsedBody.data.subscription
 
   const supabaseAdmin = createClient(env.supabaseUrl, env.serviceRoleKey)
 
@@ -91,6 +110,7 @@ export async function POST(request: NextRequest) {
     )
 
   if (error) {
+    captureException(new Error(error.message))
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
@@ -98,6 +118,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, 'api:push-subscribe-delete', { limit: 20, windowMs: 10 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
+  }
+
   const env = getEnv()
   if (!env) {
     return NextResponse.json({ error: 'Push subscription API is not configured' }, { status: 500 })
@@ -108,10 +133,12 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json().catch(() => null)) as { endpoint?: string } | null
-  if (!body?.endpoint) {
-    return NextResponse.json({ error: 'Endpoint is required' }, { status: 400 })
+  const parsedBody = validateJsonBody(await request.json().catch(() => null), z.object({ endpoint: z.string().url() }))
+  if (!parsedBody.ok) {
+    return NextResponse.json({ error: parsedBody.error }, { status: 400 })
   }
+
+  const { endpoint } = parsedBody.data
 
   const supabaseAdmin = createClient(env.supabaseUrl, env.serviceRoleKey)
 
@@ -123,9 +150,10 @@ export async function DELETE(request: NextRequest) {
       last_error: 'Unsubscribed by client',
     })
     .eq('user_id', userId)
-    .eq('endpoint', body.endpoint)
+    .eq('endpoint', endpoint)
 
   if (error) {
+    captureException(new Error(error.message))
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

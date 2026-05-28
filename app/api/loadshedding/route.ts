@@ -1,4 +1,6 @@
+import { captureException } from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, rateLimitResponse, withTimeout } from '@/lib/api'
 
 export const runtime = 'edge'
 
@@ -27,10 +29,24 @@ function guessAreaName(lat: number, lng: number): string {
   return 'South Africa'
 }
 
+function parseCoordinate(raw: string | null, fallback: number, min: number, max: number): number {
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < min || value > max) {
+    return fallback
+  }
+
+  return value
+}
+
 export async function GET(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, 'api:loadshedding', { limit: 120, windowMs: 5 * 60 * 1000 })
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetAt)
+  }
+
   const key = process.env.ESKOMSEPUSH_API_KEY || process.env.ESKOM_SE_PUSH_API_KEY
-  const lat = Number(request.nextUrl.searchParams.get('lat') || '-26.2041')
-  const lng = Number(request.nextUrl.searchParams.get('lng') || '28.0473')
+  const lat = parseCoordinate(request.nextUrl.searchParams.get('lat'), -26.2041, -90, 90)
+  const lng = parseCoordinate(request.nextUrl.searchParams.get('lng'), 28.0473, -180, 180)
   const areaName = guessAreaName(lat, lng)
 
   if (!key) {
@@ -38,12 +54,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const areaSearch = await fetch(`https://developer.sepush.co.za/business/2.0/areas_search?text=${encodeURIComponent(areaName)}`, {
+    const areaSearch = await withTimeout(`https://developer.sepush.co.za/business/2.0/areas_search?text=${encodeURIComponent(areaName)}`, {
       headers: {
         token: key,
       },
-      cache: 'no-store',
-    })
+    }, 12000)
 
     if (!areaSearch.ok) {
       throw new Error('area search failed')
@@ -56,12 +71,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(fallbackPayload(areaName))
     }
 
-    const statusResponse = await fetch(`https://developer.sepush.co.za/business/2.0/area?id=${encodeURIComponent(String(firstArea.id))}`, {
+    const statusResponse = await withTimeout(`https://developer.sepush.co.za/business/2.0/area?id=${encodeURIComponent(String(firstArea.id))}`, {
       headers: {
         token: key,
       },
-      cache: 'no-store',
-    })
+    }, 12000)
 
     if (!statusResponse.ok) {
       throw new Error('area status failed')
@@ -78,7 +92,8 @@ export async function GET(request: NextRequest) {
       nextRestore: events?.end || null,
       source: 'eskomsepush',
     } satisfies LoadsheddingPayload)
-  } catch {
+  } catch (error) {
+    captureException(error)
     return NextResponse.json(fallbackPayload(areaName))
   }
 }

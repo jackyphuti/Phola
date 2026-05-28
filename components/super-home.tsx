@@ -98,7 +98,10 @@ export function SuperHome({ name }: { name: string }) {
 
   useEffect(() => {
     void fetch('/api/news?category=top&limit=6')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('News request failed')
+        return res.json()
+      })
       .then((data) => {
         if (Array.isArray(data?.items)) {
           setNews(data.items)
@@ -111,7 +114,10 @@ export function SuperHome({ name }: { name: string }) {
     if (!location) return
 
     void fetch(`/api/loadshedding?lat=${location.lat}&lng=${location.lng}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Loadshedding request failed')
+        return res.json()
+      })
       .then((data) => {
         const parsed = data as LoadsheddingInfo
         setLoadshedding(parsed)
@@ -129,16 +135,25 @@ export function SuperHome({ name }: { name: string }) {
       .catch(() => setLoadshedding(null))
 
     const fetchSummary = async () => {
-      const [taxiRes, shopRes, clinicRes] = await Promise.all([
-        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=taxi_ranks`).then((res) => res.json()),
-        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=malls_shops`).then((res) => res.json()),
-        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=clinics_hospitals`).then((res) => res.json()),
+      const [taxiRes, shopRes, clinicRes] = await Promise.allSettled([
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=taxi_ranks`).then(async (res) => {
+          if (!res.ok) throw new Error('Taxi ranks request failed')
+          return res.json()
+        }),
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=malls_shops`).then(async (res) => {
+          if (!res.ok) throw new Error('Nearby shops request failed')
+          return res.json()
+        }),
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=clinics_hospitals`).then(async (res) => {
+          if (!res.ok) throw new Error('Clinics request failed')
+          return res.json()
+        }),
       ])
 
       setNearest({
-        taxi: taxiRes?.results?.[0],
-        shop: shopRes?.results?.[0],
-        clinic: clinicRes?.results?.[0],
+        taxi: taxiRes.status === 'fulfilled' ? taxiRes.value?.results?.[0] : undefined,
+        shop: shopRes.status === 'fulfilled' ? shopRes.value?.results?.[0] : undefined,
+        clinic: clinicRes.status === 'fulfilled' ? clinicRes.value?.results?.[0] : undefined,
       })
     }
 
@@ -171,14 +186,18 @@ export function SuperHome({ name }: { name: string }) {
 
       if (phone) {
         window.location.href = `sms:${phone}?body=${encodeURIComponent(message)}`
-      } else if (navigator.share) {
+        return
+      }
+
+      if (navigator.share) {
         await navigator.share({
           title: 'Emergency SOS',
           text: message,
         })
-      } else {
-        router.push('/sos')
+        return
       }
+
+      router.push('/sos')
     } catch {
       router.push('/sos')
     }
@@ -207,16 +226,24 @@ export function SuperHome({ name }: { name: string }) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#ECE9E4] pb-24 safe-top safe-bottom">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
-        <section>
-          <h1 className="text-2xl font-semibold text-[#1F2125]">{getGreetingByLanguage(language, name || 'friend')}</h1>
-          <p className="text-sm text-[#525760]">Your Mzansi community super app</p>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.09),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pb-24 safe-top safe-bottom">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_60px_rgba(5,40,40,0.06)] sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Phola home</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{getGreetingByLanguage(language, name || 'friend')}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Your Mzansi community super app</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              Safety, news, nearby services, and quick actions in one place.
+            </div>
+          </div>
         </section>
 
         <section className="relative">
-          <div className="flex items-center gap-2 rounded-2xl border border-[#D8D2C8] bg-white px-3 py-2 shadow-sm">
-            <Search className="h-4 w-4 text-[#6D7078]" />
+          <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-3 py-3 shadow-sm">
+            <Search className="h-4 w-4 text-primary" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -225,14 +252,14 @@ export function SuperHome({ name }: { name: string }) {
             />
           </div>
           {filteredSearch.length > 0 && (
-            <Card className="absolute left-0 right-0 top-12 z-30 border-[#D8D2C8] bg-white">
+            <Card className="absolute left-0 right-0 top-14 z-30 border-emerald-100 bg-white shadow-lg">
               <CardContent className="p-2">
                 <div className="space-y-1">
                   {filteredSearch.map((item) => (
                     <button
                       key={item.href + item.label}
                       type="button"
-                      className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-accent/40"
+                      className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-emerald-50"
                       onClick={() => router.push(item.href)}
                     >
                       {item.label}
@@ -245,18 +272,18 @@ export function SuperHome({ name }: { name: string }) {
         </section>
 
         <section>
-          <Card className="border border-[#F0B56A]/50 bg-[#FCE7CE]">
+          <Card className="border border-emerald-100 bg-emerald-50/70">
             <CardContent className="flex items-center justify-between gap-3 p-3">
               <div>
-                <p className="text-sm font-semibold text-[#5A3A16]">
+                <p className="text-sm font-semibold text-emerald-950">
                   {loadshedding?.stage || 'Loadshedding status unavailable'}
                 </p>
-                <p className="text-xs text-[#755334]">
+                <p className="text-xs text-emerald-800">
                   {loadshedding?.areaName || 'South Africa'}
                   {loadshedding?.nextOutage ? ` • Next outage: ${new Date(loadshedding.nextOutage).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => router.push('/loadshedding')}>
+              <Button variant="outline" size="sm" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => router.push('/loadshedding')}>
                 <Zap className="mr-1 h-4 w-4" />
                 View
               </Button>
@@ -265,14 +292,14 @@ export function SuperHome({ name }: { name: string }) {
         </section>
 
         <section>
-          <Card className="border border-[#F06A48]/45 bg-[#FFE3DB]">
+          <Card className="border border-emerald-100 bg-white shadow-sm">
             <CardContent className="flex items-center justify-between gap-3 p-3">
               <div>
-                <p className="text-sm font-semibold text-[#6F2417]">Emergency SOS</p>
-                <p className="text-xs text-[#8A3A2A]">Press and hold to alert trusted circle</p>
+                <p className="text-sm font-semibold text-foreground">Emergency SOS</p>
+                <p className="text-xs text-muted-foreground">Press and hold to alert trusted circle</p>
               </div>
               <Button
-                className={`min-w-[128px] ${isSOSHolding ? 'animate-pulse bg-destructive' : 'bg-destructive'}`}
+                className={`min-w-[128px] ${isSOSHolding ? 'animate-pulse bg-primary shadow-lg shadow-primary/20' : 'bg-primary'}`}
                 onMouseDown={startSOSHold}
                 onMouseUp={cancelSOSHold}
                 onMouseLeave={cancelSOSHold}
@@ -287,7 +314,7 @@ export function SuperHome({ name }: { name: string }) {
         </section>
 
         <section>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
             {quickActions.map((action) => {
               const Icon = action.icon
               return (
@@ -295,10 +322,10 @@ export function SuperHome({ name }: { name: string }) {
                   key={action.label}
                   type="button"
                   onClick={() => router.push(action.href)}
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-[#D4D6DA] bg-[#22252A] px-2 py-3 text-center hover:bg-[#2B2F35]"
+                  className="flex min-h-24 flex-col items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50"
                 >
-                  <Icon className="h-5 w-5 text-[#F97316]" />
-                  <span className="text-[11px] leading-tight text-[#EDEFF2]">{action.label}</span>
+                  <Icon className="h-5 w-5 text-primary" />
+                  <span className="text-xs leading-tight text-foreground">{action.label}</span>
                 </button>
               )
             })}
@@ -307,19 +334,19 @@ export function SuperHome({ name }: { name: string }) {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[#1F2125]">Live SA news</h2>
+            <h2 className="text-base font-semibold text-foreground">Live SA news</h2>
             <Button variant="ghost" size="sm" onClick={() => router.push('/news')}>More</Button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {news.slice(0, 4).map((item) => (
               <button
                 key={item.url}
                 type="button"
                 onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
-                className="rounded-2xl border border-[#D4D6DA] bg-[#25282D] p-3 text-left hover:bg-[#2C3137]"
+                className="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50"
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#F97316]">{item.source}</p>
-                <p className="line-clamp-2 text-sm font-medium text-[#EEF0F2]">{item.title}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{item.source}</p>
+                <p className="line-clamp-2 text-sm font-medium text-foreground">{item.title}</p>
               </button>
             ))}
           </div>
@@ -327,18 +354,18 @@ export function SuperHome({ name }: { name: string }) {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[#F1F2F4]">Nearest to you</h2>
+            <h2 className="text-base font-semibold text-foreground">Nearest to you</h2>
             <Button variant="ghost" size="sm" onClick={() => router.push('/nearby')}>View map</Button>
           </div>
           <div className="space-y-2">
             {[{ label: 'Taxi Rank', item: nearest.taxi }, { label: 'Shop', item: nearest.shop }, { label: 'Clinic', item: nearest.clinic }].map((entry) => (
-              <Card key={entry.label} className="border-[#D4D6DA] bg-[#262A2F]">
+              <Card key={entry.label} className="border-emerald-100 bg-white shadow-sm">
                 <CardContent className="flex items-center justify-between p-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#F2F3F5]">{entry.item?.name || entry.label}</p>
-                    <p className="text-xs text-[#BFC4CC]">{entry.item?.address || 'Location info loading...'}</p>
+                    <p className="text-sm font-semibold text-foreground">{entry.item?.name || entry.label}</p>
+                    <p className="text-xs text-muted-foreground">{entry.item?.address || 'Location info loading...'}</p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-[#F97316]">
+                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
                     <CircleDot className="h-4 w-4" />
                     {entry.item ? formatDistance(entry.item.distanceKm) : '--'}
                   </div>

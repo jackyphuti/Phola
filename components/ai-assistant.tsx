@@ -18,6 +18,24 @@ const starterPrompts = [
   'What should I do if I am being watched?',
 ]
 
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<ArrayLike<{ transcript?: string }>>
+}
+
+type SpeechRecognitionInstanceLike = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  maxAlternatives: number
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onend: (() => void) | null
+  onerror: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
+type SpeechRecognitionConstructorLike = new () => SpeechRecognitionInstanceLike
+
 export function AIAssistant() {
   const router = useRouter()
   const { t } = useTranslation()
@@ -29,7 +47,7 @@ export function AIAssistant() {
   const [isActivated, setIsActivated] = useState(true)
   const [isListening, setIsListening] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
-  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionInstanceLike | null>(null)
 
   useEffect(() => {
     void loadLanguagePreference().then(setLanguage)
@@ -44,8 +62,12 @@ export function AIAssistant() {
   }, [])
 
   useEffect(() => {
-    const SpeechRecognitionClass =
-      window.SpeechRecognition || window.webkitSpeechRecognition || null
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructorLike
+      webkitSpeechRecognition?: SpeechRecognitionConstructorLike
+    }
+
+    const SpeechRecognitionClass = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition || null
 
     if (!SpeechRecognitionClass) {
       setSpeechSupported(false)
@@ -55,12 +77,12 @@ export function AIAssistant() {
     setSpeechSupported(true)
 
     const recognition = new SpeechRecognitionClass()
-    recognition.lang = language === 'English' ? 'en-ZA' : 'en-ZA'
+    recognition.lang = language === DEFAULT_LANGUAGE ? 'en-ZA' : 'en-ZA'
     recognition.continuous = false
     recognition.interimResults = false
     recognition.maxAlternatives = 1
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results[0]?.[0]?.transcript?.trim()
       if (transcript) {
         setMessage(transcript)
