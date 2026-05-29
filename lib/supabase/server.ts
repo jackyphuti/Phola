@@ -8,6 +8,10 @@ function getSupabaseKey() {
   )
 }
 
+function getSupabaseUrl() {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.invalid'
+}
+
 /**
  * Especially important if using Fluid compute: Don't put this client in a
  * global variable. Always create a new client within each function when using
@@ -17,8 +21,8 @@ export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    getSupabaseKey()!,
+    getSupabaseUrl(),
+    getSupabaseKey() || 'public-anon-key',
     {
       cookies: {
         getAll() {

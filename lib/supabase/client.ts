@@ -7,9 +7,13 @@ function getSupabaseKey() {
   )
 }
 
+function getSupabaseUrl() {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.invalid'
+}
+
 export function createClient() {
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    getSupabaseKey()!,
+    getSupabaseUrl(),
+    getSupabaseKey() || 'public-anon-key',
   )
 }

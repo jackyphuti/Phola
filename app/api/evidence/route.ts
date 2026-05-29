@@ -20,7 +20,7 @@ type UploadedEvidenceItem = {
 const evidenceMetadataSchema = z.object({
   userId: z.string().trim().min(1).max(128),
   incidentType: z.string().trim().min(1).max(64),
-  metadata: z.string().trim().optional(),
+  metadata: z.string().trim().default('{}'),
 })
 
 function sanitizeFileName(value: string): string {
