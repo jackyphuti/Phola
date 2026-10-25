@@ -225,7 +225,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={isLoading || isPasskeyLoading || isBiometricLoading || isOAuthLoading !== ''}
+                  disabled={isLoading || isOAuthLoading !== ''}
                 >
                   {isLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
