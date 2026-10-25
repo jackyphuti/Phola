@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { safeExit } from '@/lib/safe-exit'
 import { 
   isBiometricAvailable, 
   registerBiometric, 
@@ -41,7 +43,8 @@ import {
   X,
   Phone,
   UserPlus,
-  Star
+  Star,
+  ShieldCheck
 } from 'lucide-react'
 
 export function SettingsPage() {
@@ -613,7 +616,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       {isPhotoPreviewOpen && photoDataUrl && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-md">
@@ -907,30 +910,38 @@ export function SettingsPage() {
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-40">
-        <div className="flex items-center gap-3 p-4 pl-16 sm:pl-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-foreground">{t('settingsTitle')}</h1>
-        </div>
-      </header>
-
       {/* Content */}
-      <main className="p-4 space-y-6 pb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Account Settings</CardTitle>
-            <CardDescription>
-              Manage your profile, language, and security preferences.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 sm:px-6">
+        
+        {/* Header Hero */}
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="pl-12 sm:pl-0">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
+                  <ShieldCheck className="mr-1 h-3 w-3 text-primary" />
+                  Security & Profile
+                </Badge>
+              </div>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                Profile & Settings
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Manage your emergency trusted circle, account security, and language preferences.
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={safeExit}
+              className="self-start sm:self-center rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-3"
+            >
+              <LogOut className="mr-1 h-3.5 w-3.5 text-primary" />
+              Quick Exit
+            </Button>
+          </div>
+        </section>
 
         <Card>
           <CardContent className="p-4 space-y-3">

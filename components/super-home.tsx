@@ -2,23 +2,53 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ShieldAlert, Bus, Store, Newspaper, Briefcase, Hospital, Shield, FileWarning, CircleDot, Phone, HeartHandshake, Car } from 'lucide-react'
-import { SafeRideSession } from '@/lib/safe-ride-types'
-import { getActiveSafeRide, formatCountdown, calculateRemainingSeconds } from '@/lib/safe-ride-service'
-import { Card, CardContent } from '@/components/ui/card'
+import { 
+  Search, 
+  ShieldAlert, 
+  Bus, 
+  Store, 
+  Newspaper, 
+  Hospital, 
+  Shield, 
+  FileWarning, 
+  Phone, 
+  HeartHandshake, 
+  Car, 
+  MapPin, 
+  ArrowRight, 
+  Navigation, 
+  Clock, 
+  Sparkles, 
+  Radio, 
+  ExternalLink, 
+  LogOut, 
+  ShieldCheck, 
+  CheckCircle2, 
+  ChevronRight,
+  AlertTriangle,
+  Flame,
+  Globe2
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { AppBottomNav } from '@/components/app-bottom-nav'
-import { loadLanguagePreference } from '@/lib/locale-storage'
+import { loadLanguagePreference, saveLanguagePreference } from '@/lib/locale-storage'
+import { SUPPORTED_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from '@/lib/language-options'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { notifySOSActivated, subscribeForProductionPush } from '@/lib/push-notifications'
 import { getApiUrl } from '@/lib/api-client'
+import { SafeRideSession } from '@/lib/safe-ride-types'
+import { getActiveSafeRide, formatCountdown, calculateRemainingSeconds } from '@/lib/safe-ride-service'
+import { safeExit } from '@/lib/safe-exit'
 
 type NewsItem = {
   title: string
   source: string
   url: string
   category: string
+  publishedAt?: string
 }
 
 type NearbyItem = {
@@ -27,38 +57,25 @@ type NearbyItem = {
   address?: string
 }
 
-const quickActions = [
-  { label: 'Safe Ride', href: '/safe-ride', icon: Car },
-  { label: 'Report GBV', href: '/report', icon: ShieldAlert },
-  { label: 'Report Crime', href: '/report', icon: FileWarning },
-  { label: 'Safety Hub', href: '/safety', icon: HeartHandshake },
-  { label: 'Police Stations', href: '/nearby?category=police_stations', icon: Shield },
-  { label: 'Clinics', href: '/nearby?category=clinics_hospitals', icon: Hospital },
-  { label: 'Taxi Ranks', href: '/nearby?category=taxi_ranks', icon: Bus },
-  { label: 'Nearby Shops', href: '/nearby?category=malls_shops', icon: Store },
-  { label: 'SA News', href: '/news', icon: Newspaper },
-]
 
-const searchIndex = [
-  { label: 'Safe Ride (Uber / Bolt / inDrive)', href: '/safe-ride' },
-  { label: 'Track My Ride', href: '/safe-ride' },
-  { label: 'Report GBV', href: '/report' },
-  { label: 'Report Crime', href: '/report' },
-  { label: 'Safety Hub & Helplines', href: '/safety' },
-  { label: 'Taxi Ranks', href: '/nearby?category=taxi_ranks' },
-  { label: 'Nearby Shops', href: '/nearby?category=malls_shops' },
-  { label: 'Clinics & Hospitals', href: '/nearby?category=clinics_hospitals' },
-  { label: 'Police Stations', href: '/nearby?category=police_stations' },
-  { label: 'SA News', href: '/news' },
-  { label: 'My Reports', href: '/notes' },
-  { label: 'Profile Settings', href: '/settings' },
-]
 
-function getGreetingByLanguage(language: string, name: string): string {
-  if (language === 'zu') return `Sawubona ${name}`
-  if (language === 'af') return `Hoe gaan dit, ${name}`
-  if (language === 'nso' || language === 'tn' || language === 'st') return `Dumela ${name}`
-  return `Hello ${name}`
+function getGreetingByLanguage(language: string, name: string): { greeting: string; period: string } {
+  const hour = new Date().getHours()
+  const period = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
+
+  if (language === 'zu') {
+    return { greeting: `Sawubona, ${name}`, period: hour < 12 ? 'Kuseni' : 'Ntambama' }
+  }
+  if (language === 'af') {
+    return { greeting: `Goeiedag, ${name}`, period: hour < 12 ? 'Goeiemôre' : 'Goeiemiddag' }
+  }
+  if (language === 'nso' || language === 'tn' || language === 'st') {
+    return { greeting: `Dumela, ${name}`, period: hour < 12 ? 'Meso' : 'Thapama' }
+  }
+  return { 
+    greeting: `Good ${period}, ${name}`, 
+    period: hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening' 
+  }
 }
 
 function formatDistance(km: number): string {
@@ -70,33 +87,85 @@ export function SuperHome({ name }: { name: string }) {
   const router = useRouter()
   const { user } = useAuth()
   const [supabase] = useState(() => createClient())
-  const [activeRide, setActiveRide] = useState<SafeRideSession | null>(null)
-  const [rideRemainingSecs, setRideRemainingSecs] = useState<number>(0)
+
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [language, setLanguage] = useState('en')
   const [search, setSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState<'all' | 'safety' | 'transit' | 'services'>('all')
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationName, setLocationName] = useState<string>('Detecting GPS...')
   const [news, setNews] = useState<NewsItem[]>([])
-  const [nearest, setNearest] = useState<{ taxi?: NearbyItem; shop?: NearbyItem; clinic?: NearbyItem }>({})
+  const [nearest, setNearest] = useState<{ taxi?: NearbyItem; shop?: NearbyItem; clinic?: NearbyItem; police?: NearbyItem }>({})
   const [isSOSHolding, setIsSOSHolding] = useState(false)
+  const [holdProgress, setHoldProgress] = useState(0)
+  const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Safe Ride Session State
+  const [activeRide, setActiveRide] = useState<SafeRideSession | null>(null)
+  const [rideRemainingSecs, setRideRemainingSecs] = useState<number>(0)
+
+  // 1. Language Setup
   useEffect(() => {
-    void loadLanguagePreference().then((value) => setLanguage(value))
+    void loadLanguagePreference().then((value) => setLanguage(value || 'en'))
   }, [])
 
+  const handleLanguageChange = (langCode: string) => {
+    if (isSupportedLanguage(langCode)) {
+      setLanguage(langCode)
+      void saveLanguagePreference(langCode)
+    }
+  }
+
+  // 2. Active Safe Ride Monitor Heartbeat
   useEffect(() => {
-    if (!navigator.geolocation) return
+    const checkActiveRide = () => {
+      const existing = getActiveSafeRide()
+      if (existing && existing.status !== 'arrived' && existing.status !== 'cancelled') {
+        setActiveRide(existing)
+        setRideRemainingSecs(calculateRemainingSeconds(existing))
+      } else {
+        setActiveRide(null)
+      }
+    }
+
+    checkActiveRide()
+    const interval = setInterval(checkActiveRide, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // 3. Location Detection
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationName('South Africa')
+      return
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        setLocation(coords)
+        // Detect general region
+        if (coords.lat > -26.0 && coords.lat < -25.5 && coords.lng > 28.0 && coords.lng < 28.5) {
+          setLocationName('Pretoria / Tshwane')
+        } else if (coords.lat > -26.5 && coords.lat < -26.0 && coords.lng > 27.8 && coords.lng < 28.3) {
+          setLocationName('Johannesburg, GP')
+        } else if (coords.lat > -34.2 && coords.lat < -33.7 && coords.lng > 18.2 && coords.lng < 18.8) {
+          setLocationName('Cape Town, WC')
+        } else if (coords.lat > -30.1 && coords.lat < -29.6 && coords.lng > 30.8 && coords.lng < 31.2) {
+          setLocationName('Durban / eThekwini')
+        } else {
+          setLocationName('South Africa (GPS Active)')
+        }
       },
       () => {
         setLocation(null)
+        setLocationName('South Africa')
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     )
   }, [])
 
+  // 4. Fetch Live News
   useEffect(() => {
     void fetch(getApiUrl('/api/news?category=top&limit=6'))
       .then((res) => {
@@ -111,41 +180,58 @@ export function SuperHome({ name }: { name: string }) {
       .catch(() => setNews([]))
   }, [])
 
+  // 5. Fetch Nearest Services Summary
   useEffect(() => {
     if (!location) return
 
     const fetchSummary = async () => {
-      const [taxiRes, shopRes, clinicRes] = await Promise.allSettled([
-        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=taxi_ranks`).then(async (res) => {
-          if (!res.ok) throw new Error('Taxi ranks request failed')
-          return res.json()
-        }),
-        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=malls_shops`).then(async (res) => {
-          if (!res.ok) throw new Error('Nearby shops request failed')
-          return res.json()
-        }),
-        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=clinics_hospitals`).then(async (res) => {
-          if (!res.ok) throw new Error('Clinics request failed')
-          return res.json()
-        }),
+      const [taxiRes, shopRes, clinicRes, policeRes] = await Promise.allSettled([
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=taxi_ranks`).then((r) => r.json()),
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=malls_shops`).then((r) => r.json()),
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=clinics_hospitals`).then((r) => r.json()),
+        fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=police_stations`).then((r) => r.json()),
       ])
 
       setNearest({
         taxi: taxiRes.status === 'fulfilled' ? taxiRes.value?.results?.[0] : undefined,
         shop: shopRes.status === 'fulfilled' ? shopRes.value?.results?.[0] : undefined,
         clinic: clinicRes.status === 'fulfilled' ? clinicRes.value?.results?.[0] : undefined,
+        police: policeRes.status === 'fulfilled' ? policeRes.value?.results?.[0] : undefined,
       })
     }
 
     void fetchSummary()
   }, [location])
 
+  // 6. Push Notifications Subscription
+  useEffect(() => {
+    void subscribeForProductionPush()
+  }, [])
+
+  // Search Index Data
+  const searchIndex = useMemo(() => [
+    { label: 'Safe Ride Watchdog (Uber / Bolt)', href: '/safe-ride', category: 'safety' },
+    { label: 'Report GBV (Confidential)', href: '/report', category: 'safety' },
+    { label: 'Report Crime & Theft', href: '/report', category: 'safety' },
+    { label: 'Emergency SOS & Safe Map', href: '/sos', category: 'safety' },
+    { label: 'Safety Hub & Helplines', href: '/safety', category: 'safety' },
+    { label: 'Police Stations Near Me', href: '/nearby?category=police_stations', category: 'services' },
+    { label: 'Clinics & Hospitals Near Me', href: '/nearby?category=clinics_hospitals', category: 'services' },
+    { label: 'Taxi Ranks & Gautrain', href: '/nearby?category=taxi_ranks', category: 'transit' },
+    { label: 'Shopping Malls & Stores', href: '/nearby?category=malls_shops', category: 'services' },
+    { label: 'Live South Africa News', href: '/news', category: 'services' },
+    { label: 'My Incidents Vault', href: '/notes', category: 'safety' },
+    { label: 'AI Safety Assistant', href: '/assistant', category: 'safety' },
+    { label: 'Profile & Emergency Contacts', href: '/settings', category: 'services' },
+  ], [])
+
   const filteredSearch = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return []
-    return searchIndex.filter((entry) => entry.label.toLowerCase().includes(q)).slice(0, 6)
-  }, [search])
+    return searchIndex.filter((entry) => entry.label.toLowerCase().includes(q)).slice(0, 5)
+  }, [search, searchIndex])
 
+  // SOS Hold Handlers with Progress Meter
   const triggerTrustedCirclePing = async () => {
     if (!location || !user?.id) {
       router.push('/sos')
@@ -163,7 +249,7 @@ export function SuperHome({ name }: { name: string }) {
 
       const phone = data?.[0]?.phone
       const mapsLink = `https://maps.google.com/?q=${location.lat},${location.lng}`
-      const message = `Emergency alert. I need help. My live location: ${mapsLink}`
+      const message = `🚨 EMERGENCY ALERT from Phola: I need urgent help! My live location: ${mapsLink}`
 
       if (phone) {
         window.location.href = `sms:${phone}?body=${encodeURIComponent(message)}`
@@ -171,10 +257,7 @@ export function SuperHome({ name }: { name: string }) {
       }
 
       if (navigator.share) {
-        await navigator.share({
-          title: 'Emergency SOS',
-          text: message,
-        })
+        await navigator.share({ title: 'EMERGENCY SOS', text: message })
         return
       }
 
@@ -186,209 +269,558 @@ export function SuperHome({ name }: { name: string }) {
 
   const startSOSHold = () => {
     setIsSOSHolding(true)
+    setHoldProgress(0)
+
+    let progress = 0
+    holdIntervalRef.current = setInterval(() => {
+      progress += 10
+      setHoldProgress(progress)
+      if (progress >= 100) {
+        if (holdIntervalRef.current) clearInterval(holdIntervalRef.current)
+      }
+    }, 120)
+
     holdTimer.current = setTimeout(() => {
       setIsSOSHolding(false)
+      setHoldProgress(0)
+      if (holdIntervalRef.current) clearInterval(holdIntervalRef.current)
       void triggerTrustedCirclePing()
       void notifySOSActivated()
-      if (navigator.vibrate) navigator.vibrate([120, 80, 120])
-    }, 1200)
+      if (navigator.vibrate) navigator.vibrate([200, 100, 300, 100, 500])
+    }, 1300)
   }
 
   const cancelSOSHold = () => {
     setIsSOSHolding(false)
+    setHoldProgress(0)
+    if (holdIntervalRef.current) clearInterval(holdIntervalRef.current)
     if (holdTimer.current) {
       clearTimeout(holdTimer.current)
       holdTimer.current = null
     }
   }
 
-  useEffect(() => {
-    void subscribeForProductionPush()
-  }, [])
+  const { greeting } = getGreetingByLanguage(language, name || 'friend')
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.09),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_60px_rgba(5,40,40,0.06)] sm:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div className="pl-12 sm:pl-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Phola home</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{getGreetingByLanguage(language, name || 'friend')}</h1>
-              <p className="mt-2 text-sm text-muted-foreground">Your Mzansi community super app</p>
-            </div>
-            <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              Safety, news, nearby services, and quick actions in one place.
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        
+        {/* ========================================================================= */}
+        {/* TOP STATUS BAR: App Identity, Location Pill, Quick Exit                    */}
+        {/* ========================================================================= */}
+        <header className="flex items-center justify-between gap-2 pt-1 pb-1">
+          {/* Left: Location & GPS Badge */}
+          <div className="flex items-center gap-2 pl-12 sm:pl-0">
+            <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-900 shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+              </span>
+              <MapPin className="h-3 w-3 text-primary" />
+              <span className="truncate max-w-[140px] sm:max-w-xs">{locationName}</span>
             </div>
           </div>
-        </section>
 
+          {/* Right: Language Chip & Quick Disguise Button */}
+          <div className="flex items-center gap-2">
+            <select
+              aria-label="Select app language"
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-900 shadow-2xs outline-none hover:bg-emerald-50 cursor-pointer"
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.nativeName}
+                </option>
+              ))}
+            </select>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={safeExit}
+              className="rounded-full border-emerald-200 bg-white/90 text-xs font-medium text-emerald-900 shadow-2xs hover:bg-emerald-50 px-2.5 h-7"
+            >
+              <LogOut className="mr-1 h-3 w-3 text-primary" />
+              Quick Exit
+            </Button>
+          </div>
+        </header>
+
+        {/* ========================================================================= */}
+        {/* ACTIVE SAFE RIDE LIVE WIDGET (Shows whenever ride is active)              */}
+        {/* ========================================================================= */}
         {activeRide && (
-          <section>
+          <section className="animate-in fade-in zoom-in-95 duration-200">
             <div 
               onClick={() => router.push('/safe-ride')}
-              className="flex items-center justify-between gap-3 rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-3.5 shadow-sm cursor-pointer hover:bg-emerald-100/80 transition"
+              className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border-2 border-emerald-500 bg-gradient-to-r from-emerald-50 via-teal-50/70 to-white p-4 shadow-sm cursor-pointer hover:shadow-md transition"
             >
               <div className="flex items-center gap-3">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs">
+                  <Car className="h-6 w-6" />
+                </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                    Safe Ride in Progress: {activeRide.serviceName}
-                  </p>
-                  <p className="text-xs text-emerald-800">
-                    To {activeRide.destination} • {formatCountdown(rideRemainingSecs)} remaining
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                      Watchdog Active • {activeRide.serviceName}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground mt-0.5">
+                    To {activeRide.destination}
                   </p>
                 </div>
               </div>
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 shrink-0">
-                View Watchdog
-              </Button>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="text-right">
+                  <p className="font-mono text-xl font-black text-primary">
+                    {formatCountdown(rideRemainingSecs)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Remaining</p>
+                </div>
+                <Button size="sm" className="bg-primary hover:bg-primary/95 text-white text-xs h-9 rounded-xl font-semibold shadow-xs">
+                  View Watchdog
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </section>
         )}
 
-        <section className="relative">
-          <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-3 py-3 shadow-sm">
-            <Search className="h-4 w-4 text-primary" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search shops, news, taxi ranks, reports"
-              className="w-full bg-transparent text-sm outline-none"
-            />
-          </div>
-          {filteredSearch.length > 0 && (
-            <Card className="absolute left-0 right-0 top-14 z-30 border-emerald-100 bg-white shadow-lg">
-              <CardContent className="p-2">
-                <div className="space-y-1">
-                  {filteredSearch.map((item) => (
-                    <button
-                      key={item.href + item.label}
-                      type="button"
-                      className="w-full rounded-md px-3 py-2 text-left text-sm hover:bg-emerald-50"
-                      onClick={() => router.push(item.href)}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </section>
-
-        <section>
-          <Card className="border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-sm">
-            <CardContent className="flex items-center justify-between gap-3 p-3.5">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                  <p className="text-sm font-semibold text-emerald-950">
-                    GBV Command Centre (24/7)
-                  </p>
-                </div>
-                <p className="text-xs text-emerald-800">
-                  Toll-free crisis line: <strong>0800 428 428</strong> • Free SMS: <strong>*120*7867#</strong>
+        {/* ========================================================================= */}
+        {/* HERO GREETING & DUAL EMERGENCY CONSOLE                                    */}
+        {/* ========================================================================= */}
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
+          <div className="flex flex-col gap-4">
+            
+            {/* Greeting Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-emerald-50 pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Phola Community Hub</p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  {greeting}
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Your safe space for immediate protection, trusted circles, and Mzansi community services.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 border-emerald-300 bg-white font-medium text-emerald-900 hover:bg-emerald-100 shadow-sm"
-                onClick={() => window.location.href = 'tel:0800428428'}
-              >
-                <Phone className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                Call Free
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
 
-        <section>
-          <Card className="border border-emerald-100 bg-white shadow-sm">
-            <CardContent className="flex items-center justify-between gap-3 p-3">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Emergency SOS</p>
-                <p className="text-xs text-muted-foreground">Press and hold to alert trusted circle</p>
-              </div>
-              <Button
-                className={`min-w-[128px] ${isSOSHolding ? 'animate-pulse bg-primary shadow-lg shadow-primary/20' : 'bg-primary'}`}
+              <Badge variant="secondary" className="self-start sm:self-center border border-emerald-200 bg-emerald-50 text-emerald-900 px-3 py-1 text-xs">
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                Encrypted & Private
+              </Badge>
+            </div>
+
+            {/* Emergency Action Dual Console */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-1">
+              
+              {/* Box 1: Press & Hold SOS */}
+              <div 
+                className={`relative overflow-hidden rounded-2xl border p-4 transition select-none cursor-pointer ${
+                  isSOSHolding 
+                    ? 'border-red-400 bg-red-50 shadow-md' 
+                    : 'border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white hover:border-emerald-300 shadow-2xs'
+                }`}
                 onMouseDown={startSOSHold}
                 onMouseUp={cancelSOSHold}
                 onMouseLeave={cancelSOSHold}
                 onTouchStart={startSOSHold}
                 onTouchEnd={cancelSOSHold}
               >
-                <Shield className="mr-2 h-4 w-4" />
-                Hold SOS
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
+                {/* Hold Progress Bar */}
+                {isSOSHolding && (
+                  <div 
+                    className="absolute bottom-0 left-0 top-0 bg-red-500/20 transition-all duration-100"
+                    style={{ width: `${holdProgress}%` }}
+                  />
+                )}
 
-        <section>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-            {quickActions.map((action) => {
-              const Icon = action.icon
-              return (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => router.push(action.href)}
-                  className="flex min-h-24 flex-col items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50"
-                >
-                  <Icon className="h-5 w-5 text-primary" />
-                  <span className="text-xs leading-tight text-foreground">{action.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
+                <div className="relative flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${isSOSHolding ? 'bg-red-600 animate-pulse' : 'bg-primary'}`}>
+                      <Shield className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Emergency SOS</p>
+                      <p className="text-xs text-muted-foreground">
+                        {isSOSHolding ? 'Keep holding to dispatch alert...' : 'Hold for 1.3s to alert trusted circle'}
+                      </p>
+                    </div>
+                  </div>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground">Live SA news</h2>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/news')}>More</Button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {news.slice(0, 4).map((item) => (
-              <button
-                key={item.url}
-                type="button"
-                onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
-                className="rounded-2xl border border-emerald-100 bg-white p-4 text-left shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50"
-              >
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{item.source}</p>
-                <p className="line-clamp-2 text-sm font-medium text-foreground">{item.title}</p>
-              </button>
-            ))}
-          </div>
-        </section>
+                  <span className={`text-xs font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 ${isSOSHolding ? 'bg-red-600 text-white' : 'bg-emerald-100/70 text-emerald-900'}`}>
+                    {isSOSHolding ? `${Math.round(holdProgress)}%` : 'Hold SOS'}
+                  </span>
+                </div>
+              </div>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground">Nearest to you</h2>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/nearby')}>View map</Button>
-          </div>
-          <div className="space-y-2">
-            {[{ label: 'Taxi Rank', item: nearest.taxi }, { label: 'Shop', item: nearest.shop }, { label: 'Clinic', item: nearest.clinic }].map((entry) => (
-              <Card key={entry.label} className="border-emerald-100 bg-white shadow-sm">
-                <CardContent className="flex items-center justify-between p-3">
+              {/* Box 2: GBV Command Helpline */}
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-br from-teal-50/70 to-white p-4 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-xs">
+                    <Phone className="h-5 w-5" />
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{entry.item?.name || entry.label}</p>
-                    <p className="text-xs text-muted-foreground">{entry.item?.address || 'Location info loading...'}</p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                      <p className="text-sm font-bold text-foreground">GBV Command Centre</p>
+                    </div>
+                    <p className="text-xs text-emerald-800 font-medium">Toll-free 24/7: 0800 428 428</p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                    <CircleDot className="h-4 w-4" />
-                    {entry.item ? formatDistance(entry.item.distanceKm) : '--'}
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.location.href = 'tel:0800428428'}
+                  className="border-emerald-300 bg-white font-semibold text-emerald-900 hover:bg-emerald-50 text-xs shrink-0 shadow-2xs h-9 rounded-xl"
+                >
+                  <Phone className="mr-1 h-3.5 w-3.5 text-primary" />
+                  Call Free
+                </Button>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* UNIFIED SEARCH BAR WITH QUICK PILLS                                       */}
+        {/* ========================================================================= */}
+        <section className="relative space-y-2">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-white px-3.5 py-2.5 shadow-2xs focus-within:border-primary transition">
+            <Search className="h-4 w-4 text-primary shrink-0" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search services, report crime, taxi ranks, clinics..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            {search && (
+              <button 
+                type="button" 
+                onClick={() => setSearch('')}
+                className="text-xs text-muted-foreground hover:text-foreground font-medium px-1"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete Dropdown */}
+          {filteredSearch.length > 0 && (
+            <Card className="absolute left-0 right-0 top-12 z-30 border-emerald-100 bg-white shadow-xl rounded-2xl overflow-hidden">
+              <CardContent className="p-2 space-y-1">
+                {filteredSearch.map((item) => (
+                  <button
+                    key={item.href + item.label}
+                    type="button"
+                    className="flex items-center justify-between w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-emerald-50 transition"
+                    onClick={() => router.push(item.href)}
+                  >
+                    <span className="font-medium text-foreground">{item.label}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        {/* ========================================================================= */}
+        {/* CORE SAFETY & ACTION SUITE                                                */}
+        {/* ========================================================================= */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              Essential Tools & Protection
+            </h2>
+            <button 
+              type="button" 
+              onClick={() => router.push('/safety')} 
+              className="text-xs font-semibold text-primary hover:underline flex items-center"
+            >
+              All Tools <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            
+            {/* 1. Safe Ride Watchdog */}
+            <div 
+              onClick={() => router.push('/safe-ride')}
+              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                    <Car className="h-5 w-5" />
                   </div>
-                </CardContent>
-              </Card>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
+                    Uber / Bolt
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Safe Ride Watchdog</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Arrival countdown and emergency check-in for your trips.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
+                Open Watchdog <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              </div>
+            </div>
+
+            {/* 2. Report GBV Incident */}
+            <div 
+              onClick={() => router.push('/report')}
+              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                    <ShieldAlert className="h-5 w-5" />
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
+                    Vault
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Report GBV</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Confidential encrypted reporting with police auto-linking.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
+                Secure File <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              </div>
+            </div>
+
+            {/* 3. Report Crime & Theft */}
+            <div 
+              onClick={() => router.push('/report')}
+              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                    <FileWarning className="h-5 w-5" />
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
+                    SAPS Ready
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Report Crime</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Robbery, assault, vehicle theft and police misconduct.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
+                Log Incident <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              </div>
+            </div>
+
+            {/* 4. SOS Map & Safe Places */}
+            <div 
+              onClick={() => router.push('/sos')}
+              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                    <Navigation className="h-5 w-5" />
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
+                    Map
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Emergency Map</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Locate verified SAPS stations, trauma clinics and shelters.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
+                Open Map <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* LOCAL COMMUNITY RADAR (Pretoria / User's GPS)                             */}
+        {/* ========================================================================= */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5">
+              <Radio className="h-4 w-4 text-primary animate-pulse" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Nearest to You (Local Radar)
+              </h2>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => router.push('/nearby')} 
+              className="text-xs font-semibold text-primary hover:underline flex items-center"
+            >
+              Full Directory <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            
+            {/* Card 1: Nearest Police Station */}
+            <Card className="border-emerald-100 bg-white shadow-2xs rounded-2xl">
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-primary">
+                      <Shield className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Police Station</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 font-mono text-xs">
+                    {nearest.police ? formatDistance(nearest.police.distanceKm) : '--'}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground line-clamp-1">
+                    {nearest.police?.name || 'Searching SAPS stations...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    {nearest.police?.address || 'Verified SAPS station'}
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => router.push('/nearby?category=police_stations')}
+                  className="w-full rounded-xl border-emerald-200 text-xs text-primary font-medium h-7"
+                >
+                  View Details
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Card 2: Nearest Clinic / Hospital */}
+            <Card className="border-emerald-100 bg-white shadow-2xs rounded-2xl">
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-primary">
+                      <Hospital className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clinic / Health</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 font-mono text-xs">
+                    {nearest.clinic ? formatDistance(nearest.clinic.distanceKm) : '--'}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground line-clamp-1">
+                    {nearest.clinic?.name || 'Searching clinics...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    {nearest.clinic?.address || 'Emergency medical facility'}
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => router.push('/nearby?category=clinics_hospitals')}
+                  className="w-full rounded-xl border-emerald-200 text-xs text-primary font-medium h-7"
+                >
+                  View Details
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Card 3: Nearest Taxi Rank */}
+            <Card className="border-emerald-100 bg-white shadow-2xs rounded-2xl">
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-primary">
+                      <Bus className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Taxi Rank</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 font-mono text-xs">
+                    {nearest.taxi ? formatDistance(nearest.taxi.distanceKm) : '--'}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground line-clamp-1">
+                    {nearest.taxi?.name || 'Searching ranks...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    {nearest.taxi?.address || 'Transit point'}
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => router.push('/nearby?category=taxi_ranks')}
+                  className="w-full rounded-xl border-emerald-200 text-xs text-primary font-medium h-7"
+                >
+                  View Details
+                </Button>
+              </CardContent>
+            </Card>
+
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* MZANSI NEWS & COMMUNITY PULSE                                             */}
+        {/* ========================================================================= */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5">
+              <Flame className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Mzansi News & Updates
+              </h2>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/news')} className="text-xs text-primary">
+              All News <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {news.slice(0, 4).map((item) => (
+              <div
+                key={item.url}
+                onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
+                className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                      {item.source}
+                    </span>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition" />
+                  </div>
+                  <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary transition">
+                    {item.title}
+                  </p>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Verified SA Source</span>
+                  <span className="text-primary font-medium">Read Article</span>
+                </div>
+              </div>
             ))}
           </div>
         </section>
+
       </main>
 
       <AppBottomNav />
