@@ -69,10 +69,12 @@ export async function POST(request: NextRequest) {
   }
 
   let metadata: Record<string, unknown> = {}
-  try {
-    metadata = JSON.parse(metadataRaw) as Record<string, unknown>
-  } catch {
-    metadata = {}
+  if (metadataRaw) {
+    try {
+      metadata = JSON.parse(metadataRaw) as Record<string, unknown>
+    } catch {
+      metadata = {}
+    }
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
