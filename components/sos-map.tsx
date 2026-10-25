@@ -381,9 +381,12 @@ export function SOSMap() {
     if (!currentLocation) return
 
     try {
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?overview=full&geometries=geojson`
-      )
+      const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
+      const url = mapboxToken
+        ? `https://api.mapbox.com/directions/v5/mapbox/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?geometries=geojson&access_token=${mapboxToken}`
+        : `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?overview=full&geometries=geojson`
+
+      const response = await fetch(url)
       
       if (!response.ok) throw new Error('Failed to get route')
       
@@ -425,17 +428,30 @@ export function SOSMap() {
     setIsNavigating(false)
   }
 
-  // Open external maps for navigation
+  // Open external maps / navigation
   const openExternalNavigation = (place: SafePlace) => {
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${currentLocation?.lat},${currentLocation?.lng}&destination=${place.location.lat},${place.location.lng}&travelmode=driving`
-    window.open(url, '_blank')
+    const lat = place.location.lat
+    const lng = place.location.lng
+    const name = encodeURIComponent(place.name)
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (isMobile) {
+      // Launch native navigation on device (works seamlessly on Android/iOS)
+      window.location.href = `geo:${lat},${lng}?q=${lat},${lng}(${name})`
+    } else {
+      const originParam = currentLocation ? `${currentLocation.lat}%2C${currentLocation.lng}` : ''
+      window.open(
+        `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${originParam}%3B${lat}%2C${lng}`,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    }
   }
 
   // Share location
   const shareLocation = async () => {
     if (!currentLocation) return
     
-    const message = `I need help! My location: https://www.google.com/maps?q=${currentLocation.lat},${currentLocation.lng}`
+    const message = `I need help! My location: https://www.openstreetmap.org/?mlat=${currentLocation.lat}&mlon=${currentLocation.lng}#map=16/${currentLocation.lat}/${currentLocation.lng}`
     
     if (navigator.share) {
       try {
@@ -633,8 +649,16 @@ export function SOSMap() {
             whenReady={() => setMapReady(true)}
           >
             <TileLayer
-              attribution='&copy; Google Maps'
-              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              attribution={
+                process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
+                  ? '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              }
+              url={
+                process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
+                  ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN.trim()}`
+                  : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+              }
               maxZoom={20}
             />
             
@@ -678,7 +702,7 @@ export function SOSMap() {
                         className="flex-1 bg-primary text-primary-foreground text-xs font-semibold py-1.5 px-2.5 rounded-lg hover:bg-primary/90 flex items-center justify-center gap-1"
                       >
                         <Navigation className="w-3 h-3" />
-                        Google Maps
+                        Navigate
                       </button>
                       {place.phone && (
                         <button
@@ -755,7 +779,7 @@ export function SOSMap() {
                   onClick={() => openExternalNavigation(selectedPlace)}
                 >
                   <Navigation className="w-4 h-4 mr-1.5" />
-                  Open in Google Maps
+                  Start Directions
                 </Button>
                 {selectedPlace.phone && (
                   <Button
@@ -883,7 +907,7 @@ export function SOSMap() {
                             e.stopPropagation()
                             openExternalNavigation(place)
                           }}
-                          title="Open in Google Maps"
+                          title="Navigate"
                         >
                           <Navigation className="w-4 h-4" />
                         </Button>

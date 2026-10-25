@@ -158,14 +158,23 @@ export function NearbyFinder() {
 
   const categoryLabel = useMemo(() => categories.find((item) => item.value === category)?.label || 'Nearby', [category])
 
-  const openDirections = (result: NearbyResult, app: 'google' | 'waze') => {
+  const openDirections = (result: NearbyResult, app: 'directions' | 'waze') => {
     const destination = `${result.location.lat},${result.location.lng}`
     if (app === 'waze') {
       window.open(`https://waze.com/ul?ll=${destination}&navigate=yes`, '_blank', 'noopener,noreferrer')
       return
     }
-    const origin = location ? `${location.lat},${location.lng}` : ''
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`, '_blank', 'noopener,noreferrer')
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    if (isMobile) {
+      window.location.href = `geo:${destination}?q=${destination}(${encodeURIComponent(result.name)})`
+    } else {
+      const origin = location ? `${location.lat}%2C${location.lng}` : ''
+      window.open(
+        `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${origin}%3B${result.location.lat}%2C${result.location.lng}`,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    }
   }
 
   return (
@@ -247,8 +256,8 @@ export function NearbyFinder() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button className="flex-1 bg-primary text-white shadow-sm hover:bg-primary/90" onClick={() => openDirections(result, 'google')}>
-                      <Navigation className="mr-2 h-4 w-4" />Google Maps
+                    <Button className="flex-1 bg-primary text-white shadow-sm hover:bg-primary/90" onClick={() => openDirections(result, 'directions')}>
+                      <Navigation className="mr-2 h-4 w-4" />Directions
                     </Button>
                     <Button variant="outline" className="flex-1 border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => openDirections(result, 'waze')}>
                       <Navigation className="mr-2 h-4 w-4" />Waze
