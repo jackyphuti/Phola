@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -20,7 +20,6 @@ import {
   Phone
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { safeExit } from '@/lib/safe-exit'
 
 const SIDE_NAV_STORAGE_KEY = 'phola_side_tabs_hidden'
@@ -62,10 +61,6 @@ export function AppBottomNav() {
     } catch {}
   }
 
-  const activeTab = useMemo(() => {
-    return tabs.find(t => pathname === t.href || (pathname && pathname.startsWith(`${t.href}/`)))
-  }, [pathname])
-
   // Do not render on public auth pages or root landing
   if (pathname && (pathname === '/' || pathname.startsWith('/auth/'))) {
     return null
@@ -80,8 +75,7 @@ export function AppBottomNav() {
       {/* ========================================================================= */}
       {/* GOOGLE-STYLE TOP APP BAR (Pinned header, exactly like Gmail & Google Apps) */}
       {/* ========================================================================= */}
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center justify-between border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95 safe-top">
-        
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95 safe-top">
         {/* Left: Hamburger Button + Logo + Title (Gmail / Google style) */}
         <div className="flex items-center gap-2 sm:gap-3">
           <button
@@ -112,40 +106,6 @@ export function AppBottomNav() {
               Phola
             </span>
           </Link>
-
-          {/* Current Page Pill (Medium+ Screens) */}
-          {activeTab && (
-            <span className="hidden md:inline-flex items-center rounded-full bg-emerald-50/90 px-3 py-0.5 text-xs font-semibold text-emerald-900 border border-emerald-200 shadow-2xs">
-              {activeTab.label}
-            </span>
-          )}
-        </div>
-
-        {/* Right: Emergency SOS Action + Quick Exit */}
-        <div className="flex items-center gap-2">
-          {pathname !== '/sos' && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/sos')}
-              className="flex items-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-full h-8 px-3 border border-red-200 shadow-2xs transition"
-            >
-              <Siren className="h-3.5 w-3.5 text-red-600 animate-pulse" />
-              <span>SOS</span>
-            </Button>
-          )}
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={safeExit}
-            className="rounded-full border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-8 px-3 shadow-2xs"
-          >
-            <LogOut className="mr-1 h-3.5 w-3.5 text-primary" />
-            Quick Exit
-          </Button>
         </div>
       </header>
 
