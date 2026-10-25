@@ -121,14 +121,38 @@ export async function authenticateBiometric(credentialId?: string): Promise<bool
   }
 }
 
+const BIOMETRIC_STORAGE_KEY = 'phola-biometric-credential-id'
+
 export function saveCredentialId(credentialId: string): void {
   biometricCredentialId = credentialId
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(BIOMETRIC_STORAGE_KEY, credentialId)
+    } catch {
+      // Storage might be restricted
+    }
+  }
 }
 
 export function getCredentialId(): string | null {
+  if (biometricCredentialId) return biometricCredentialId
+  if (typeof window !== 'undefined') {
+    try {
+      biometricCredentialId = window.localStorage.getItem(BIOMETRIC_STORAGE_KEY)
+    } catch {
+      // Storage might be restricted
+    }
+  }
   return biometricCredentialId
 }
 
 export function clearCredentialId(): void {
   biometricCredentialId = null
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.removeItem(BIOMETRIC_STORAGE_KEY)
+    } catch {
+      // Storage might be restricted
+    }
+  }
 }

@@ -34,7 +34,7 @@ export default function SignUpPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false)
-  const [showConsent, setShowConsent] = useState(true)
+  const [hasConsented, setHasConsented] = useState(false)
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [showPasskeyOption, setShowPasskeyOption] = useState(false)
@@ -115,7 +115,7 @@ export default function SignUpPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!showConsent) {
+    if (!hasConsented) {
       setError('Please review and accept the consent screen before continuing.')
       return
     }
@@ -145,8 +145,7 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? 
-            getAuthCallbackUrl('/auth/login'),
+          emailRedirectTo: getAuthCallbackUrl('/auth/login?verified=1'),
           data: {
             display_name: fullName.trim(),
             full_name: fullName.trim(),
@@ -328,9 +327,9 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        {showConsent && (
+        {!hasConsented && (
           <PrivacyConsent
-            onAccept={() => setShowConsent(false)}
+            onAccept={() => setHasConsented(true)}
           />
         )}
 

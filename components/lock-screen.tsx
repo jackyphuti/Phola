@@ -11,6 +11,8 @@ import {
 } from '@/lib/biometric'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { verifyPin } from '@/lib/pin'
+import { safeExit } from '@/lib/safe-exit'
 import { Fingerprint, KeyRound, Loader2, X } from 'lucide-react'
 
 export function LockScreen() {
@@ -56,16 +58,28 @@ export function LockScreen() {
     setIsLoading(true)
     setError('')
 
-    // Simple PIN validation (in production, hash and compare with stored hash)
-    // For demo purposes, we'll accept any 4+ digit PIN
-    if (pin.length >= 4) {
-      // In production: compare with profile.pin_hash using bcrypt
-      unlock()
-    } else {
-      setError('PIN must be at least 4 digits')
+    try {
+      if (pin.length < 4) {
+        setError('PIN must be at least 4 digits')
+        return
+      }
+
+      if (profile?.pin_hash && user?.id) {
+        const isValid = await verifyPin(pin, user.id, profile.pin_hash)
+        if (isValid) {
+          unlock()
+        } else {
+          setError('Incorrect PIN. Please try again.')
+        }
+      } else {
+        // No PIN has been set yet in user settings
+        unlock()
+      }
+    } catch {
+      setError('Failed to verify PIN. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
-    
-    setIsLoading(false)
   }
 
   const handlePinChange = (value: string) => {
@@ -85,7 +99,7 @@ export function LockScreen() {
         variant="outline"
         size="sm"
         className="fixed right-4 top-4 z-20 rounded-full border-border/70 bg-background/90 px-4 shadow-sm backdrop-blur"
-        onClick={() => window.location.replace('https://www.google.com')}
+        onClick={safeExit}
       >
         Quick Exit
       </Button>

@@ -9,10 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, AlertCircle, ArrowRight, Fingerprint } from 'lucide-react'
+import { Loader2, AlertCircle, ArrowRight, Check } from 'lucide-react'
 import Link from 'next/link'
-import { authenticateBiometric, getCredentialId, isBiometricAvailable } from '@/lib/biometric'
-import { authenticateWithPasskey, isPasskeyAvailable } from '@/lib/passkey'
 import { safeExit } from '@/lib/safe-exit'
 import { LanguageSelector } from '@/components/language-selector'
 import { getAuthCallbackUrl } from '@/lib/auth-url'
@@ -26,21 +24,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [biometricSupported, setBiometricSupported] = useState(false)
-  const [passkeySupported, setPasskeySupported] = useState(false)
-  const [isBiometricLoading, setIsBiometricLoading] = useState(false)
-  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [isOAuthLoading, setIsOAuthLoading] = useState('')
+  const [verified, setVerified] = useState(false)
 
   useEffect(() => {
-    const checkAuthMethods = async () => {
-      const biometric = await isBiometricAvailable()
-      setBiometricSupported(biometric)
-      const passkey = await isPasskeyAvailable()
-      setPasskeySupported(passkey)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('verified') === '1' || params.get('verified') === 'true') {
+        setVerified(true)
+      } else if (window.location.hash.includes('type=signup') || window.location.hash.includes('access_token')) {
+        setVerified(true)
+      }
     }
-
-    checkAuthMethods()
   }, [])
 
   const handleQuickExit = () => {
@@ -71,60 +66,7 @@ export default function LoginPage() {
     }
   }
 
-  const handleBiometricLogin = async () => {
-    setIsBiometricLoading(true)
-    setError('')
 
-    try {
-      const credentialId = getCredentialId()
-      const success = await authenticateBiometric(credentialId || undefined)
-
-      if (success) {
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (user) {
-          router.push('/dashboard')
-          router.refresh()
-          return
-        }
-
-        setError('Biometrics are ready on this device, but you still need to sign in once with email and password.')
-      } else {
-        setError('Biometric authentication failed. Try again or use email and password.')
-      }
-    } catch {
-      setError('Biometric authentication failed. Try again or use email and password.')
-    } finally {
-      setIsBiometricLoading(false)
-    }
-  }
-
-  const handlePasskeyLogin = async () => {
-    setIsPasskeyLoading(true)
-    setError('')
-
-    try {
-      const success = await authenticateWithPasskey()
-
-      if (success) {
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (user) {
-          router.push('/dashboard')
-          router.refresh()
-          return
-        }
-
-        setError('Passkey authentication succeeded, but session setup failed. Please try email sign-in.')
-      } else {
-        setError('Passkey authentication failed. Try again or use another method.')
-      }
-    } catch {
-      setError('Passkey authentication failed. Try again or use another method.')
-    } finally {
-      setIsPasskeyLoading(false)
-    }
-  }
 
   const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
     setIsOAuthLoading(provider)
@@ -188,6 +130,13 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {verified && (
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-sm">
+                  <Check className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  Email verified! You can now sign in to your account.
+                </div>
+              )}
+
               {error && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2 text-destructive text-sm">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -236,59 +185,6 @@ export default function LoginPage() {
                   </>
                 )}
               </Button>
-
-              {(biometricSupported || passkeySupported) && (
-                <>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">{t('orContinueWith')}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {passkeySupported && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-11"
-                        onClick={handlePasskeyLogin}
-                        disabled={isPasskeyLoading || isBiometricLoading || isOAuthLoading !== ''}
-                      >
-                        {isPasskeyLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Fingerprint className="w-4 h-4 mr-2" />
-                            Passkey
-                          </>
-                        )}
-                      </Button>
-                    )}
-
-                    {biometricSupported && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-11"
-                        onClick={handleBiometricLogin}
-                        disabled={isBiometricLoading || isPasskeyLoading || isOAuthLoading !== ''}
-                      >
-                        {isBiometricLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Fingerprint className="w-4 h-4 mr-2" />
-                            Biometric
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </>
-              )}
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

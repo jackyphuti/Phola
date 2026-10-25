@@ -6,11 +6,17 @@ const nextConfig = {
   // Whitelist external dev origin(s) for Hot Module Replacement (HMR)
   // Allow common local development origins used by Android Studio, emulators, and local browsers.
   allowedDevOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://10.0.2.2:3000'],
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
+  },
+  async redirects() {
+    return [
+      {
+        source: '/loadshedding',
+        destination: '/safety',
+        permanent: false,
+      },
+    ]
   },
   async headers() {
     if (isStaticExport) {
@@ -40,7 +46,7 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'geolocation=(), microphone=()' },
+          { key: 'Permissions-Policy', value: 'geolocation=(self), microphone=(self), camera=(self)' },
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
           { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },

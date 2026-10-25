@@ -1,16 +1,13 @@
-//export const runtime = 'edge'
-
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { captureException } from '@sentry/nextjs'
 import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
+import { getAuthenticatedUser } from '@/lib/server-auth'
 import { z } from 'zod'
 
 const PHOTO_BUCKET = 'profile-photos'
 
 const profilePhotoSchema = z.object({
-  email: z.string().trim().email(),
-  userId: z.string().trim().min(1).max(128),
   fullName: z.string().trim().min(1).max(120),
   photoDataUrl: z.string().trim().optional(),
 })
@@ -37,12 +34,12 @@ async function sha256Hex(value: string) {
     .join('')
 }
 
-async function buildPhotoPath(email: string) {
-  const emailHash = await sha256Hex(normalizeEmail(email))
-  return `${emailHash}.jpg`
+async function buildPhotoPath(userIdOrEmail: string) {
+  const hash = await sha256Hex(normalizeEmail(userIdOrEmail))
+  return `${hash}.jpg`
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const rateLimit = checkRateLimit(request, 'api:profile-photo', { limit: 10, windowMs: 15 * 60 * 1000 })
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetAt)
@@ -55,12 +52,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Photo upload is not configured' }, { status: 500 })
   }
 
+  const { user, userId, error: authError } = await getAuthenticatedUser(request)
+  if (!user || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
   const parsedBody = validateJsonBody(await request.json().catch(() => null), profilePhotoSchema)
   if (!parsedBody.ok) {
     return NextResponse.json({ error: parsedBody.error }, { status: 400 })
   }
 
-  const { email, userId, fullName, photoDataUrl } = parsedBody.data
+  const { fullName, photoDataUrl } = parsedBody.data
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
   let photoPath: string | undefined
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid photo' }, { status: 400 })
     }
 
-    photoPath = await buildPhotoPath(email)
+    photoPath = await buildPhotoPath(userId)
     const { error: uploadError } = await supabaseAdmin.storage
       .from(PHOTO_BUCKET)
       .upload(photoPath, photo.buffer, {

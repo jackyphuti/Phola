@@ -1,9 +1,8 @@
-export const runtime = 'edge'
-
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { captureException } from '@sentry/nextjs'
 import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
+import { getAuthenticatedUser } from '@/lib/server-auth'
 import { z } from 'zod'
 
 const EVIDENCE_BUCKET = 'incident-evidence'
@@ -18,7 +17,6 @@ type UploadedEvidenceItem = {
 }
 
 const evidenceMetadataSchema = z.object({
-  userId: z.string().trim().min(1).max(128),
   incidentType: z.string().trim().min(1).max(64),
   metadata: z.string().trim().default('{}'),
 })
@@ -27,7 +25,7 @@ function sanitizeFileName(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120)
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const rateLimit = checkRateLimit(request, 'api:evidence', { limit: 10, windowMs: 10 * 60 * 1000 })
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetAt)
@@ -40,12 +38,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Evidence upload is not configured' }, { status: 500 })
   }
 
+  const { user, userId, error: authError } = await getAuthenticatedUser(request)
+  if (!user || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
   const formData = await request.formData()
   const files = formData.getAll('evidence') as File[]
 
   const parsedFields = validateJsonBody(
     {
-      userId: (formData.get('userId') as string | null) || 'anonymous',
       incidentType: (formData.get('incidentType') as string | null) || 'unknown',
       metadata: (formData.get('metadata') as string | null) || '{}',
     },
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsedFields.error }, { status: 400 })
   }
 
-  const { userId, incidentType, metadata: metadataRaw } = parsedFields.data
+  const { incidentType, metadata: metadataRaw } = parsedFields.data
 
   if (!Array.isArray(files) || files.length === 0) {
     return NextResponse.json({ items: [] })

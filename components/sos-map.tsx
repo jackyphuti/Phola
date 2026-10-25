@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { notifySOSActivated } from '@/lib/push-notifications'
+import { safeExit } from '@/lib/safe-exit'
+import 'leaflet/dist/leaflet.css'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
@@ -122,17 +124,6 @@ export function SOSMap() {
   const watchIdRef = useRef<number | null>(null)
   const initialLocationRequestedRef = useRef(false)
   
-  // Load Leaflet CSS
-  useEffect(() => {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(link)
-    
-    return () => {
-      document.head.removeChild(link)
-    }
-  }, [])
 
   useEffect(() => {
     const loadEmergencyContact = async () => {
@@ -503,7 +494,7 @@ export function SOSMap() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => window.location.href = 'https://www.google.com'}
+              onClick={safeExit}
               className="text-muted-foreground"
               title="Quick exit"
             >
@@ -686,14 +677,14 @@ export function SOSMap() {
           className="absolute top-4 right-4 z-[1000]"
         >
           <button
-            onClick={handleSpeedDial}
+            onClick={() => setShowEmergencyPanel(true)}
             className="w-14 h-14 rounded-full bg-destructive text-destructive-foreground shadow-lg flex items-center justify-center animate-pulse hover:scale-105 transition-transform"
-            aria-label="Emergency SOS - tap to call your emergency contact"
+            aria-label="Emergency SOS - tap for emergency options"
           >
             <span className="text-sm font-bold">SOS</span>
           </button>
           <p className="text-[10px] text-center text-muted-foreground mt-1 bg-background/80 rounded px-1">
-            Tap to call
+            Tap for SOS
           </p>
         </div>
 

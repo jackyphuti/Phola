@@ -21,6 +21,8 @@ import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { LanguageSelector } from '@/components/language-selector'
 import InstallPrompt from '@/components/install-prompt'
 import { clearSensitiveLocalData } from '@/lib/privacy'
+import { hashPin, verifyPin } from '@/lib/pin'
+import type { EmergencyContact } from '@/lib/types'
 import { 
   ArrowLeft, 
   Camera,
@@ -33,7 +35,10 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  X
+  X,
+  Phone,
+  UserPlus,
+  Star
 } from 'lucide-react'
 
 export function SettingsPage() {
@@ -60,6 +65,24 @@ export function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // PIN settings state
+  const [showPinModal, setShowPinModal] = useState(false)
+  const [currentPin, setCurrentPin] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [isSavingPin, setIsSavingPin] = useState(false)
+
+  // Emergency contacts state
+  const [contacts, setContacts] = useState<EmergencyContact[]>([])
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false)
+  const [showAddContact, setShowAddContact] = useState(false)
+  const [contactName, setContactName] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactRelationship, setContactRelationship] = useState('')
+  const [contactIsPrimary, setContactIsPrimary] = useState(false)
+  const [isSavingContact, setIsSavingContact] = useState(false)
+
   useEffect(() => {
     const checkBiometric = async () => {
       const available = await isBiometricAvailable()
@@ -80,6 +103,185 @@ export function SettingsPage() {
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop())
     }
   }, [])
+
+  const loadContacts = async () => {
+    if (!user?.id) return
+    setIsLoadingContacts(true)
+    try {
+      const { data, error } = await supabase
+        .from('emergency_contacts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true })
+
+      if (data && !error) {
+        setContacts(data as EmergencyContact[])
+      }
+    } catch {
+      // Failed to load contacts
+    } finally {
+      setIsLoadingContacts(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.id) {
+      void loadContacts()
+    }
+  }, [user?.id])
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user?.id) return
+    if (!contactName.trim() || !contactPhone.trim()) {
+      setMessage({ type: 'error', text: 'Contact name and phone number are required.' })
+      return
+    }
+
+    setIsSavingContact(true)
+    try {
+      if (contactIsPrimary) {
+        await supabase
+          .from('emergency_contacts')
+          .update({ is_primary: false })
+          .eq('user_id', user.id)
+      }
+
+      const { error } = await supabase.from('emergency_contacts').insert({
+        user_id: user.id,
+        name: contactName.trim(),
+        phone: contactPhone.trim(),
+        relationship: contactRelationship.trim() || null,
+        is_primary: contacts.length === 0 ? true : contactIsPrimary,
+      })
+
+      if (error) throw error
+
+      setContactName('')
+      setContactPhone('')
+      setContactRelationship('')
+      setContactIsPrimary(false)
+      setShowAddContact(false)
+      await loadContacts()
+      setMessage({ type: 'success', text: 'Emergency contact added successfully' })
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to add emergency contact' })
+    } finally {
+      setIsSavingContact(false)
+    }
+  }
+
+  const handleDeleteContact = async (contactId: string) => {
+    if (!user?.id) return
+    try {
+      const { error } = await supabase
+        .from('emergency_contacts')
+        .delete()
+        .eq('id', contactId)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      await loadContacts()
+      setMessage({ type: 'success', text: 'Emergency contact removed' })
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to remove emergency contact' })
+    }
+  }
+
+  const handleSetPrimaryContact = async (contactId: string) => {
+    if (!user?.id) return
+    try {
+      await supabase
+        .from('emergency_contacts')
+        .update({ is_primary: false })
+        .eq('user_id', user.id)
+
+      await supabase
+        .from('emergency_contacts')
+        .update({ is_primary: true })
+        .eq('id', contactId)
+        .eq('user_id', user.id)
+
+      await loadContacts()
+      setMessage({ type: 'success', text: 'Primary emergency contact updated' })
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to update primary contact' })
+    }
+  }
+
+  const handleSavePin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user?.id) return
+    setPinError('')
+
+    if (profile?.pin_hash) {
+      if (!currentPin) {
+        setPinError('Please enter your current PIN.')
+        return
+      }
+      const isCurrentValid = await verifyPin(currentPin, user.id, profile.pin_hash)
+      if (!isCurrentValid) {
+        setPinError('Current PIN is incorrect.')
+        return
+      }
+    }
+
+    if (newPin.length < 4 || newPin.length > 6) {
+      setPinError('New PIN must be between 4 and 6 digits.')
+      return
+    }
+
+    if (newPin !== confirmPin) {
+      setPinError('New PINs do not match.')
+      return
+    }
+
+    setIsSavingPin(true)
+    try {
+      const hashedPin = await hashPin(newPin, user.id)
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          pin_hash: hashedPin,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      await refreshProfile()
+      setShowPinModal(false)
+      setCurrentPin('')
+      setNewPin('')
+      setConfirmPin('')
+      setMessage({ type: 'success', text: 'PIN successfully saved!' })
+    } catch {
+      setPinError('Failed to save PIN. Please try again.')
+    } finally {
+      setIsSavingPin(false)
+    }
+  }
+
+  const handleRemovePin = async () => {
+    if (!user?.id) return
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          pin_hash: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      await refreshProfile()
+      setMessage({ type: 'success', text: 'PIN lock removed.' })
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to remove PIN.' })
+    }
+  }
 
   const currentPhotoUrl = getProfilePhotoUrl(profile?.profile_photo_path || user?.user_metadata?.profile_photo_path)
 
@@ -365,6 +567,7 @@ export function SettingsPage() {
         .delete()
         .eq('user_id', user.id)
 
+      setContacts([])
       clearSensitiveLocalData()
 
       setMessage({ type: 'success', text: 'All data deleted successfully' })
@@ -507,6 +710,171 @@ export function SettingsPage() {
                   )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* PIN Setup/Change Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <Card className="max-w-sm w-full">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-primary" />
+                  {profile?.pin_hash ? 'Change PIN' : 'Set PIN Lock'}
+                </CardTitle>
+                <CardDescription>
+                  Protect your app with a 4 to 6 digit security PIN.
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowPinModal(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSavePin} className="space-y-4">
+                {profile?.pin_hash && (
+                  <div className="space-y-1">
+                    <Label htmlFor="currentPin">Current PIN</Label>
+                    <Input
+                      id="currentPin"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={currentPin}
+                      onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="••••"
+                      required
+                    />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label htmlFor="newPin">New PIN (4-6 digits)</Label>
+                  <Input
+                    id="newPin"
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="confirmPin">Confirm New PIN</Label>
+                  <Input
+                    id="confirmPin"
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                    required
+                  />
+                </div>
+                {pinError && <p className="text-sm text-destructive">{pinError}</p>}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowPinModal(false)}
+                    disabled={isSavingPin}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={isSavingPin}>
+                    {isSavingPin ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Save PIN
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Emergency Contact Modal */}
+      {showAddContact && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <Card className="max-w-sm w-full">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-primary" />
+                  Add Emergency Contact
+                </CardTitle>
+                <CardDescription>
+                  Add a trusted person to your circle for rapid SOS alerts.
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowAddContact(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveContact} className="space-y-4">
+                <div className="space-y-1">
+                  <Label htmlFor="contactName">Full Name</Label>
+                  <Input
+                    id="contactName"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="e.g. Mama, Sister Nomsa"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="contactPhone">Phone Number</Label>
+                  <Input
+                    id="contactPhone"
+                    type="tel"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="e.g. 082 123 4567"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="contactRel">Relationship (optional)</Label>
+                  <Input
+                    id="contactRel"
+                    value={contactRelationship}
+                    onChange={(e) => setContactRelationship(e.target.value)}
+                    placeholder="e.g. Family, Friend, Neighbor"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="isPrimaryContact" className="text-sm font-medium">Set as primary contact</Label>
+                    <p className="text-xs text-muted-foreground">Dialed first in emergencies</p>
+                  </div>
+                  <Switch
+                    id="isPrimaryContact"
+                    checked={contactIsPrimary}
+                    onCheckedChange={setContactIsPrimary}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowAddContact(false)}
+                    disabled={isSavingContact}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1" disabled={isSavingContact}>
+                    {isSavingContact ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Add Contact
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -722,18 +1090,150 @@ export function SettingsPage() {
               </div>
             )}
 
-            {/* PIN Info */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                <KeyRound className="w-5 h-5 text-muted-foreground" />
+            {/* PIN Settings */}
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                  <KeyRound className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">PIN Lock</p>
+                  <p className="text-sm text-muted-foreground">
+                    {profile?.pin_hash ? 'PIN is configured and active' : 'No PIN set (optional backup unlock)'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-foreground">PIN Lock</p>
-                <p className="text-sm text-muted-foreground">
-                  Use any 4+ digit PIN to unlock
-                </p>
+              <div className="flex items-center gap-2">
+                {profile?.pin_hash ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPinError('')
+                        setCurrentPin('')
+                        setNewPin('')
+                        setConfirmPin('')
+                        setShowPinModal(true)
+                      }}
+                    >
+                      Change PIN
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={handleRemovePin}
+                    >
+                      Remove
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPinError('')
+                      setCurrentPin('')
+                      setNewPin('')
+                      setConfirmPin('')
+                      setShowPinModal(true)
+                    }}
+                  >
+                    Set PIN
+                  </Button>
+                )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Emergency Contacts (Trusted Circle) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Phone className="w-4 h-4 text-primary" />
+                Emergency Contacts (Trusted Circle)
+              </CardTitle>
+              <CardDescription>
+                Contacts alerted when you activate SOS or tap emergency speed dial.
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setContactName('')
+                setContactPhone('')
+                setContactRelationship('')
+                setContactIsPrimary(contacts.length === 0)
+                setShowAddContact(true)
+              }}
+            >
+              <UserPlus className="w-4 h-4 mr-1.5" />
+              Add
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoadingContacts ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : contacts.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No emergency contacts added yet. Add a trusted friend, family member, or neighbor.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {contacts.map((contact) => (
+                  <div key={contact.id} className="py-2.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm text-foreground truncate">{contact.name}</p>
+                        {contact.is_primary && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                            <Star className="w-3 h-3 fill-primary" />
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {contact.phone} {contact.relationship ? `• ${contact.relationship}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!contact.is_primary && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => handleSetPrimaryContact(contact.id)}
+                        >
+                          Set Primary
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteContact(contact.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

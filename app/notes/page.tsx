@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { LockScreen } from '@/components/lock-screen'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import type { Incident } from '@/lib/types'
+import { INCIDENT_TYPE_LABELS, type Incident, type IncidentType } from '@/lib/types'
+import { safeExit } from '@/lib/safe-exit'
 import { 
   ArrowLeft, 
   Plus, 
@@ -41,9 +42,11 @@ export default function NotesPage() {
   }, [user, authLoading, router])
 
   const fetchIncidents = async () => {
+    if (!user?.id) return
     const { data } = await supabase
       .from('incidents')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
     
     if (data) {
@@ -53,16 +56,18 @@ export default function NotesPage() {
   }
 
   const handleSafeExit = () => {
-    window.location.href = 'https://www.google.com'
+    safeExit()
   }
 
   const handleDelete = async (id: string) => {
+    if (!user?.id) return
     setIsDeleting(true)
     
     await supabase
       .from('incidents')
       .delete()
       .eq('id', id)
+      .eq('user_id', user.id)
     
     setIncidents(prev => prev.filter(i => i.id !== id))
     setShowDeleteConfirm(null)
@@ -78,7 +83,10 @@ export default function NotesPage() {
   }
 
   const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
+    if (type in INCIDENT_TYPE_LABELS) {
+      return INCIDENT_TYPE_LABELS[type as IncidentType]
+    }
+    const legacyLabels: Record<string, string> = {
       physical: 'Personal note',
       emotional: 'Thoughts',
       sexual: 'Private entry',
@@ -87,7 +95,7 @@ export default function NotesPage() {
       stalking: 'Safety note',
       other: 'Note',
     }
-    return labels[type] || 'Note'
+    return legacyLabels[type] || 'Note'
   }
 
   if (authLoading) {

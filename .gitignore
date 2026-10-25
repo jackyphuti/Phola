@@ -10,9 +10,22 @@ __v0_jsx-dev-runtime.ts
 .env*.local
 .env
 
-# Common ignores
+# Build outputs & caches
 node_modules/
 .next/
+.open-next/
+tsconfig.tsbuildinfo
+build_output.log
+
+# IDE & OS files
 .DS_Store
 .idea/
-build_output.log
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Compiled binaries
+cpp/traffic-monitor/traffic-monitor
+traffic-monitor

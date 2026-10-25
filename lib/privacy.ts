@@ -2,6 +2,7 @@ const LOCAL_DATA_KEYS = [
   'phola-pending-incidents',
   'phola-language',
   'phola-intro-seen',
+  'phola-biometric-credential-id',
 ]
 
 export function clearSensitiveLocalData() {

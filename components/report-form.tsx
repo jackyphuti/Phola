@@ -130,7 +130,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
       () => setIsGettingLocation(false),
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     )
-  }, [formData.location])
+  }, [])
 
   const handleSafeExit = () => {
     safeExit()
@@ -276,11 +276,6 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         })
       }
 
-      await triggerIncidentPushEvent({
-        crimeType: formData.crime_type,
-        location: formData.location || undefined,
-      })
-
       router.push('/dashboard')
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Failed to save. Please try again.'
@@ -319,6 +314,11 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
           ...payload,
         })
       }
+
+      await triggerIncidentPushEvent({
+        crimeType: formData.crime_type,
+        location: formData.location || undefined,
+      })
 
       router.push('/dashboard')
     } catch (submitError) {

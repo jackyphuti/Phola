@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { safeExit } from '@/lib/safe-exit'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
@@ -116,7 +117,7 @@ export function ResourcesPage() {
   const [showSafeExit, setShowSafeExit] = useState(false)
 
   const handleSafeExit = () => {
-    window.location.href = 'https://www.google.com'
+    safeExit()
   }
 
   const handleCall = (number: string) => {

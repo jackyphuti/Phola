@@ -1,26 +1,34 @@
-//export const runtime = 'edge'
-
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/server-auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json({ error: 'Passkey storage is not configured' }, { status: 500 })
   }
 
-  const body = await request.json().catch(() => null)
-  const { userId, email, credentialId, publicKey, counter, transports } = body
+  const { user, userId, error: authError } = await getAuthenticatedUser(request)
+  if (!user || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
 
-  if (!userId || !credentialId || !publicKey) {
+  const body = await request.json().catch(() => null)
+  if (!body) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+
+  const { credentialId, publicKey, counter, transports } = body
+
+  if (!credentialId || !publicKey) {
     return NextResponse.json({ error: 'Missing passkey data' }, { status: 400 })
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
-  // Upsert passkey to database
+  // Upsert passkey to database for verified user
   const { error: upsertError } = await supabaseAdmin
     .from('passkeys')
     .upsert({
@@ -43,16 +51,14 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true })
 }
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId')
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
-  }
-
+export async function GET(request: NextRequest) {
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json({ error: 'Passkey storage is not configured' }, { status: 500 })
+  }
+
+  const { user, userId, error: authError } = await getAuthenticatedUser(request)
+  if (!user || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
@@ -67,20 +73,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to fetch passkeys' }, { status: 500 })
   }
 
-  return NextResponse.json({ passkeys })
+  return NextResponse.json({ passkeys: passkeys || [] })
 }
 
-export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId')
-  const credentialId = searchParams.get('credentialId')
-
-  if (!userId || !credentialId) {
-    return NextResponse.json({ error: 'Missing userId or credentialId' }, { status: 400 })
-  }
-
+export async function DELETE(request: NextRequest) {
   if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json({ error: 'Passkey storage is not configured' }, { status: 500 })
+  }
+
+  const { user, userId, error: authError } = await getAuthenticatedUser(request)
+  if (!user || !userId) {
+    return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const credentialId = searchParams.get('credentialId')
+
+  if (!credentialId) {
+    return NextResponse.json({ error: 'Missing credentialId' }, { status: 400 })
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)

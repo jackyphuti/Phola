@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 
-type PushEventType = 'sos' | 'loadshedding' | 'incident'
+type PushEventType = 'sos' | 'incident'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -130,51 +130,6 @@ export async function notifySOSActivated() {
     title: 'SOS Activated',
     message: 'Emergency mode is active. Open SOS for live support actions.',
     href: '/sos',
-  })
-}
-
-export async function scheduleLoadsheddingReminder(input: {
-  areaName: string
-  stage: string
-  nextOutage: string | null
-}) {
-  if (!input.nextOutage) return
-
-  const outageTime = new Date(input.nextOutage).getTime()
-  const reminderTime = outageTime - 30 * 60 * 1000
-  const now = Date.now()
-
-  if (reminderTime <= now) {
-    return
-  }
-
-  const delay = reminderTime - now
-  window.setTimeout(() => {
-    void showNotification(
-      `${input.stage}: Power off soon`,
-      `Power off in ${input.areaName} in 30 minutes.`,
-      { href: '/loadshedding' }
-    )
-  }, delay)
-}
-
-export async function triggerLoadsheddingPushEvent(input: {
-  areaName: string
-  stage: string
-  nextOutage: string | null
-}) {
-  await triggerServerPushEvent({
-    eventType: 'loadshedding',
-    title: `${input.stage} update`,
-    message: input.nextOutage
-      ? `${input.areaName}: next outage at ${new Date(input.nextOutage).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`
-      : `${input.areaName}: schedule updated.`,
-    href: '/loadshedding',
-    metadata: {
-      areaName: input.areaName,
-      stage: input.stage,
-      nextOutage: input.nextOutage,
-    },
   })
 }
 

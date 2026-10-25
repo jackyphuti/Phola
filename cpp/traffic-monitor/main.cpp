@@ -79,7 +79,6 @@ int main(int argc, char* argv[]) {
         const std::string path = trim(fields[2]);
         const std::string status = trim(fields[3]);
         const std::uint64_t bytes = static_cast<std::uint64_t>(std::stoull(trim(fields[4])));
-        const std::string& timestamp = trim(fields[0]);
         const auto timePoint = std::chrono::system_clock::from_time_t(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now())); // Placeholder for actual timestamp parsing
         
 
@@ -108,7 +107,7 @@ int main(int argc, char* argv[]) {
     std::cout << "-------------\n";
     std::cout << "Requests: " << totalRequests << '\n';
     std::cout << "Bytes: " << totalBytes << '\n';
-    std::cout << ""-------------\n";
+    std::cout << "-------------\n";
     std::cout << "unique endpoints: " << byPath.size() << '\n';
     std::cout << "Top endpoints are ranked by request count\n";
     std::cout << "Endpoints with requests >= threshold are flagged with HIGH_TRAFFIC\n";

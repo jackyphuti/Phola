@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isLocked, setIsLocked] = useState(true)
+  const [isLocked, setIsLocked] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   const supabase = createClient()
@@ -53,14 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(user)
         if (user) {
           await fetchProfile(user.id)
+          setIsLocked(false)
         } else {
-          setIsLocked(true)
+          setIsLocked(false)
         }
       } catch (error) {
         console.error('Failed to initialize Supabase auth session', error)
         setUser(null)
         setProfile(null)
-        setIsLocked(true)
+        setIsLocked(false)
       } finally {
         setIsLoading(false)
       }
@@ -74,11 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           await fetchProfile(session.user.id)
           if (event === 'SIGNED_IN') {
-            setIsLocked(true)
+            setIsLocked(false)
           }
         } else if (event === 'SIGNED_OUT') {
           setProfile(null)
-          setIsLocked(true)
+          setIsLocked(false)
         } else {
           setProfile(null)
         }

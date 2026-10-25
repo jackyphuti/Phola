@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Zap, ShieldAlert, Bus, Store, Newspaper, Briefcase, Hospital, Shield, FileWarning, CircleDot } from 'lucide-react'
+import { Search, ShieldAlert, Bus, Store, Newspaper, Briefcase, Hospital, Shield, FileWarning, CircleDot, Phone, HeartHandshake } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
 import { loadLanguagePreference } from '@/lib/locale-storage'
 import { createClient } from '@/lib/supabase/client'
-import { notifySOSActivated, scheduleLoadsheddingReminder, subscribeForProductionPush, triggerLoadsheddingPushEvent } from '@/lib/push-notifications'
+import { useAuth } from '@/lib/auth-context'
+import { notifySOSActivated, subscribeForProductionPush } from '@/lib/push-notifications'
 
 type NewsItem = {
   title: string
@@ -23,35 +24,27 @@ type NearbyItem = {
   address?: string
 }
 
-type LoadsheddingInfo = {
-  areaName: string
-  stage: string
-  nextOutage: string | null
-  nextRestore: string | null
-  source: 'eskomsepush' | 'fallback'
-}
-
 const quickActions = [
   { label: 'Report GBV', href: '/report', icon: ShieldAlert },
   { label: 'Report Crime', href: '/report', icon: FileWarning },
+  { label: 'Safety Hub', href: '/safety', icon: HeartHandshake },
+  { label: 'Police Stations', href: '/nearby?category=police_stations', icon: Shield },
+  { label: 'Clinics', href: '/nearby?category=clinics_hospitals', icon: Hospital },
   { label: 'Taxi Ranks', href: '/nearby?category=taxi_ranks', icon: Bus },
   { label: 'Nearby Shops', href: '/nearby?category=malls_shops', icon: Store },
   { label: 'SA News', href: '/news', icon: Newspaper },
-  { label: 'Jobs', href: '/jobs', icon: Briefcase },
-  { label: 'Loadshedding', href: '/loadshedding', icon: Zap },
-  { label: 'Clinics', href: '/nearby?category=clinics_hospitals', icon: Hospital },
 ]
 
 const searchIndex = [
   { label: 'Report GBV', href: '/report' },
   { label: 'Report Crime', href: '/report' },
+  { label: 'Safety Hub & Helplines', href: '/safety' },
   { label: 'Taxi Ranks', href: '/nearby?category=taxi_ranks' },
   { label: 'Nearby Shops', href: '/nearby?category=malls_shops' },
   { label: 'Clinics & Hospitals', href: '/nearby?category=clinics_hospitals' },
   { label: 'Police Stations', href: '/nearby?category=police_stations' },
   { label: 'SA News', href: '/news' },
   { label: 'My Reports', href: '/notes' },
-  { label: 'Safety', href: '/safety' },
   { label: 'Profile Settings', href: '/settings' },
 ]
 
@@ -69,13 +62,13 @@ function formatDistance(km: number): string {
 
 export function SuperHome({ name }: { name: string }) {
   const router = useRouter()
+  const { user } = useAuth()
   const supabase = createClient()
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [language, setLanguage] = useState('en')
   const [search, setSearch] = useState('')
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [news, setNews] = useState<NewsItem[]>([])
-  const [loadshedding, setLoadshedding] = useState<LoadsheddingInfo | null>(null)
   const [nearest, setNearest] = useState<{ taxi?: NearbyItem; shop?: NearbyItem; clinic?: NearbyItem }>({})
   const [isSOSHolding, setIsSOSHolding] = useState(false)
 
@@ -113,27 +106,6 @@ export function SuperHome({ name }: { name: string }) {
   useEffect(() => {
     if (!location) return
 
-    void fetch(`/api/loadshedding?lat=${location.lat}&lng=${location.lng}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Loadshedding request failed')
-        return res.json()
-      })
-      .then((data) => {
-        const parsed = data as LoadsheddingInfo
-        setLoadshedding(parsed)
-        void scheduleLoadsheddingReminder({
-          areaName: parsed.areaName,
-          stage: parsed.stage,
-          nextOutage: parsed.nextOutage,
-        })
-        void triggerLoadsheddingPushEvent({
-          areaName: parsed.areaName,
-          stage: parsed.stage,
-          nextOutage: parsed.nextOutage,
-        })
-      })
-      .catch(() => setLoadshedding(null))
-
     const fetchSummary = async () => {
       const [taxiRes, shopRes, clinicRes] = await Promise.allSettled([
         fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=taxi_ranks`).then(async (res) => {
@@ -167,7 +139,7 @@ export function SuperHome({ name }: { name: string }) {
   }, [search])
 
   const triggerTrustedCirclePing = async () => {
-    if (!location) {
+    if (!location || !user?.id) {
       router.push('/sos')
       return
     }
@@ -176,6 +148,7 @@ export function SuperHome({ name }: { name: string }) {
       const { data } = await supabase
         .from('emergency_contacts')
         .select('phone, is_primary, created_at')
+        .eq('user_id', user.id)
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true })
         .limit(1)
@@ -272,20 +245,27 @@ export function SuperHome({ name }: { name: string }) {
         </section>
 
         <section>
-          <Card className="border border-emerald-100 bg-emerald-50/70">
-            <CardContent className="flex items-center justify-between gap-3 p-3">
-              <div>
-                <p className="text-sm font-semibold text-emerald-950">
-                  {loadshedding?.stage || 'Loadshedding status unavailable'}
-                </p>
+          <Card className="border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 shadow-sm">
+            <CardContent className="flex items-center justify-between gap-3 p-3.5">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                  <p className="text-sm font-semibold text-emerald-950">
+                    GBV Command Centre (24/7)
+                  </p>
+                </div>
                 <p className="text-xs text-emerald-800">
-                  {loadshedding?.areaName || 'South Africa'}
-                  {loadshedding?.nextOutage ? ` • Next outage: ${new Date(loadshedding.nextOutage).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  Toll-free crisis line: <strong>0800 428 428</strong> • Free SMS: <strong>*120*7867#</strong>
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => router.push('/loadshedding')}>
-                <Zap className="mr-1 h-4 w-4" />
-                View
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-emerald-300 bg-white font-medium text-emerald-900 hover:bg-emerald-100 shadow-sm"
+                onClick={() => window.location.href = 'tel:0800428428'}
+              >
+                <Phone className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                Call Free
               </Button>
             </CardContent>
           </Card>

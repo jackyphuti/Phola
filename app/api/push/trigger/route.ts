@@ -1,13 +1,14 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { captureException } from '@sentry/nextjs'
 import { sendWebPushBatch } from '@/lib/server-web-push'
 import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
+import { getAuthenticatedUser } from '@/lib/server-auth'
 import { z } from 'zod'
 
-type PushEventType = 'sos' | 'loadshedding' | 'incident'
+type PushEventType = 'sos' | 'incident'
 
 type TriggerBody = {
   eventType: PushEventType
@@ -18,7 +19,7 @@ type TriggerBody = {
 }
 
 const triggerSchema = z.object({
-  eventType: z.enum(['sos', 'loadshedding', 'incident']),
+  eventType: z.enum(['sos', 'incident']),
   title: z.string().trim().max(120).optional(),
   message: z.string().trim().max(500).optional(),
   href: z.string().trim().min(1).max(200).optional(),
@@ -37,47 +38,12 @@ function getEnv() {
   return { supabaseUrl, supabaseAnonKey, serviceRoleKey }
 }
 
-async function getAuthenticatedUser(request: NextRequest) {
-  const env = getEnv()
-  if (!env) return { userId: null, error: 'Supabase env vars are missing' }
-
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-
-  if (!token) {
-    return { userId: null, error: 'Missing access token' }
-  }
-
-  const supabaseAuth = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  })
-
-  const { data, error } = await supabaseAuth.auth.getUser()
-  if (error || !data.user) {
-    return { userId: null, error: 'Invalid access token' }
-  }
-
-  return { userId: data.user.id, error: null }
-}
-
 function buildDefaultPayload(eventType: PushEventType) {
   if (eventType === 'sos') {
     return {
       title: 'SOS Activated',
       message: 'Emergency mode is active. Keep location sharing on.',
       href: '/sos',
-    }
-  }
-
-  if (eventType === 'loadshedding') {
-    return {
-      title: 'Loadshedding Update',
-      message: 'Your outage schedule has a new update.',
-      href: '/loadshedding',
     }
   }
 
@@ -150,7 +116,7 @@ export async function POST(request: NextRequest) {
       })
       .in('id', result.successIds)
 
-    if (error) {
+  if (error) {
       captureException(new Error(error.message))
     }
   }
