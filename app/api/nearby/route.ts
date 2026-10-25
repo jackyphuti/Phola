@@ -1,7 +1,7 @@
 import { captureException } from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit, rateLimitResponse } from '@/lib/api'
-import { getNearbySAPSStations, getNearbyMalls } from '@/lib/saps-stations'
+import { getNearbySAPSStations, getNearbyMalls, getNearbyHospitals } from '@/lib/saps-stations'
 
 type NearbyCategory =
   | 'taxi_ranks'
@@ -126,6 +126,16 @@ function getCuratedFallbacks(category: NearbyCategory, lat: number, lng: number)
       address: mall.address,
       location: { lat: mall.lat, lng: mall.lng },
       distanceKm: mall.distanceKm,
+    }))
+  }
+
+  if (category === 'clinics_hospitals') {
+    return getNearbyHospitals(lat, lng, 15).map((hospital) => ({
+      id: hospital.id,
+      name: hospital.name,
+      address: `${hospital.address}${hospital.phone ? ` • Tel: ${hospital.phone}` : ''}`,
+      location: { lat: hospital.lat, lng: hospital.lng },
+      distanceKm: hospital.distanceKm,
     }))
   }
 

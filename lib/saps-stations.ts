@@ -84,6 +84,58 @@ export const POPULAR_SA_MALLS = [
   { id: 'walmer-park', name: 'Walmer Park Shopping Centre', lat: -33.9812, lng: 25.5684, address: 'Main Rd, Walmer, Gqeberha' },
 ]
 
+export type SAHospital = {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  province: string
+  address: string
+  phone?: string
+}
+
+export const SA_HOSPITALS: SAHospital[] = [
+  // Gauteng
+  { id: 'gp-charlotte-maxeke', name: 'Charlotte Maxeke Johannesburg Academic Hospital', lat: -26.1772, lng: 28.0436, province: 'Gauteng', address: 'Jubilee Rd, Parktown, Johannesburg', phone: '0114884911' },
+  { id: 'gp-baragwanath', name: 'Chris Hani Baragwanath Academic Hospital', lat: -26.2608, lng: 27.9427, province: 'Gauteng', address: '26 Chris Hani Rd, Diepkloof, Soweto', phone: '0119338000' },
+  { id: 'gp-steve-biko', name: 'Steve Biko Academic Hospital', lat: -25.7275, lng: 28.2045, province: 'Gauteng', address: 'Voortrekker Rd, Gezina, Pretoria', phone: '0123541000' },
+  { id: 'gp-helen-joseph', name: 'Helen Joseph Hospital', lat: -26.1819, lng: 27.9972, province: 'Gauteng', address: 'Perth Rd, Westdene, Johannesburg', phone: '0114891011' },
+  { id: 'gp-pretoria-west', name: 'Pretoria West Hospital', lat: -25.7519, lng: 28.1364, province: 'Gauteng', address: '380 Rebecca St, Pretoria West', phone: '0123801200' },
+  { id: 'gp-tembisa', name: 'Tembisa Provincial Tertiary Hospital', lat: -25.9986, lng: 28.2269, province: 'Gauteng', address: 'Flint Mazibuko St, Olifantsfontein', phone: '0119232000' },
+  { id: 'gp-kalafong', name: 'Kalafong Provincial Tertiary Hospital', lat: -25.7725, lng: 28.0933, province: 'Gauteng', address: 'Klipspringer St, Atteridgeville, Pretoria', phone: '0123186400' },
+  { id: 'gp-life-groenkloof', name: 'Life Groenkloof Hospital (Pretoria)', lat: -25.7711, lng: 28.2144, province: 'Gauteng', address: '50 George Storrar Dr, Groenkloof, Pretoria', phone: '0124243600' },
+  { id: 'gp-netcare-milpark', name: 'Netcare Milpark Hospital & Trauma Unit', lat: -26.1822, lng: 28.0167, province: 'Gauteng', address: '9 Guild Rd, Parktown West, Johannesburg', phone: '0114805600' },
+
+  // Western Cape
+  { id: 'wc-groote-schuur', name: 'Groote Schuur Hospital', lat: -33.9413, lng: 18.4632, province: 'Western Cape', address: 'Main Rd, Observatory, Cape Town', phone: '0214049111' },
+  { id: 'wc-tygerberg', name: 'Tygerberg Hospital', lat: -33.9069, lng: 18.6133, province: 'Western Cape', address: 'Francie Van Zijl Dr, Tygerberg, Cape Town', phone: '0219384911' },
+  { id: 'wc-somerset', name: 'New Somerset Hospital', lat: -33.9061, lng: 18.4128, province: 'Western Cape', address: 'Beach Rd, Green Point, Cape Town', phone: '0214026911' },
+  { id: 'wc-khayelitsha', name: 'Khayelitsha District Hospital', lat: -34.0416, lng: 18.6791, province: 'Western Cape', address: 'Cnr Steve Biko & Walter Sisulu Rd, Khayelitsha', phone: '0213604200' },
+  { id: 'wc-mitchells-plain', name: 'Mitchells Plain District Hospital', lat: -34.0531, lng: 18.6125, province: 'Western Cape', address: 'AZ Berman Dr, Lentegeur, Mitchells Plain', phone: '0213774300' },
+
+  // KwaZulu-Natal
+  { id: 'kzn-king-edward', name: 'King Edward VIII Hospital', lat: -29.8733, lng: 30.9897, province: 'KwaZulu-Natal', address: 'Corner Rick Turner & Sydney Rd, Congella, Durban', phone: '0313603000' },
+  { id: 'kzn-addington', name: 'Addington Hospital', lat: -29.8631, lng: 31.0425, province: 'KwaZulu-Natal', address: 'Erskine Terrace, South Beach, Durban', phone: '0313272000' },
+  { id: 'kzn-albert-luthuli', name: 'Inkosi Albert Luthuli Central Hospital', lat: -29.8519, lng: 30.9636, province: 'KwaZulu-Natal', address: '800 Vusi Mzimela Rd, Cato Manor, Durban', phone: '0312401000' },
+  { id: 'kzn-greys', name: "Grey's Hospital (Pietermaritzburg)", lat: -29.5847, lng: 30.3639, province: 'KwaZulu-Natal', address: 'Town Bush Rd, Northern Park, Pietermaritzburg', phone: '0338973000' },
+
+  // Eastern Cape
+  { id: 'ec-livingstone', name: 'Livingstone Hospital (Gqeberha)', lat: -33.9317, lng: 25.5786, province: 'Eastern Cape', address: 'Stanford Rd, Korsten, Gqeberha', phone: '0414059111' },
+  { id: 'ec-frere', name: 'Frere Hospital (East London)', lat: -32.9972, lng: 27.8931, province: 'Eastern Cape', address: 'Amalinda Dr, Braelyn, East London', phone: '0437091111' },
+
+  // Free State
+  { id: 'fs-universitas', name: 'Universitas Academic Hospital', lat: -29.1172, lng: 26.1883, province: 'Free State', address: '1 Logeman St, Universitas, Bloemfontein', phone: '0514053911' },
+
+  // Limpopo
+  { id: 'lp-pietersburg', name: 'Pietersburg Provincial Hospital', lat: -23.9067, lng: 29.4533, province: 'Limpopo', address: 'Hospital St, Polokwane', phone: '0152875000' },
+
+  // Mpumalanga
+  { id: 'mp-rob-ferreira', name: 'Rob Ferreira Hospital', lat: -25.4744, lng: 30.9781, province: 'Mpumalanga', address: 'Piet Retief St, Mbombela', phone: '0137568100' },
+
+  // North West
+  { id: 'nw-klerksdorp', name: 'Klerksdorp Tshepong Hospital Complex', lat: -26.8622, lng: 26.6578, province: 'North West', address: 'Church St, Klerksdorp', phone: '0184063111' },
+]
+
 function toRad(value: number): number {
   return (value * Math.PI) / 180
 }
@@ -139,6 +191,19 @@ export function getNearbyMalls(
   return POPULAR_SA_MALLS.map((mall) => ({
     ...mall,
     distanceKm: distanceKm(lat, lng, mall.lat, mall.lng),
+  }))
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, limit)
+}
+
+export function getNearbyHospitals(
+  lat: number,
+  lng: number,
+  limit = 15
+): Array<SAHospital & { distanceKm: number }> {
+  return SA_HOSPITALS.map((hospital) => ({
+    ...hospital,
+    distanceKm: distanceKm(lat, lng, hospital.lat, hospital.lng),
   }))
     .sort((a, b) => a.distanceKm - b.distanceKm)
     .slice(0, limit)

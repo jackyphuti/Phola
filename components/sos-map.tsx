@@ -6,7 +6,8 @@ import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { notifySOSActivated } from '@/lib/push-notifications'
-import { safeExit } from '@/lib/safe-exit'
+import { getNearbySAPSStations, getNearbyHospitals } from '@/lib/saps-stations'
+import { getApiUrl } from '@/lib/api-client'
 import 'leaflet/dist/leaflet.css'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -266,92 +267,114 @@ export function SOSMap() {
     }
   }, [requestLocation])
 
-  // Search for nearby safe places using Overpass API (OpenStreetMap)
+  // Search for nearby safe places using curated SA stations & server /api/nearby
   const searchNearbyPlaces = useCallback(async () => {
     if (!currentLocation) return
 
     setIsLoadingPlaces(true)
-    
-    const radius = SEARCH_RADIUS_METERS
     const { lat, lng } = currentLocation
-    
-    // Overpass API query for hospitals and police stations
-    const query = `
-      [out:json][timeout:40];
-      (
-        node["amenity"="hospital"](around:${radius},${lat},${lng});
-        way["amenity"="hospital"](around:${radius},${lat},${lng});
-        node["amenity"="police"](around:${radius},${lat},${lng});
-        way["amenity"="police"](around:${radius},${lat},${lng});
-        node["amenity"="clinic"](around:${radius},${lat},${lng});
-        way["amenity"="clinic"](around:${radius},${lat},${lng});
-      );
-      out center;
-    `
 
+    // 1. Instant verified fallbacks from our South African database
+    const sapsFallback: SafePlace[] = getNearbySAPSStations(lat, lng, 15).map((s) => ({
+      id: s.code,
+      name: s.name,
+      address: `${s.province}, South Africa`,
+      distance: s.distanceKm,
+      distanceText: formatDistance(s.distanceKm),
+      duration: estimateDuration(s.distanceKm),
+      location: { lat: s.lat, lng: s.lng },
+      type: 'police' as const,
+      phone: s.phone || '10111',
+    }))
+
+    const hospitalFallback: SafePlace[] = getNearbyHospitals(lat, lng, 15).map((h) => ({
+      id: h.id,
+      name: h.name,
+      address: h.address,
+      distance: h.distanceKm,
+      distanceText: formatDistance(h.distanceKm),
+      duration: estimateDuration(h.distanceKm),
+      location: { lat: h.lat, lng: h.lng },
+      type: 'hospital' as const,
+      phone: h.phone || '10177',
+    }))
+
+    const baseline = [...sapsFallback, ...hospitalFallback].sort((a, b) => a.distance - b.distance)
+    setSafePlaces(baseline)
+
+    // 2. Fetch live Overpass enriched data through our internal server endpoint
     try {
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: `data=${encodeURIComponent(query)}`,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      })
+      const [policeRes, hospitalRes] = await Promise.all([
+        fetch(getApiUrl(`/api/nearby?lat=${lat}&lng=${lng}&category=police_stations`))
+          .then((r) => r.json())
+          .catch(() => ({ results: [] })),
+        fetch(getApiUrl(`/api/nearby?lat=${lat}&lng=${lng}&category=clinics_hospitals`))
+          .then((r) => r.json())
+          .catch(() => ({ results: [] })),
+      ])
 
-      if (!response.ok) throw new Error('Failed to fetch places')
+      const livePlaces: SafePlace[] = []
 
-      const data = await response.json()
-      
-      const places: SafePlace[] = data.elements
-        .filter((el: { lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string } }) => 
-          (el.lat && el.lon) || (el.center?.lat && el.center?.lon)
-        )
-        .map((el: { id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: { name?: string; amenity?: string; 'addr:street'?: string; 'addr:housenumber'?: string; 'addr:city'?: string; phone?: string } }) => {
-          const elLat = el.lat || el.center?.lat || 0
-          const elLng = el.lon || el.center?.lon || 0
-          const distance = calculateDistance(lat, lng, elLat, elLng)
-          const amenity = el.tags?.amenity
-          
-          let type: 'hospital' | 'police' | 'shelter' = 'hospital'
-          if (amenity === 'police') type = 'police'
-          else if (amenity === 'clinic') type = 'hospital'
-          
-          const street = el.tags?.['addr:street'] || ''
-          const number = el.tags?.['addr:housenumber'] || ''
-          const city = el.tags?.['addr:city'] || ''
-          const address = [number, street, city].filter(Boolean).join(', ') || 'Address unavailable'
+      if (Array.isArray(policeRes?.results)) {
+        for (const item of policeRes.results) {
+          livePlaces.push({
+            id: item.id || `police-${item.name}`,
+            name: item.name,
+            address: item.address || 'Police Station',
+            distance: item.distanceKm,
+            distanceText: formatDistance(item.distanceKm),
+            duration: estimateDuration(item.distanceKm),
+            location: item.location,
+            type: 'police' as const,
+            phone: '10111',
+          })
+        }
+      }
 
-          return {
-            id: String(el.id),
-            name: el.tags?.name || (type === 'hospital' ? 'Hospital' : 'Police Station'),
-            address,
-            distance,
-            distanceText: formatDistance(distance),
-            duration: estimateDuration(distance),
-            location: { lat: elLat, lng: elLng },
-            type,
-            phone: el.tags?.phone,
+      if (Array.isArray(hospitalRes?.results)) {
+        for (const item of hospitalRes.results) {
+          livePlaces.push({
+            id: item.id || `hospital-${item.name}`,
+            name: item.name,
+            address: item.address || 'Hospital / Clinic',
+            distance: item.distanceKm,
+            distanceText: formatDistance(item.distanceKm),
+            duration: estimateDuration(item.distanceKm),
+            location: item.location,
+            type: 'hospital' as const,
+            phone: '10177',
+          })
+        }
+      }
+
+      if (livePlaces.length > 0) {
+        // Merge & deduplicate by name or coordinates within 300m
+        const merged = [...baseline]
+        for (const live of livePlaces) {
+          const isDupe = merged.some(
+            (b) =>
+              b.name.toLowerCase() === live.name.toLowerCase() ||
+              calculateDistance(b.location.lat, b.location.lng, live.location.lat, live.location.lng) < 0.3
+          )
+          if (!isDupe) {
+            merged.push(live)
           }
-        })
-        .sort((a: SafePlace, b: SafePlace) => a.distance - b.distance)
-        .slice(0, 40)
-
-      setSafePlaces(places)
-    } catch (error) {
-      console.log('[v0] Places search error:', error)
-      // Fallback: add some known SA emergency locations
-      setSafePlaces([])
+        }
+        setSafePlaces(merged.sort((a, b) => a.distance - b.distance).slice(0, 40))
+      }
+    } catch {
+      // Baseline verified hospitals and SAPS are already active
     } finally {
       setIsLoadingPlaces(false)
     }
   }, [currentLocation])
 
-  // Search places when location is available
+  // Search places as soon as location is available
   useEffect(() => {
-    if (currentLocation && mapReady) {
+    if (currentLocation) {
       searchNearbyPlaces()
     }
-  }, [currentLocation, mapReady, searchNearbyPlaces])
+  }, [currentLocation, searchNearbyPlaces])
 
   // Get route using OSRM (free routing service)
   const getRoute = useCallback(async (place: SafePlace) => {
@@ -498,15 +521,6 @@ export function SOSMap() {
             >
               <Share2 className="w-5 h-5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={safeExit}
-              className="text-muted-foreground"
-              title="Quick exit"
-            >
-              <X className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </header>
@@ -619,8 +633,9 @@ export function SOSMap() {
             whenReady={() => setMapReady(true)}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              maxZoom={20}
             />
             
             {/* Current location marker */}
@@ -644,10 +659,10 @@ export function SOSMap() {
                 }}
               >
                 <Popup>
-                  <div className="min-w-[180px]">
-                    <h3 className="font-semibold">{place.name}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{place.address}</p>
-                    <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+                  <div className="min-w-[190px]">
+                    <h3 className="font-semibold text-sm">{place.name}</h3>
+                    <p className="text-xs text-gray-600 mt-1">{place.address}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Route className="w-3 h-3" />
                         {place.distanceText}
@@ -657,12 +672,24 @@ export function SOSMap() {
                         {place.duration}
                       </span>
                     </div>
-                    <button
-                      onClick={() => getRoute(place)}
-                      className="mt-3 w-full bg-primary text-primary-foreground text-sm py-2 px-3 rounded-md hover:bg-primary/90"
-                    >
-                      View Route In App
-                    </button>
+                    <div className="flex gap-1.5 mt-3">
+                      <button
+                        onClick={() => openExternalNavigation(place)}
+                        className="flex-1 bg-primary text-primary-foreground text-xs font-semibold py-1.5 px-2.5 rounded-lg hover:bg-primary/90 flex items-center justify-center gap-1"
+                      >
+                        <Navigation className="w-3 h-3" />
+                        Google Maps
+                      </button>
+                      {place.phone && (
+                        <button
+                          onClick={() => callNumber(place.phone!)}
+                          className="bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold py-1.5 px-2 rounded-lg hover:bg-emerald-100 flex items-center justify-center"
+                          title="Call phone"
+                        >
+                          <Phone className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -722,9 +749,28 @@ export function SOSMap() {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex gap-2 mt-3">
-                <Button 
-                  className="flex-1"
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <Button
+                  className="flex-1 bg-primary hover:bg-primary/95 text-white font-bold text-xs h-9 rounded-xl shadow-xs"
+                  onClick={() => openExternalNavigation(selectedPlace)}
+                >
+                  <Navigation className="w-4 h-4 mr-1.5" />
+                  Open in Google Maps
+                </Button>
+                {selectedPlace.phone && (
+                  <Button
+                    variant="outline"
+                    className="rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-3"
+                    onClick={() => callNumber(selectedPlace.phone!)}
+                  >
+                    <Phone className="w-4 h-4 mr-1 text-emerald-600" />
+                    Call
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl text-xs font-semibold h-9 px-3"
                   onClick={() => {
                     if (isNavigating) {
                       stopInAppNavigation()
@@ -733,24 +779,8 @@ export function SOSMap() {
                     }
                   }}
                 >
-                  <Navigation className="w-4 h-4 mr-2" />
-                  {isNavigating ? 'Stop Navigation' : 'Navigate In App'}
+                  {isNavigating ? 'Clear Route' : 'In-App Route'}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => openExternalNavigation(selectedPlace)}
-                  title="Open in Google Maps"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-                {selectedPlace.phone && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.location.href = `tel:${selectedPlace.phone}`}
-                  >
-                    <Phone className="w-4 h-4" />
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -830,18 +860,34 @@ export function SOSMap() {
                           </span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void startInAppNavigation(place)
-                        }}
-                        title="Navigate in app"
-                      >
-                        <Navigation className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {place.phone && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              callNumber(place.phone!)
+                            }}
+                            title={`Call ${place.name}`}
+                          >
+                            <Phone className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-primary hover:bg-primary/10 rounded-lg"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openExternalNavigation(place)
+                          }}
+                          title="Open in Google Maps"
+                        >
+                          <Navigation className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
