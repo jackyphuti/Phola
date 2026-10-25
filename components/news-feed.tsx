@@ -77,12 +77,14 @@ export function NewsFeed() {
   const headerText = useMemo(() => categories.find((entry) => entry.value === category)?.label || 'News', [category])
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pb-24 safe-top safe-bottom">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-[1.75rem] border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">News</p>
+          <div className="pl-12 sm:pl-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">News</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">SA News</h1>
           <p className="mt-2 text-sm text-muted-foreground">{headerText}</p>
+          </div>
         </section>
 
         <section className="flex gap-2 overflow-x-auto pb-1">

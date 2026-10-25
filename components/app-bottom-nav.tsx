@@ -71,7 +71,7 @@ export function AppBottomNav() {
         <button
           type="button"
           onClick={() => toggleHide(false)}
-          className="fixed left-3.5 top-3.5 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200/90 bg-white/95 text-emerald-900 shadow-md backdrop-blur hover:bg-emerald-50 hover:border-emerald-300 transition-all hover:scale-105 active:scale-95"
+          className="fixed left-3.5 top-[max(0.875rem,calc(0.5rem+env(safe-area-inset-top,0px)))] z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200/90 bg-white/95 text-emerald-900 shadow-md backdrop-blur hover:bg-emerald-50 hover:border-emerald-300 transition-all hover:scale-105 active:scale-95"
           title="Menu"
           aria-label="Open navigation menu"
         >

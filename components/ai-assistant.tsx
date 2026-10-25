@@ -166,7 +166,7 @@ export function AIAssistant() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background safe-top safe-bottom">
+    <div className="relative min-h-screen overflow-hidden bg-background pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       <div
         className={`pointer-events-none fixed inset-0 z-40 transition-opacity duration-500 ${
           isActivated || isLoading ? 'opacity-100' : 'opacity-0'
@@ -186,7 +186,7 @@ export function AIAssistant() {
       </div>
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between p-4 pl-16 sm:pl-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Gemini</p>
             <h1 className="text-lg font-semibold text-foreground">Sisi / Buti Bot</h1>

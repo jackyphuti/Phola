@@ -612,7 +612,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background safe-top safe-bottom">
+    <div className="min-h-screen bg-background pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       {isPhotoPreviewOpen && photoDataUrl && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-md">
@@ -908,7 +908,7 @@ export function SettingsPage() {
 
       {/* Header */}
       <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-40">
-        <div className="flex items-center gap-3 p-4">
+        <div className="flex items-center gap-3 p-4 pl-16 sm:pl-4">
           <Button
             variant="ghost"
             size="icon"

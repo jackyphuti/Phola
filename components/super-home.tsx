@@ -199,11 +199,11 @@ export function SuperHome({ name }: { name: string }) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.09),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pb-24 safe-top safe-bottom">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.09),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_60px_rgba(5,40,40,0.06)] sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
+            <div className="pl-12 sm:pl-0">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Phola home</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{getGreetingByLanguage(language, name || 'friend')}</h1>
               <p className="mt-2 text-sm text-muted-foreground">Your Mzansi community super app</p>
