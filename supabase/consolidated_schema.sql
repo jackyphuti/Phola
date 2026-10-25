@@ -217,25 +217,15 @@ begin
 end
 $$;
 
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_policies
-    where schemaname = 'realtime'
-      and tablename = 'messages'
-      and policyname = 'authenticated can receive broadcasts'
-  ) then
-    execute '
-      create policy "authenticated can receive broadcasts"
-      on "realtime"."messages"
-      for select
-      to authenticated
-      using (true)
-    ';
-  end if;
-end
-$$;
+drop policy if exists "authenticated can receive broadcasts" on "realtime"."messages";
+
+create policy "authenticated can receive broadcasts"
+on "realtime"."messages"
+for select
+to authenticated
+using (
+  realtime.topic() = 'user:' || (select auth.uid())::text || ':incidents'
+);
 
 create or replace function public.broadcast_incident_changes()
 returns trigger

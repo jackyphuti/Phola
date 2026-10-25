@@ -13,6 +13,7 @@ import { Loader2, AlertCircle, ArrowRight, Check, Info, Fingerprint } from 'luci
 import Link from 'next/link'
 import { registerPasskey, savePasskeyToDatabase, isPasskeyAvailable } from '@/lib/passkey'
 import { safeExit } from '@/lib/safe-exit'
+import { getApiUrl } from '@/lib/api-client'
 import { LanguageSelector } from '@/components/language-selector'
 import { getAuthCallbackUrl } from '@/lib/auth-url'
 import { PrivacyConsent } from '@/components/privacy-consent'
@@ -163,7 +164,7 @@ export default function SignUpPage() {
         setError(error.message)
       } else {
         if (data.user?.id && photoDataUrl) {
-          const response = await fetch('/api/profile-photo', {
+          const response = await fetch(getApiUrl('/api/profile-photo'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

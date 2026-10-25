@@ -36,7 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single()
     
     if (data) {
-      setProfile(data as Profile)
+      const p = data as Profile
+      setProfile(p)
+      if (p.pin_hash) {
+        const isSessionUnlocked = typeof window !== 'undefined' && window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
+        setIsLocked(!isSessionUnlocked)
+      } else {
+        setIsLocked(false)
+      }
     }
   }, [supabase])
 
@@ -53,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(user)
         if (user) {
           await fetchProfile(user.id)
-          setIsLocked(false)
         } else {
           setIsLocked(false)
         }
@@ -75,9 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           await fetchProfile(session.user.id)
           if (event === 'SIGNED_IN') {
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem(`phola_unlocked_${session.user.id}`, 'true')
+            }
             setIsLocked(false)
           }
         } else if (event === 'SIGNED_OUT') {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.clear()
+          }
           setProfile(null)
           setIsLocked(false)
         } else {
@@ -106,12 +118,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       idleTimerRef.current = setTimeout(() => {
-        setIsLocked(true)
+        if (profile?.pin_hash) {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
+          }
+          setIsLocked(true)
+        }
       }, idleMs)
     }
 
     const lockOnHide = () => {
-      if (document.visibilityState === 'hidden') {
+      if (document.visibilityState === 'hidden' && profile?.pin_hash) {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
+        }
         setIsLocked(true)
       }
     }
@@ -134,17 +154,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', lockOnHide)
       window.removeEventListener('blur', lockOnHide)
     }
-  }, [user])
+  }, [user, profile?.pin_hash])
+
+  const unlock = useCallback(() => {
+    if (user?.id && typeof window !== 'undefined') {
+      window.sessionStorage.setItem(`phola_unlocked_${user.id}`, 'true')
+    }
+    setIsLocked(false)
+  }, [user?.id])
+
+  const lock = useCallback(() => {
+    if (user?.id && typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
+    }
+    setIsLocked(true)
+  }, [user?.id])
 
   const signOut = async () => {
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.clear()
+    }
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
-    setIsLocked(true)
+    setIsLocked(false)
   }
-
-  const unlock = () => setIsLocked(false)
-  const lock = () => setIsLocked(true)
 
   return (
     <AuthContext.Provider 

@@ -15,6 +15,7 @@ import { getNearestSAPSStation } from '@/lib/saps-stations'
 import { queueIncidentSubmission } from '@/lib/offline-queue'
 import { triggerIncidentPushEvent } from '@/lib/push-notifications'
 import { safeExit } from '@/lib/safe-exit'
+import { getApiUrl } from '@/lib/api-client'
 import { AlertCircle, ArrowLeft, Calendar, FileImage, Loader2, MapPin, Save, Send, Shield, Upload, X } from 'lucide-react'
 
 interface ReportFormProps {
@@ -196,7 +197,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
     payload.append('incidentType', crimeType)
     payload.append('metadata', JSON.stringify(buildMetadata()))
 
-    const response = await fetch('/api/evidence', {
+    const response = await fetch(getApiUrl('/api/evidence'), {
       method: 'POST',
       body: payload,
     })

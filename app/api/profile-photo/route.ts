@@ -6,6 +6,7 @@ import { getAuthenticatedUser } from '@/lib/server-auth'
 import { z } from 'zod'
 
 const PHOTO_BUCKET = 'profile-photos'
+const ALLOWED_PHOTO_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 
 const profilePhotoSchema = z.object({
   fullName: z.string().trim().min(1).max(120),
@@ -16,9 +17,16 @@ function toBuffer(dataUrl: string) {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/)
   if (!match) return null
 
+  const contentType = match[1].toLowerCase()
+  if (!ALLOWED_PHOTO_MIMES.has(contentType)) return null
+
+  const buffer = Buffer.from(match[2], 'base64')
+  // Limit to 5MB
+  if (buffer.length > 5 * 1024 * 1024) return null
+
   return {
-    contentType: match[1],
-    buffer: Buffer.from(match[2], 'base64'),
+    contentType,
+    buffer,
   }
 }
 
@@ -70,7 +78,7 @@ export async function POST(request: NextRequest) {
   if (photoDataUrl) {
     const photo = toBuffer(photoDataUrl)
     if (!photo) {
-      return NextResponse.json({ error: 'Invalid photo' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid photo format or file exceeds 5MB limit' }, { status: 400 })
     }
 
     photoPath = await buildPhotoPath(userId)

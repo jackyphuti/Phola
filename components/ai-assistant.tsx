@@ -12,6 +12,7 @@ import { Loader2, Mic, MicOff, MessageCircle, ShieldAlert, Sparkles } from 'luci
 import { loadLanguagePreference } from '@/lib/locale-storage'
 import { DEFAULT_LANGUAGE } from '@/lib/language-options'
 import type { GeminiAssistantResponse } from '@/lib/gemini'
+import { getApiUrl } from '@/lib/api-client'
 
 const starterPrompts = [
   'Help me leave safely tonight',
@@ -119,7 +120,7 @@ export function AIAssistant() {
     setError('')
 
     try {
-      const res = await fetch('/api/assistant', {
+      const res = await fetch(getApiUrl('/api/assistant'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

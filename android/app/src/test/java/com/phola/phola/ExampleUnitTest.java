@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package com.phola.phola;
 
 import static org.junit.Assert.*;
 

@@ -33,3 +33,4 @@ traffic-monitor
 .env*
 *.apk
 .vscode/
+package-lock.json

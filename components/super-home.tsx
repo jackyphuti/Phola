@@ -10,6 +10,7 @@ import { loadLanguagePreference } from '@/lib/locale-storage'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { notifySOSActivated, subscribeForProductionPush } from '@/lib/push-notifications'
+import { getApiUrl } from '@/lib/api-client'
 
 type NewsItem = {
   title: string
@@ -90,7 +91,7 @@ export function SuperHome({ name }: { name: string }) {
   }, [])
 
   useEffect(() => {
-    void fetch('/api/news?category=top&limit=6')
+    void fetch(getApiUrl('/api/news?category=top&limit=6'))
       .then((res) => {
         if (!res.ok) throw new Error('News request failed')
         return res.json()

@@ -1,4 +1,5 @@
 // Passkey/WebAuthn management utilities
+import { getApiUrl } from '@/lib/api-client'
 
 export interface PasskeyCredential {
   id: string
@@ -135,7 +136,7 @@ export async function savePasskeyToDatabase(
   passkey: PasskeyCredential
 ): Promise<boolean> {
   try {
-    const response = await fetch('/api/passkey', {
+    const response = await fetch(getApiUrl('/api/passkey'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

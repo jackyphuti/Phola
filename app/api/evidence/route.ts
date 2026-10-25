@@ -7,6 +7,30 @@ import { z } from 'zod'
 
 const EVIDENCE_BUCKET = 'incident-evidence'
 
+const ALLOWED_MIME_TYPES = new Set([
+  // Images
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  // Audio
+  'audio/mpeg',
+  'audio/mp4',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+  'audio/aac',
+  'audio/x-m4a',
+  // Video
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  // Documents
+  'application/pdf',
+])
+
 type UploadedEvidenceItem = {
   path: string
   contentType: string
@@ -65,7 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (files.length > 10) {
-    return NextResponse.json({ error: 'Too many files uploaded' }, { status: 400 })
+    return NextResponse.json({ error: 'Too many files uploaded (maximum 10)' }, { status: 400 })
   }
 
   let metadata: Record<string, unknown> = {}
@@ -78,11 +102,18 @@ export async function POST(request: NextRequest) {
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
-
   const uploaded: UploadedEvidenceItem[] = []
 
   for (const file of files) {
     if (!(file instanceof File)) continue
+
+    const mime = (file.type || '').toLowerCase().trim()
+    if (!ALLOWED_MIME_TYPES.has(mime)) {
+      return NextResponse.json(
+        { error: `File type "${mime || 'unknown'}" is not permitted. Only standard images, audio, video, and PDF evidence are allowed.` },
+        { status: 400 }
+      )
+    }
 
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: 'Each evidence file must be 10MB or smaller' }, { status: 400 })
@@ -96,7 +127,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabaseAdmin.storage
       .from(EVIDENCE_BUCKET)
       .upload(path, buffer, {
-        contentType: file.type || 'application/octet-stream',
+        contentType: mime,
         upsert: false,
       })
 
@@ -107,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     uploaded.push({
       path,
-      contentType: file.type || 'application/octet-stream',
+      contentType: mime,
       size: file.size,
       originalName: file.name,
       uploadedAt: now,

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { getApiUrl } from '@/lib/api-client'
 
 type PushEventType = 'sos' | 'incident'
 
@@ -29,7 +30,7 @@ async function authedPushPost(path: string, payload: Record<string, unknown>) {
   const token = await getAccessToken()
   if (!token) return
 
-  await fetch(path, {
+  await fetch(getApiUrl(path), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

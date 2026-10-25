@@ -1,3 +1,9 @@
+/**
+ * Phola Service Worker - Web Push & Background Notifications
+ * NOTE: This service worker intentionally omits a fetch event listener
+ * to prevent stale chunk caching with Next.js App Router dynamic hydration.
+ */
+
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting())
 })

@@ -23,6 +23,7 @@ import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { LanguageSelector } from '@/components/language-selector'
 import InstallPrompt from '@/components/install-prompt'
 import { clearSensitiveLocalData } from '@/lib/privacy'
+import { getApiUrl } from '@/lib/api-client'
 import { hashPin, verifyPin } from '@/lib/pin'
 import type { EmergencyContact } from '@/lib/types'
 import { 
@@ -486,7 +487,7 @@ export function SettingsPage() {
 
     try {
       const croppedPhoto = await cropPhotoForUpload(photoDataUrl, photoZoom)
-      const response = await fetch('/api/profile-photo', {
+      const response = await fetch(getApiUrl('/api/profile-photo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
