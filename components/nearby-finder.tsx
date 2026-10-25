@@ -6,6 +6,8 @@ import { MapPin, Navigation, Building2, Star, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
+import { getReliableLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
+import { getApiUrl } from '@/lib/api-client'
 
 type NearbyCategory =
   | 'taxi_ranks'
@@ -54,70 +56,87 @@ function getCacheKey(category: NearbyCategory): string {
 export function NearbyFinder() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialCategory = (searchParams.get('category') as NearbyCategory) || 'taxi_ranks'
+  const initialCategory = (searchParams.get('category') as NearbyCategory) || 'malls_shops'
 
   const [category, setCategory] = useState<NearbyCategory>(initialCategory)
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [location, setLocation] = useState<{ lat: number; lng: number }>(DEFAULT_SOUTH_AFRICA_LOCATION)
   const [isLoading, setIsLoading] = useState(false)
   const [results, setResults] = useState<NearbyResult[]>([])
   const [source, setSource] = useState('')
 
   useEffect(() => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-      },
-      () => {
-        setLocation(null)
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    )
+    let isMounted = true
+    void getReliableLocation().then((loc) => {
+      if (isMounted && loc) {
+        setLocation(loc)
+      }
+    })
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   useEffect(() => {
-    const cachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(getCacheKey(category)) : null
+    const key = getCacheKey(category)
+    const cachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
     if (cachedRaw) {
       try {
         const cached = JSON.parse(cachedRaw) as { results: NearbyResult[]; source: string }
-        if (Array.isArray(cached.results)) {
+        if (Array.isArray(cached?.results) && cached.results.length > 0) {
           setResults(cached.results)
           setSource(`${cached.source} (cached)`)
         }
       } catch {
-        // ignore cache parse errors
+        try {
+          window.localStorage.removeItem(key)
+        } catch {
+          // ignore
+        }
       }
     }
   }, [category])
 
   useEffect(() => {
-    if (!location) return
+    let isMounted = true
 
     const fetchResults = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=${category}`)
+        const url = getApiUrl(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=${category}`)
+        const response = await fetch(url)
         const data = await response.json()
         const nextResults = Array.isArray(data?.results) ? data.results : []
 
-        setResults(nextResults)
-        setSource(data?.source || 'unknown')
+        if (!isMounted) return
 
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(getCacheKey(category), JSON.stringify({
-            results: nextResults,
-            source: data?.source || 'unknown',
-            ts: Date.now(),
-          }))
+        setResults(nextResults)
+        setSource(data?.source || 'live')
+
+        if (typeof window !== 'undefined' && nextResults.length > 0) {
+          try {
+            window.localStorage.setItem(getCacheKey(category), JSON.stringify({
+              results: nextResults,
+              source: data?.source || 'live',
+              ts: Date.now(),
+            }))
+          } catch {
+            // ignore quota
+          }
         }
       } catch {
-        // Keep cached results if available.
+        // Keep cached results if available
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
     void fetchResults()
+
+    return () => {
+      isMounted = false
+    }
   }, [location, category])
 
   const categoryLabel = useMemo(() => categories.find((item) => item.value === category)?.label || 'Nearby', [category])
@@ -137,11 +156,11 @@ export function NearbyFinder() {
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-[1.75rem] border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="pl-12 sm:pl-0">
+            <div className="pl-12 sm:pl-0">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Nearby services</p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Find shops, taxi ranks, and essential services fast.</h1>
               <p className="mt-2 text-sm text-muted-foreground">Results are tailored to your location and cached for faster return visits.</p>
-          </div>
+            </div>
             <Button variant="outline" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => router.push('/dashboard')}>Back Home</Button>
           </div>
         </section>
@@ -173,10 +192,10 @@ export function NearbyFinder() {
         </section>
 
         <section className="space-y-2">
-          {results.length === 0 ? (
+          {results.length === 0 && !isLoading ? (
             <Card className="border-emerald-100 bg-white shadow-sm">
               <CardContent className="p-4 text-sm text-muted-foreground">
-                No places yet. Enable location to load nearby results.
+                No places found for this category nearby.
               </CardContent>
             </Card>
           ) : (

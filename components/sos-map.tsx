@@ -229,10 +229,17 @@ export function SOSMap() {
     }
 
     const handleError = (error: GeolocationPositionError) => {
-      console.log('[v0] Geolocation error:', error.message)
-      setCurrentLocation(null)
-      setLocationError('Unable to get your location. Tap Allow Location Access and enable location services.')
-      setIsLoading(false)
+      console.log('[v0] High-accuracy GPS timed out/failed, trying network fallback:', error.message)
+      navigator.geolocation.getCurrentPosition(
+        handleSuccess,
+        (fallbackErr) => {
+          console.log('[v0] Coarse geolocation fallback error:', fallbackErr.message)
+          setCurrentLocation(null)
+          setLocationError('Unable to get your location. Tap Allow Location Access and enable location services.')
+          setIsLoading(false)
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      )
     }
 
     navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {

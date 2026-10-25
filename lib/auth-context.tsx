@@ -29,21 +29,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    
-    if (data) {
-      const p = data as Profile
-      setProfile(p)
-      if (p.pin_hash) {
-        const isSessionUnlocked = typeof window !== 'undefined' && window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
-        setIsLocked(!isSessionUnlocked)
-      } else {
-        setIsLocked(false)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      
+      if (data && !error) {
+        const p = data as Profile
+        setProfile(p)
+        if (p.pin_hash) {
+          const isSessionUnlocked = typeof window !== 'undefined' && window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
+          setIsLocked(!isSessionUnlocked)
+        } else {
+          setIsLocked(false)
+        }
       }
+    } catch (e) {
+      console.warn('Failed to fetch user profile:', e)
     }
   }, [supabase])
 
@@ -54,29 +58,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id, fetchProfile])
 
   useEffect(() => {
+    let isMounted = true
+
     const getUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
-        if (user) {
-          await fetchProfile(user.id)
-        } else {
-          setIsLocked(false)
+      const sessionInit = (async () => {
+        try {
+          const { data, error } = await supabase.auth.getUser()
+          if (error) {
+            const errorMsg = error.message?.toLowerCase() || ''
+            if (errorMsg.includes('invalid refresh token') || errorMsg.includes('refresh_token_not_found') || errorMsg.includes('jwt expired')) {
+              console.warn('Invalid refresh token detected in local storage. Purging stale auth state.')
+              try {
+                await supabase.auth.signOut()
+              } catch {
+                // ignore
+              }
+            }
+            if (isMounted) {
+              setUser(null)
+              setProfile(null)
+              setIsLocked(false)
+            }
+            return
+          }
+
+          if (isMounted) {
+            setUser(data.user)
+            if (data.user) {
+              await fetchProfile(data.user.id)
+            } else {
+              setIsLocked(false)
+            }
+          }
+        } catch (error: any) {
+          console.error('Failed to initialize Supabase auth session', error)
+          const errStr = String(error?.message || error).toLowerCase()
+          if (errStr.includes('refresh') || errStr.includes('token') || errStr.includes('jwt')) {
+            try {
+              await supabase.auth.signOut()
+            } catch {
+              // ignore
+            }
+          }
+          if (isMounted) {
+            setUser(null)
+            setProfile(null)
+            setIsLocked(false)
+          }
         }
-      } catch (error) {
-        console.error('Failed to initialize Supabase auth session', error)
-        setUser(null)
-        setProfile(null)
-        setIsLocked(false)
-      } finally {
+      })()
+
+      // Enforce a strict 6-second timeout so app never hangs indefinitely on loading
+      const timeoutFallback = new Promise((resolve) => setTimeout(resolve, 6000))
+
+      await Promise.race([sessionInit, timeoutFallback])
+
+      if (isMounted) {
         setIsLoading(false)
       }
     }
 
-    getUser()
+    void getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return
+
         setUser(session?.user ?? null)
         if (session?.user) {
           await fetchProfile(session.user.id)
@@ -98,7 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [supabase, fetchProfile])
 
   useEffect(() => {

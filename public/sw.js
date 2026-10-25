@@ -1,15 +1,52 @@
 /**
- * Phola Service Worker - Web Push & Background Notifications
- * NOTE: This service worker intentionally omits a fetch event listener
- * to prevent stale chunk caching with Next.js App Router dynamic hydration.
+ * Phola Service Worker - Web Push, Background Notifications & Network-First Caching
  */
 
+const CACHE_NAME = 'phola-cache-v4'
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting())
+  self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key)
+        })
+      )
+    ).then(() => self.clients.claim())
+  )
+})
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url)
+
+  // 1. NEVER intercept API routes, Supabase calls, OAuth/auth flows, or non-GET requests
+  if (
+    event.request.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/auth/') ||
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('overpass-api.de') ||
+    url.hostname.includes('overpass.kumi.systems')
+  ) {
+    return
+  }
+
+  // 2. Network-First for HTML pages and Next.js scripts (falls back to cache if offline)
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
+        }
+        return response
+      })
+      .catch(() => caches.match(event.request))
+  )
 })
 
 self.addEventListener('push', (event) => {

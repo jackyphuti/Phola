@@ -5,6 +5,7 @@ import { Share2, WifiOff } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
+import { getApiUrl } from '@/lib/api-client'
 
 type NewsCategory = 'top' | 'politics' | 'economy' | 'crime' | 'sports' | 'entertainment' | 'community'
 
@@ -28,7 +29,24 @@ const categories: Array<{ value: NewsCategory; label: string }> = [
   { value: 'community', label: 'Community' },
 ]
 
-const CACHE_KEY = 'news-cache-v1'
+const CACHE_KEY = 'phola-news-cache-v1'
+
+function safeReadCache(): Record<string, NewsItem[]> {
+  if (typeof window === 'undefined') return {}
+  const raw = window.localStorage.getItem(CACHE_KEY)
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw) as Record<string, NewsItem[]>
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    try {
+      window.localStorage.removeItem(CACHE_KEY)
+    } catch {
+      // ignore
+    }
+    return {}
+  }
+}
 
 export function NewsFeed() {
   const [category, setCategory] = useState<NewsCategory>('top')
@@ -37,36 +55,48 @@ export function NewsFeed() {
   const [fromCache, setFromCache] = useState(false)
 
   useEffect(() => {
+    let isMounted = true
+
     const load = async () => {
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/news?category=${category}&limit=20`)
+        const url = getApiUrl(`/api/news?category=${category}&limit=20`)
+        const response = await fetch(url)
         const data = await response.json()
         const nextItems = Array.isArray(data?.items) ? data.items : []
+
+        if (!isMounted) return
 
         setItems(nextItems)
         setFromCache(false)
 
-        if (typeof window !== 'undefined') {
-          const cacheRaw = window.localStorage.getItem(CACHE_KEY)
-          const cache = cacheRaw ? JSON.parse(cacheRaw) : {}
-          cache[category] = nextItems.slice(0, 20)
-          window.localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+        if (typeof window !== 'undefined' && nextItems.length > 0) {
+          try {
+            const cache = safeReadCache()
+            cache[category] = nextItems.slice(0, 20)
+            window.localStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+          } catch {
+            // ignore storage quota
+          }
         }
       } catch {
-        if (typeof window !== 'undefined') {
-          const cacheRaw = window.localStorage.getItem(CACHE_KEY)
-          const cache = cacheRaw ? JSON.parse(cacheRaw) : {}
-          const cachedItems = Array.isArray(cache[category]) ? cache[category] : []
-          setItems(cachedItems)
-          setFromCache(true)
-        }
+        if (!isMounted) return
+        const cache = safeReadCache()
+        const cachedItems = Array.isArray(cache[category]) ? cache[category] : []
+        setItems(cachedItems)
+        setFromCache(true)
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
     void load()
+
+    return () => {
+      isMounted = false
+    }
   }, [category])
 
   const shareToWhatsApp = (item: NewsItem) => {
@@ -82,8 +112,8 @@ export function NewsFeed() {
         <section className="rounded-[1.75rem] border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
           <div className="pl-12 sm:pl-0">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">News</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">SA News</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{headerText}</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">SA News</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{headerText}</p>
           </div>
         </section>
 
@@ -102,32 +132,38 @@ export function NewsFeed() {
         </section>
 
         {fromCache && (
-          <Card className="border-emerald-100 bg-emerald-50">
-            <CardContent className="flex items-center gap-2 p-3 text-xs text-emerald-800">
-              <WifiOff className="h-4 w-4" />
-              Showing cached offline articles
-            </CardContent>
-          </Card>
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <WifiOff className="h-4 w-4 shrink-0" />
+            <span>Showing cached news while offline.</span>
+          </div>
         )}
 
-        <section className="space-y-2">
-          {isLoading ? (
-            <Card className="border-emerald-100 bg-white shadow-sm"><CardContent className="p-4 text-sm text-muted-foreground">Loading news...</CardContent></Card>
-          ) : items.length === 0 ? (
-            <Card className="border-emerald-100 bg-white shadow-sm"><CardContent className="p-4 text-sm text-muted-foreground">No articles available right now.</CardContent></Card>
+        <section className="space-y-3">
+          {items.length === 0 && !isLoading ? (
+            <Card className="border-emerald-100 bg-white shadow-sm">
+              <CardContent className="p-4 text-center text-sm text-muted-foreground">
+                No articles found in this category.
+              </CardContent>
+            </Card>
           ) : (
-            items.map((item) => (
-              <Card key={item.url} className="border-emerald-100 bg-white shadow-sm">
-                <CardContent className="space-y-3 p-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">{item.source}</p>
-                    <p className="text-base font-medium text-foreground">{item.title}</p>
-                    {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+            items.map((item, idx) => (
+              <Card key={`${item.url}-${idx}`} className="border-emerald-100 bg-white shadow-sm">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-primary">{item.source}</p>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="mt-1 block font-semibold text-foreground hover:underline">
+                        {item.title}
+                      </a>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button className="flex-1 bg-primary text-white shadow-sm hover:bg-primary/90" onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}>Read article</Button>
-                    <Button variant="outline" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => shareToWhatsApp(item)}>
-                      <Share2 className="h-4 w-4" />
+                  {item.description && (
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+                  )}
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <span className="text-muted-foreground">{item.publishedAt ? new Date(item.publishedAt).toLocaleDateString() : ''}</span>
+                    <Button size="sm" variant="outline" className="h-7 border-emerald-200 text-xs" onClick={() => shareToWhatsApp(item)}>
+                      <Share2 className="mr-1.5 h-3 w-3" />Share
                     </Button>
                   </div>
                 </CardContent>
