@@ -167,7 +167,7 @@ export function AIAssistant() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       <div
         className={`pointer-events-none fixed inset-0 z-40 transition-opacity duration-500 ${
           isActivated || isLoading ? 'opacity-100' : 'opacity-0'
@@ -186,19 +186,19 @@ export function AIAssistant() {
         <div className="assistant-corner assistant-corner-br" />
       </div>
 
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between p-4 pl-16 sm:pl-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Gemini</p>
-            <h1 className="text-lg font-semibold text-foreground">Sisi / Buti Bot</h1>
+      <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 sm:px-6">
+        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Gemini AI Safety</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Sisi / Buti Bot</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Discreet guidance, emergency response advice, and trusted circle assistance.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')} className="rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 shrink-0 hover:bg-emerald-50">
+              Back Home
+            </Button>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')} aria-label="Back to dashboard">
-            <MessageCircle className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
-
-      <main className="space-y-4 p-4 pb-8">
+        </section>
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="space-y-3 p-4">
             <div className="flex items-start gap-3">

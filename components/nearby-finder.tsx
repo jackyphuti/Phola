@@ -169,11 +169,11 @@ export function NearbyFinder() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_45%,#f6fbf8_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_45%,#f6fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-[1.75rem] border border-emerald-100 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="pl-12 sm:pl-0">
+            <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Nearby services</p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Find shops, taxi ranks, and essential services fast.</h1>
               <p className="mt-2 text-sm text-muted-foreground">Results are tailored to your location ({location.lat.toFixed(3)}, {location.lng.toFixed(3)}).</p>

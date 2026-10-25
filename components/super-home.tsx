@@ -303,7 +303,7 @@ export function SuperHome({ name }: { name: string }) {
   const { greeting } = getGreetingByLanguage(language, name || 'friend')
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         
         {/* ========================================================================= */}
@@ -311,7 +311,7 @@ export function SuperHome({ name }: { name: string }) {
         {/* ========================================================================= */}
         <header className="flex items-center justify-between gap-2 pt-1 pb-1">
           {/* Left: Location & GPS Badge */}
-          <div className="flex items-center gap-2 pl-12 sm:pl-0">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-900 shadow-2xs">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -336,17 +336,6 @@ export function SuperHome({ name }: { name: string }) {
                 </option>
               ))}
             </select>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={safeExit}
-              className="rounded-full border-emerald-200 bg-white/90 text-xs font-medium text-emerald-900 shadow-2xs hover:bg-emerald-50 px-2.5 h-7"
-            >
-              <LogOut className="mr-1 h-3 w-3 text-primary" />
-              Quick Exit
-            </Button>
           </div>
         </header>
 
