@@ -49,7 +49,14 @@ const ALLOWED_CATEGORIES: NearbyCategory[] = [
 
 const DEFAULT_LAT = -26.2041
 const DEFAULT_LNG = 28.0473
-const REQUEST_TIMEOUT_MS = 12000
+const REQUEST_TIMEOUT_MS = 3800
+
+interface CacheEntry {
+  data: PlaceResult[]
+  source: string
+  timestamp: number
+}
+const serverNearbyCache = new Map<string, CacheEntry>()
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -281,16 +288,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid category' }, { status: 400 })
   }
 
+  const cacheKey = `${category}_${lat.toFixed(2)}_${lng.toFixed(2)}`
+  const cached = serverNearbyCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < 30 * 60 * 1000) {
+    return NextResponse.json({
+      category,
+      results: cached.data,
+      source: `${cached.source} (cached)`,
+    })
+  }
+
   try {
     const results = await fetchFromOverpass(lat, lng, category)
+    const source = results.length > 0 ? 'overpass+curated' : 'fallback'
+    serverNearbyCache.set(cacheKey, { data: results, source, timestamp: Date.now() })
     return NextResponse.json({
       category,
       results,
-      source: results.length > 0 ? 'overpass+curated' : 'fallback',
+      source,
     })
   } catch (error) {
     captureException(error)
     const fallback = getCuratedFallbacks(category, lat, lng)
+    serverNearbyCache.set(cacheKey, { data: fallback, source: 'curated-fallback', timestamp: Date.now() })
     return NextResponse.json({
       category,
       results: fallback,

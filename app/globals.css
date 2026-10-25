@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import 'mapbox-gl/dist/mapbox-gl.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -307,4 +308,80 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* Mapbox GL JS Emergency Markers */
+@keyframes pulse-emergency {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.75);
+    transform: scale(1);
+  }
+  70% {
+    box-shadow: 0 0 0 18px rgba(239, 68, 68, 0);
+    transform: scale(1.15);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    transform: scale(1);
+  }
+}
+
+.pulse-emergency-marker {
+  width: 22px;
+  height: 22px;
+  background-color: #ef4444;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  animation: pulse-emergency 1.8s infinite;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.saps-station-marker {
+  width: 30px;
+  height: 30px;
+  background-color: #0D6E6E;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.saps-station-marker:hover {
+  transform: scale(1.18);
+}
+
+.hospital-marker {
+  width: 30px;
+  height: 30px;
+  background-color: #059669;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.hospital-marker:hover {
+  transform: scale(1.18);
+}
+
+.mapboxgl-popup-content {
+  border-radius: 14px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid rgba(13, 110, 110, 0.15) !important;
+  font-family: inherit !important;
+}
+.mapboxgl-popup-close-button {
+  font-size: 16px !important;
+  padding: 4px 8px !important;
+  color: #64748b !important;
 }

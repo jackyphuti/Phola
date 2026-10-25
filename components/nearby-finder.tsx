@@ -6,7 +6,7 @@ import { MapPin, Navigation, Building2, Star, Clock, RefreshCw } from 'lucide-re
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
-import { getReliableLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
+import { getReliableLocation, getCachedLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
 import { getApiUrl } from '@/lib/api-client'
 
 type NearbyCategory =
@@ -77,6 +77,12 @@ export function NearbyFinder() {
 
   useEffect(() => {
     let isMounted = true
+    const cachedLoc = getCachedLocation()
+    if (cachedLoc) {
+      setLocation(cachedLoc)
+      setIsLocationReady(true)
+    }
+
     void getReliableLocation().then((loc) => {
       if (!isMounted) return
       if (loc) {

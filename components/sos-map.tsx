@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
+import mapboxgl from 'mapbox-gl'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { notifySOSActivated } from '@/lib/push-notifications'
 import { getNearbySAPSStations, getNearbyHospitals } from '@/lib/saps-stations'
-import { getApiUrl } from '@/lib/api-client'
-import 'leaflet/dist/leaflet.css'
+import { getReliableLocation, getCachedLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { 
@@ -16,38 +16,25 @@ import {
   Phone, 
   Navigation, 
   Hospital, 
-  Shield,
-  MapPin,
-  Loader2,
-  X,
-  Building2,
-  Clock,
-  Route,
-  ExternalLink,
-  Share2
+  Shield, 
+  MapPin, 
+  Loader2, 
+  X, 
+  Clock, 
+  Route, 
+  Share2 
 } from 'lucide-react'
 
-// Dynamic import of map components to avoid SSR issues
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-)
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-)
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-)
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-)
-const Polyline = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Polyline),
-  { ssr: false }
-)
+// Mapbox Token configuration (supports NEXT_PUBLIC_MAPBOX_TOKEN and NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)
+const MAPBOX_TOKEN = 
+  process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim() || 
+  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() || 
+  ''
+
+mapboxgl.accessToken = MAPBOX_TOKEN
+
+// Default South Africa Map Center [lng, lat] (Mapbox uses [lng, lat])
+const DEFAULT_SA_CENTER: [number, number] = [28.0473, -26.2041]
 
 interface SafePlace {
   id: string
@@ -67,26 +54,6 @@ interface RouteInfo {
   duration: string
 }
 
-const SEARCH_RADIUS_METERS = 50000
-
-const defaultCenter = {
-  lat: -26.2041,
-  lng: 28.0473,
-}
-
-// Calculate distance between two points using Haversine formula
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371 // Radius of Earth in km
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-  return R * c
-}
-
 function formatDistance(km: number): string {
   if (km < 1) {
     return `${Math.round(km * 1000)} m`
@@ -95,11 +62,10 @@ function formatDistance(km: number): string {
 }
 
 function estimateDuration(km: number): string {
-  // Assume average speed of 30 km/h in urban areas
   const hours = km / 30
   const minutes = Math.round(hours * 60)
   if (minutes < 60) {
-    return `${minutes} min`
+    return `${Math.max(1, minutes)} min`
   }
   return `${Math.floor(hours)}h ${minutes % 60}m`
 }
@@ -107,335 +73,363 @@ function estimateDuration(km: number): string {
 export function SOSMap() {
   const router = useRouter()
   const { user } = useAuth()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<mapboxgl.Map | null>(null)
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const placesMarkersRef = useRef<mapboxgl.Marker[]>([])
+
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'active' | 'denied'>('loading')
   const [safePlaces, setSafePlaces] = useState<SafePlace[]>([])
   const [selectedPlace, setSelectedPlace] = useState<SafePlace | null>(null)
   const [route, setRoute] = useState<RouteInfo | null>(null)
   const [isNavigating, setIsNavigating] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false)
-  const [locationError, setLocationError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<'all' | 'hospital' | 'police'>('all')
   const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
   const [sosActivated, setSosActivated] = useState(false)
   const [emergencyContactPhone, setEmergencyContactPhone] = useState<string | null>(null)
-  const lastTapRef = useRef<number>(0)
-  const watchIdRef = useRef<number | null>(null)
-  const initialLocationRequestedRef = useRef(false)
-  
 
+  // 1. Fetch Emergency Contacts if authenticated
   useEffect(() => {
-    const loadEmergencyContact = async () => {
-      if (!user?.id) {
-        setEmergencyContactPhone(null)
-        return
-      }
+    if (!user?.id) return
 
-      const { data } = await supabase
-        .from('emergency_contacts')
-        .select('phone, is_primary, created_at')
-        .eq('user_id', user.id)
-        .order('is_primary', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(1)
+    const fetchEmergencyContact = async () => {
+      try {
+        const { data } = await supabase
+          .from('emergency_contacts')
+          .select('phone, is_primary')
+          .eq('user_id', user.id)
+          .order('is_primary', { ascending: false })
+          .limit(1)
 
-      setEmergencyContactPhone(data?.[0]?.phone ?? null)
-    }
-
-    loadEmergencyContact()
-  }, [supabase, user?.id])
-
-  const callNumber = useCallback((number: string) => {
-    const cleaned = number.replace(/[^\d+]/g, '')
-    if (!cleaned) return
-    window.location.href = `tel:${cleaned}`
-  }, [])
-
-  const handleSpeedDial = useCallback(() => {
-    void notifySOSActivated()
-
-    if (emergencyContactPhone) {
-      callNumber(emergencyContactPhone)
-      return
-    }
-
-    callNumber('112')
-  }, [callNumber, emergencyContactPhone])
-
-  // Double-tap SOS activation
-  useEffect(() => {
-    const handleTap = () => {
-      const now = Date.now()
-      if (now - lastTapRef.current < 500) {
-        // Double tap detected - activate SOS
-        setSosActivated(true)
-        setShowEmergencyPanel(true)
-        void notifySOSActivated()
-        // Vibrate if supported
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200])
+        if (data && data[0]?.phone) {
+          setEmergencyContactPhone(data[0].phone)
         }
-      }
-      lastTapRef.current = now
-    }
-
-    // Listen for rapid taps on the SOS button area
-    const sosArea = document.getElementById('sos-trigger-area')
-    if (sosArea) {
-      sosArea.addEventListener('touchend', handleTap)
-      sosArea.addEventListener('click', handleTap)
-    }
-
-    return () => {
-      if (sosArea) {
-        sosArea.removeEventListener('touchend', handleTap)
-        sosArea.removeEventListener('click', handleTap)
-      }
-    }
-  }, [])
-
-  const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by your browser')
-      setIsLoading(false)
-      return
-    }
-
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current)
-      watchIdRef.current = null
-    }
-
-    setIsLoading(true)
-    setLocationError(null)
-
-    const handleSuccess = (position: GeolocationPosition) => {
-      const newLocation = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      }
-      setCurrentLocation(newLocation)
-      setLocationError(null)
-      setIsLoading(false)
-
-      if (watchIdRef.current === null) {
-        watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 30000,
-        })
+      } catch (err) {
+        console.warn('Failed to load primary emergency contact:', err)
       }
     }
 
-    const handleError = (error: GeolocationPositionError) => {
-      console.log('[v0] High-accuracy GPS timed out/failed, trying network fallback:', error.message)
-      navigator.geolocation.getCurrentPosition(
-        handleSuccess,
-        (fallbackErr) => {
-          console.log('[v0] Coarse geolocation fallback error:', fallbackErr.message)
-          setCurrentLocation(null)
-          setLocationError('Unable to get your location. Tap Allow Location Access and enable location services.')
-          setIsLoading(false)
-        },
-        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
-      )
-    }
+    void fetchEmergencyContact()
+  }, [user?.id, supabase])
 
-    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 30000,
-    })
-  }, [])
-
-  // Get user's current location
-  useEffect(() => {
-    if (initialLocationRequestedRef.current) {
-      return
-    }
-
-    initialLocationRequestedRef.current = true
-    requestLocation()
-
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
-        watchIdRef.current = null
-      }
-    }
-  }, [requestLocation])
-
-  // Search for nearby safe places using curated SA stations & server /api/nearby
-  const searchNearbyPlaces = useCallback(async () => {
-    if (!currentLocation) return
-
-    setIsLoadingPlaces(true)
-    const { lat, lng } = currentLocation
-
-    // 1. Instant verified fallbacks from our South African database
-    const sapsFallback: SafePlace[] = getNearbySAPSStations(lat, lng, 15).map((s) => ({
-      id: s.code,
-      name: s.name,
-      address: `${s.province}, South Africa`,
-      distance: s.distanceKm,
-      distanceText: formatDistance(s.distanceKm),
-      duration: estimateDuration(s.distanceKm),
-      location: { lat: s.lat, lng: s.lng },
-      type: 'police' as const,
-      phone: s.phone || '10111',
-    }))
-
-    const hospitalFallback: SafePlace[] = getNearbyHospitals(lat, lng, 15).map((h) => ({
-      id: h.id,
-      name: h.name,
-      address: h.address,
-      distance: h.distanceKm,
-      distanceText: formatDistance(h.distanceKm),
-      duration: estimateDuration(h.distanceKm),
-      location: { lat: h.lat, lng: h.lng },
-      type: 'hospital' as const,
-      phone: h.phone || '10177',
-    }))
-
-    const baseline = [...sapsFallback, ...hospitalFallback].sort((a, b) => a.distance - b.distance)
-    setSafePlaces(baseline)
-
-    // 2. Fetch live Overpass enriched data through our internal server endpoint
+  // 2. Fetch Safe Places (SAPS Stations & Hospitals)
+  const loadSafePlacesForLocation = useCallback((lat: number, lng: number) => {
     try {
-      const [policeRes, hospitalRes] = await Promise.all([
-        fetch(getApiUrl(`/api/nearby?lat=${lat}&lng=${lng}&category=police_stations`))
-          .then((r) => r.json())
-          .catch(() => ({ results: [] })),
-        fetch(getApiUrl(`/api/nearby?lat=${lat}&lng=${lng}&category=clinics_hospitals`))
-          .then((r) => r.json())
-          .catch(() => ({ results: [] })),
-      ])
+      const saps = getNearbySAPSStations(lat, lng, 20).map((station) => ({
+        id: station.code || `saps-${station.name}`,
+        name: station.name,
+        address: `${station.province}, South Africa`,
+        distance: station.distanceKm,
+        distanceText: formatDistance(station.distanceKm),
+        duration: estimateDuration(station.distanceKm),
+        location: { lat: station.lat, lng: station.lng },
+        type: 'police' as const,
+        phone: station.phone || '10111',
+      }))
 
-      const livePlaces: SafePlace[] = []
+      const hospitals = getNearbyHospitals(lat, lng, 15).map((hosp) => ({
+        id: hosp.id || `hosp-${hosp.name}`,
+        name: hosp.name,
+        address: `${hosp.province}, South Africa`,
+        distance: hosp.distanceKm,
+        distanceText: formatDistance(hosp.distanceKm),
+        duration: estimateDuration(hosp.distanceKm),
+        location: { lat: hosp.lat, lng: hosp.lng },
+        type: 'hospital' as const,
+        phone: hosp.phone || '112',
+      }))
 
-      if (Array.isArray(policeRes?.results)) {
-        for (const item of policeRes.results) {
-          livePlaces.push({
-            id: item.id || `police-${item.name}`,
-            name: item.name,
-            address: item.address || 'Police Station',
-            distance: item.distanceKm,
-            distanceText: formatDistance(item.distanceKm),
-            duration: estimateDuration(item.distanceKm),
-            location: item.location,
-            type: 'police' as const,
-            phone: '10111',
-          })
+      const combined = [...saps, ...hospitals].sort((a, b) => a.distance - b.distance)
+      setSafePlaces(combined)
+    } catch (e) {
+      console.warn('Failed to compute nearby safe places:', e)
+    }
+  }, [])
+
+  // 3. Initialize Mapbox GL Map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return
+
+    // If Mapbox token is present, use official Mapbox Streets style;
+    // Otherwise fallback smoothly to high-speed CartoDB Voyager raster tiles through Mapbox GL
+    const mapStyle: string | mapboxgl.Style = MAPBOX_TOKEN
+      ? 'mapbox://styles/mapbox/streets-v12'
+      : {
+          version: 8,
+          sources: {
+            'osm-tiles': {
+              type: 'raster',
+              tiles: [
+                'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+              ],
+              tileSize: 256,
+              attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            },
+          },
+          layers: [
+            {
+              id: 'osm-tiles-layer',
+              type: 'raster',
+              source: 'osm-tiles',
+              minzoom: 0,
+              maxzoom: 19,
+            },
+          ],
         }
-      }
 
-      if (Array.isArray(hospitalRes?.results)) {
-        for (const item of hospitalRes.results) {
-          livePlaces.push({
-            id: item.id || `hospital-${item.name}`,
-            name: item.name,
-            address: item.address || 'Hospital / Clinic',
-            distance: item.distanceKm,
-            distanceText: formatDistance(item.distanceKm),
-            duration: estimateDuration(item.distanceKm),
-            location: item.location,
-            type: 'hospital' as const,
-            phone: '10177',
-          })
+    const cached = getCachedLocation()
+    const initialCenter: [number, number] = cached
+      ? [cached.lng, cached.lat]
+      : DEFAULT_SA_CENTER
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: mapStyle,
+      center: initialCenter,
+      zoom: cached ? 14 : 6,
+      attributionControl: true,
+    })
+
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-left')
+
+    map.on('load', () => {
+      map.resize()
+    })
+
+    mapRef.current = map
+
+    // Resize observer to ensure map canvas never collapses
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize()
+    })
+    resizeObserver.observe(mapContainerRef.current)
+
+    return () => {
+      resizeObserver.disconnect()
+      map.remove()
+      mapRef.current = null
+    }
+  }, [])
+
+  // 4. Resolve Live Coordinates
+  useEffect(() => {
+    let isMounted = true
+
+    // Check fast cache first
+    const cached = getCachedLocation()
+    if (cached) {
+      setCurrentLocation(cached)
+      setLocationStatus('active')
+      loadSafePlacesForLocation(cached.lat, cached.lng)
+      if (mapRef.current) {
+        mapRef.current.flyTo({ center: [cached.lng, cached.lat], zoom: 14 })
+      }
+    }
+
+    void getReliableLocation().then((coords) => {
+      if (!isMounted) return
+      if (coords && (coords.lat !== DEFAULT_SOUTH_AFRICA_LOCATION.lat || coords.lng !== DEFAULT_SOUTH_AFRICA_LOCATION.lng)) {
+        setCurrentLocation(coords)
+        setLocationStatus('active')
+        loadSafePlacesForLocation(coords.lat, coords.lng)
+
+        if (mapRef.current) {
+          mapRef.current.flyTo({ center: [coords.lng, coords.lat], zoom: 14 })
         }
+      } else {
+        // Fallback default coordinates
+        setCurrentLocation(DEFAULT_SOUTH_AFRICA_LOCATION)
+        setLocationStatus('denied')
+        loadSafePlacesForLocation(DEFAULT_SOUTH_AFRICA_LOCATION.lat, DEFAULT_SOUTH_AFRICA_LOCATION.lng)
       }
+    })
 
-      if (livePlaces.length > 0) {
-        // Merge & deduplicate by name or coordinates within 300m
-        const merged = [...baseline]
-        for (const live of livePlaces) {
-          const isDupe = merged.some(
-            (b) =>
-              b.name.toLowerCase() === live.name.toLowerCase() ||
-              calculateDistance(b.location.lat, b.location.lng, live.location.lat, live.location.lng) < 0.3
+    return () => {
+      isMounted = false
+    }
+  }, [loadSafePlacesForLocation])
+
+  // 5. Update Pulsing User Marker
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !currentLocation) return
+
+    if (!userMarkerRef.current) {
+      const el = document.createElement('div')
+      el.className = 'pulse-emergency-marker'
+      el.title = 'Your Emergency Location'
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([currentLocation.lng, currentLocation.lat])
+        .setPopup(
+          new mapboxgl.Popup({ offset: 18 }).setHTML(
+            `<div style="font-size:12px; font-weight:600; color:#ef4444;">🚨 You Are Here (Emergency Location)</div>
+             <div style="font-size:11px; color:#64748b; margin-top:2px;">${currentLocation.lat.toFixed(4)}, ${currentLocation.lng.toFixed(4)}</div>`
           )
-          if (!isDupe) {
-            merged.push(live)
-          }
-        }
-        setSafePlaces(merged.sort((a, b) => a.distance - b.distance).slice(0, 40))
-      }
-    } catch {
-      // Baseline verified hospitals and SAPS are already active
-    } finally {
-      setIsLoadingPlaces(false)
+        )
+        .addTo(map)
+
+      userMarkerRef.current = marker
+    } else {
+      userMarkerRef.current.setLngLat([currentLocation.lng, currentLocation.lat])
     }
   }, [currentLocation])
 
-  // Search places as soon as location is available
+  // 6. Update Safe Places Markers (SAPS Police & Hospitals)
   useEffect(() => {
-    if (currentLocation) {
-      searchNearbyPlaces()
-    }
-  }, [currentLocation, searchNearbyPlaces])
+    const map = mapRef.current
+    if (!map) return
 
-  // Get route using OSRM (free routing service)
+    // Remove old markers
+    placesMarkersRef.current.forEach((m) => m.remove())
+    placesMarkersRef.current = []
+
+    const filtered = activeFilter === 'all' 
+      ? safePlaces 
+      : safePlaces.filter((p) => p.type === activeFilter)
+
+    filtered.forEach((place) => {
+      const el = document.createElement('div')
+      el.className = place.type === 'hospital' ? 'hospital-marker' : 'saps-station-marker'
+      el.innerHTML = place.type === 'hospital'
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 6v12M6 12h12"/></svg>`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`
+
+      const popupHtml = `
+        <div style="min-width: 180px; font-family: inherit;">
+          <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${place.name}</div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${place.address}</div>
+          <div style="display:flex; align-items:center; gap: 8px; font-size: 11px; color: #0D6E6E; font-weight: 600; margin-top: 6px;">
+            <span>📍 ${place.distanceText}</span>
+            <span>⏱️ ${place.duration}</span>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 6px;">
+            ${place.phone ? `<a href="tel:${place.phone}" style="flex:1; background:#0D6E6E; color:#fff; text-align:center; padding: 5px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; text-decoration:none;">Call</a>` : ''}
+          </div>
+        </div>
+      `
+
+      const popup = new mapboxgl.Popup({ offset: 20 }).setHTML(popupHtml)
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([place.location.lng, place.location.lat])
+        .setPopup(popup)
+        .addTo(map)
+
+      el.addEventListener('click', () => {
+        setSelectedPlace(place)
+      })
+
+      placesMarkersRef.current.push(marker)
+    })
+  }, [safePlaces, activeFilter])
+
+  // 7. Route Polyline Handling
   const getRoute = useCallback(async (place: SafePlace) => {
     if (!currentLocation) return
 
     try {
-      const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
-      const url = mapboxToken
-        ? `https://api.mapbox.com/directions/v5/mapbox/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?geometries=geojson&access_token=${mapboxToken}`
+      const routingUrl = MAPBOX_TOKEN
+        ? `https://api.mapbox.com/directions/v5/mapbox/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
         : `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?overview=full&geometries=geojson`
 
-      const response = await fetch(url)
-      
-      if (!response.ok) throw new Error('Failed to get route')
-      
+      const response = await fetch(routingUrl)
+      if (!response.ok) throw new Error('Routing request failed')
+
       const data = await response.json()
-      
       if (data.routes && data.routes[0]) {
         const routeData = data.routes[0]
-        const coordinates = routeData.geometry.coordinates.map(
-          (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-        )
-        
+        const coords = routeData.geometry.coordinates as [number, number][]
+
         setRoute({
-          coordinates,
+          coordinates: coords,
           distance: formatDistance(routeData.distance / 1000),
           duration: `${Math.round(routeData.duration / 60)} min`,
         })
         setSelectedPlace(place)
+
+        // Draw line on mapbox
+        const map = mapRef.current
+        if (map) {
+          const geojsonSource = map.getSource('route-source') as mapboxgl.GeoJSONSource
+          if (geojsonSource) {
+            geojsonSource.setData({
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: coords,
+              },
+            })
+          } else {
+            map.addSource('route-source', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords,
+                },
+              },
+            })
+
+            map.addLayer({
+              id: 'route-layer',
+              type: 'line',
+              source: 'route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
+              },
+              paint: {
+                'line-color': '#0D6E6E',
+                'line-width': 5,
+                'line-opacity': 0.85,
+              },
+            })
+          }
+
+          // Fit bounds to show route
+          const bounds = coords.reduce(
+            (b, c) => b.extend(c as [number, number]),
+            new mapboxgl.LngLatBounds(coords[0], coords[0])
+          )
+          map.fitBounds(bounds, { padding: 50, duration: 800 })
+        }
       }
-    } catch (error) {
-      console.log('[v0] Routing error:', error)
-      // Fallback to straight line
+    } catch (e) {
+      console.warn('Failed to calculate route:', e)
       setSelectedPlace(place)
     }
   }, [currentLocation])
 
-  // Clear route
   const clearRoute = () => {
     setRoute(null)
     setSelectedPlace(null)
     setIsNavigating(false)
+
+    const map = mapRef.current
+    if (map && map.getSource('route-source')) {
+      const src = map.getSource('route-source') as mapboxgl.GeoJSONSource
+      src.setData({
+        type: 'FeatureCollection',
+        features: [],
+      })
+    }
   }
 
-  const startInAppNavigation = async (place: SafePlace) => {
-    await getRoute(place)
-    setIsNavigating(true)
-  }
-
-  const stopInAppNavigation = () => {
-    setIsNavigating(false)
-  }
-
-  // Open external maps / navigation
+  // 8. External Directions (Mobile intent or OpenStreetMap)
   const openExternalNavigation = (place: SafePlace) => {
     const lat = place.location.lat
     const lng = place.location.lng
     const name = encodeURIComponent(place.name)
     const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
     if (isMobile) {
-      // Launch native navigation on device (works seamlessly on Android/iOS)
       window.location.href = `geo:${lat},${lng}?q=${lat},${lng}(${name})`
     } else {
       const originParam = currentLocation ? `${currentLocation.lat}%2C${currentLocation.lng}` : ''
@@ -447,160 +441,344 @@ export function SOSMap() {
     }
   }
 
-  // Share location
+  // 9. Emergency Share Location
   const shareLocation = async () => {
     if (!currentLocation) return
-    
-    const message = `I need help! My location: https://www.openstreetmap.org/?mlat=${currentLocation.lat}&mlon=${currentLocation.lng}#map=16/${currentLocation.lat}/${currentLocation.lng}`
-    
+
+    const message = `EMERGENCY! I need immediate help. My GPS coordinates: https://www.openstreetmap.org/?mlat=${currentLocation.lat}&mlon=${currentLocation.lng}#map=16/${currentLocation.lat}/${currentLocation.lng}`
+
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Emergency - My Location',
+          title: 'Emergency - My GPS Location',
           text: message,
         })
       } catch {
-        // User cancelled or error
+        // User cancelled
       }
     } else {
-      // Fallback: copy to clipboard
       navigator.clipboard.writeText(message)
-      alert('Location copied to clipboard')
+      alert('Emergency location copied to clipboard!')
     }
   }
 
-  // Filter places
+  const callNumber = (number: string) => {
+    window.location.href = `tel:${number.replace(/\s+/g, '')}`
+  }
+
+  const handleSOS = async () => {
+    setSosActivated(true)
+    setShowEmergencyPanel(true)
+
+    if (currentLocation) {
+      void notifySOSActivated()
+    }
+  }
+
   const filteredPlaces = activeFilter === 'all' 
     ? safePlaces 
-    : safePlaces.filter(p => p.type === activeFilter)
-
-  // Create custom icons
-  const createIcon = (color: string, isUser?: boolean) => {
-    if (typeof window === 'undefined') return undefined
-    
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const L = require('leaflet')
-    
-    if (isUser) {
-      return L.divIcon({
-        className: 'custom-marker',
-        html: `<div style="width: 20px; height: 20px; background: #0D6E6E; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      })
-    }
-    
-    return L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="width: 32px; height: 32px; background: ${color}; border: 2px solid white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-          ${color === '#10b981' 
-            ? '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>' // Hospital icon
-            : '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>' // Shield icon
-          }
-        </svg>
-      </div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 32],
-    })
-  }
+    : safePlaces.filter((p) => p.type === activeFilter)
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-[1000] safe-top">
-        <div className="flex items-center justify-between p-4">
+      {/* Top Header */}
+      <header className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-border z-[100] safe-top shadow-2xs">
+        <div className="flex items-center justify-between p-3.5 sm:p-4 max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => router.back()}
+              className="rounded-full"
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-semibold text-foreground">Find Safety</h1>
+              <h1 className="font-bold text-foreground text-base sm:text-lg">Emergency SOS & Safe Map</h1>
               <p className="text-xs text-muted-foreground">
-                {currentLocation 
-                  ? `${safePlaces.length} locations within 50 km` 
-                  : 'Getting your location...'}
+                {safePlaces.length} verified safe havens nearby
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="sm"
               onClick={shareLocation}
               disabled={!currentLocation}
-              title="Share my location"
+              className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-semibold"
             >
-              <Share2 className="w-5 h-5" />
+              <Share2 className="w-3.5 h-3.5 mr-1 text-primary" />
+              Share GPS
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Emergency SOS Panel */}
+      {/* Main Map & Interface */}
+      <div className="flex-1 flex flex-col p-3 sm:p-4 max-w-5xl mx-auto w-full gap-3">
+        {/* Map Container with Explicit Height and Width */}
+        <div className="w-full h-[350px] min-h-[350px] sm:h-[450px] sm:min-h-[450px] rounded-2xl overflow-hidden relative border border-emerald-100 shadow-sm bg-slate-100">
+          {/* Mapbox Canvas Container */}
+          <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+
+          {/* Fallback Status Badge */}
+          <div className="absolute top-3 left-3 z-10 pointer-events-none">
+            {locationStatus === 'loading' ? (
+              <div className="flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-md border border-slate-200">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span>Finding your location... (South Africa default)</span>
+              </div>
+            ) : locationStatus === 'denied' ? (
+              <div className="flex items-center gap-2 rounded-full bg-amber-500/90 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-white shadow-md">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>GPS permission unavailable (Viewing South Africa)</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-md border border-emerald-200">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                </span>
+                <span>Live GPS Active</span>
+              </div>
+            )}
+          </div>
+
+          {/* Floating SOS Panic Button */}
+          <div className="absolute top-3 right-3 z-10 flex flex-col items-center">
+            <button
+              onClick={handleSOS}
+              className="w-14 h-14 rounded-full bg-destructive text-white shadow-xl flex items-center justify-center animate-pulse hover:scale-105 transition-transform border-2 border-white"
+              aria-label="Emergency SOS - tap for instant panic dialer"
+            >
+              <span className="text-sm font-black tracking-wider">SOS</span>
+            </button>
+            <span className="text-[10px] font-bold text-destructive bg-white/95 px-1.5 py-0.5 rounded-full shadow-xs mt-1">
+              Tap for Help
+            </span>
+          </div>
+
+          {/* Selected Place Overlay Card */}
+          {selectedPlace && (
+            <Card className="absolute bottom-3 left-3 right-3 z-10 border-emerald-200 bg-white/95 backdrop-blur-md shadow-lg rounded-2xl">
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      {selectedPlace.type === 'hospital' ? (
+                        <Hospital className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Shield className="w-4 h-4 text-primary" />
+                      )}
+                      <span className="font-bold text-foreground text-sm sm:text-base line-clamp-1">
+                        {selectedPlace.name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{selectedPlace.address}</p>
+                    <p className="text-xs font-semibold text-primary mt-1">
+                      {route ? `${route.distance} • ${route.duration}` : `${selectedPlace.distanceText} • ${selectedPlace.duration}`}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={clearRoute}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <Button
+                    className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-9 rounded-xl"
+                    onClick={() => openExternalNavigation(selectedPlace)}
+                  >
+                    <Navigation className="w-3.5 h-3.5 mr-1" />
+                    Start Directions
+                  </Button>
+                  {selectedPlace.phone && (
+                    <Button
+                      variant="outline"
+                      className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 text-xs font-semibold h-9 rounded-xl px-3"
+                      onClick={() => callNumber(selectedPlace.phone!)}
+                    >
+                      <Phone className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                      Call
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Category Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <Button
+            size="sm"
+            variant={activeFilter === 'all' ? 'default' : 'outline'}
+            onClick={() => setActiveFilter('all')}
+            className="rounded-full text-xs font-semibold shrink-0"
+          >
+            All Safe Places ({safePlaces.length})
+          </Button>
+          <Button
+            size="sm"
+            variant={activeFilter === 'police' ? 'default' : 'outline'}
+            onClick={() => setActiveFilter('police')}
+            className="rounded-full text-xs font-semibold shrink-0 border-emerald-200"
+          >
+            <Shield className="w-3.5 h-3.5 mr-1" />
+            SAPS Police Stations
+          </Button>
+          <Button
+            size="sm"
+            variant={activeFilter === 'hospital' ? 'default' : 'outline'}
+            onClick={() => setActiveFilter('hospital')}
+            className="rounded-full text-xs font-semibold shrink-0 border-emerald-200"
+          >
+            <Hospital className="w-3.5 h-3.5 mr-1" />
+            Trauma Hospitals
+          </Button>
+        </div>
+
+        {/* Nearest Safe Places List */}
+        <div className="flex-1 space-y-2 pb-6">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+            Nearest Emergency Facilities
+          </h2>
+          {filteredPlaces.length === 0 ? (
+            <div className="text-center py-8 rounded-2xl border border-dashed border-slate-200 bg-white p-6">
+              <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+              <p className="text-sm font-semibold text-foreground">Loading nearby safe places...</p>
+              <p className="text-xs text-muted-foreground mt-1">Acquiring verified facilities in your area.</p>
+            </div>
+          ) : (
+            filteredPlaces.map((place) => (
+              <Card
+                key={place.id}
+                className="cursor-pointer hover:border-emerald-300 transition-all rounded-2xl border border-emerald-100 bg-white shadow-2xs"
+                onClick={() => getRoute(place)}
+              >
+                <CardContent className="p-3.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        place.type === 'hospital' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-800'
+                      }`}
+                    >
+                      {place.type === 'hospital' ? <Hospital className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground text-sm truncate">{place.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{place.address}</p>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] font-medium text-emerald-800">
+                        <span className="flex items-center gap-1">
+                          <Route className="w-3 h-3 text-primary" />
+                          {place.distanceText}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-primary" />
+                          {place.duration}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {place.phone && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-emerald-700 hover:bg-emerald-50 rounded-xl"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          callNumber(place.phone!)
+                        }}
+                        title={`Call ${place.name}`}
+                      >
+                        <Phone className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openExternalNavigation(place)
+                      }}
+                      title="Navigate"
+                    >
+                      <Navigation className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Emergency Help Modal / Drawer */}
       {showEmergencyPanel && (
-        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-          <Card className="w-full max-w-sm border-destructive/20">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[200] flex items-center justify-center p-4">
+          <Card className="w-full max-w-sm border-destructive/20 rounded-3xl shadow-2xl animate-in zoom-in-95">
             <CardContent className="p-6 text-center space-y-4">
-              <div className={`w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto ${sosActivated ? 'animate-pulse' : ''}`}>
+              <div
+                className={`w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto ${
+                  sosActivated ? 'animate-pulse' : ''
+                }`}
+              >
                 <Phone className="w-8 h-8 text-destructive" />
               </div>
-              <h2 className="text-xl font-semibold text-foreground">Emergency Help</h2>
+              <h2 className="text-xl font-bold text-foreground">Emergency Help Center</h2>
               {currentLocation && (
-                <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                  Your location: {currentLocation.lat.toFixed(5)}, {currentLocation.lng.toFixed(5)}
+                <p className="text-xs font-mono text-muted-foreground bg-muted p-2 rounded-xl">
+                  GPS: {currentLocation.lat.toFixed(5)}, {currentLocation.lng.toFixed(5)}
                 </p>
               )}
-              <div className="space-y-2">
+              <div className="space-y-2 pt-1">
                 {emergencyContactPhone && (
-                  <Button 
-                    className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  <Button
+                    className="w-full bg-destructive hover:bg-destructive/90 text-white font-bold rounded-xl h-11"
                     onClick={() => callNumber(emergencyContactPhone)}
                   >
                     <Phone className="w-4 h-4 mr-2" />
-                    Call Emergency Contact
+                    Call Primary Emergency Contact
                   </Button>
                 )}
-                <Button 
-                  className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                  onClick={() => window.location.href = 'tel:10111'}
+                <Button
+                  className="w-full bg-destructive hover:bg-destructive/90 text-white font-bold rounded-xl h-11"
+                  onClick={() => callNumber('10111')}
                 >
                   <Phone className="w-4 h-4 mr-2" />
-                  SAPS Emergency (10111)
+                  SAPS Police Emergency (10111)
                 </Button>
-                <Button 
-                  className="w-full"
-                  variant="default"
-                  onClick={() => window.location.href = 'tel:0800428428'}
+                <Button
+                  className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl h-11"
+                  onClick={() => callNumber('112')}
                 >
                   <Phone className="w-4 h-4 mr-2" />
-                  GBV Hotline (0800 428 428)
+                  Nationwide Emergency (112)
                 </Button>
-                <Button 
+                <Button
                   className="w-full"
                   variant="outline"
-                  onClick={() => window.location.href = 'tel:112'}
+                  onClick={() => callNumber('0800428428')}
                 >
                   <Phone className="w-4 h-4 mr-2" />
-                  Emergency (112)
+                  National GBV Command Centre (0800 428 428)
                 </Button>
-                <Button 
-                  className="w-full"
+                <Button
+                  className="w-full border-emerald-200 text-emerald-950 hover:bg-emerald-50"
                   variant="outline"
                   onClick={shareLocation}
                   disabled={!currentLocation}
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share My Location
+                  <Share2 className="w-4 h-4 mr-2 text-primary" />
+                  Broadcast Live Coordinates
                 </Button>
               </div>
-              <Button 
-                variant="ghost" 
-                className="w-full"
+              <Button
+                variant="ghost"
+                className="w-full rounded-xl"
                 onClick={() => {
                   setShowEmergencyPanel(false)
                   setSosActivated(false)
@@ -610,314 +788,6 @@ export function SOSMap() {
               </Button>
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      {/* Map Container */}
-      <div className="flex-1 relative min-h-[300px]">
-        {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted">
-            <div className="text-center space-y-3">
-              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-              <p className="text-sm text-muted-foreground">Getting your location...</p>
-            </div>
-          </div>
-        ) : locationError ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted p-4">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-foreground font-medium">Location Access Required</p>
-                <p className="text-sm text-muted-foreground mt-2">{locationError}</p>
-                <p className="text-xs text-muted-foreground mt-3">
-                  Press Allow if your browser asks for permission.
-                </p>
-                <Button 
-                  className="mt-4"
-                  onClick={() => requestLocation()}
-                >
-                  Allow Location Access
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <MapContainer
-            center={[currentLocation?.lat || defaultCenter.lat, currentLocation?.lng || defaultCenter.lng]}
-            zoom={14}
-            style={{ height: '100%', width: '100%' }}
-            whenReady={() => setMapReady(true)}
-          >
-            <TileLayer
-              attribution={
-                process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
-                  ? '&copy; <a href="https://www.mapbox.com/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              }
-              url={
-                process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim()
-                  ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN.trim()}`
-                  : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-              }
-              maxZoom={20}
-            />
-            
-            {/* Current location marker */}
-            {currentLocation && (
-              <Marker
-                position={[currentLocation.lat, currentLocation.lng]}
-                icon={createIcon('#0D6E6E', true)}
-              >
-                <Popup>You are here</Popup>
-              </Marker>
-            )}
-
-            {/* Safe place markers */}
-            {filteredPlaces.map((place) => (
-              <Marker
-                key={place.id}
-                position={[place.location.lat, place.location.lng]}
-                icon={createIcon(place.type === 'hospital' ? '#41b89d' : '#0D6E6E')}
-                eventHandlers={{
-                  click: () => setSelectedPlace(place),
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[190px]">
-                    <h3 className="font-semibold text-sm">{place.name}</h3>
-                    <p className="text-xs text-gray-600 mt-1">{place.address}</p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Route className="w-3 h-3" />
-                        {place.distanceText}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {place.duration}
-                      </span>
-                    </div>
-                    <div className="flex gap-1.5 mt-3">
-                      <button
-                        onClick={() => openExternalNavigation(place)}
-                        className="flex-1 bg-primary text-primary-foreground text-xs font-semibold py-1.5 px-2.5 rounded-lg hover:bg-primary/90 flex items-center justify-center gap-1"
-                      >
-                        <Navigation className="w-3 h-3" />
-                        Navigate
-                      </button>
-                      {place.phone && (
-                        <button
-                          onClick={() => callNumber(place.phone!)}
-                          className="bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold py-1.5 px-2 rounded-lg hover:bg-emerald-100 flex items-center justify-center"
-                          title="Call phone"
-                        >
-                          <Phone className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-
-            {/* Route polyline */}
-            {route && (
-              <Polyline
-                positions={route.coordinates}
-                pathOptions={{ color: '#0D6E6E', weight: 4 }}
-              />
-            )}
-          </MapContainer>
-        )}
-
-        {/* Floating SOS Button */}
-        <div
-          id="sos-trigger-area"
-          className="absolute top-4 right-4 z-[1000]"
-        >
-          <button
-            onClick={() => setShowEmergencyPanel(true)}
-            className="w-14 h-14 rounded-full bg-destructive text-destructive-foreground shadow-lg flex items-center justify-center animate-pulse hover:scale-105 transition-transform"
-            aria-label="Emergency SOS - tap for emergency options"
-          >
-            <span className="text-sm font-bold">SOS</span>
-          </button>
-          <p className="text-[10px] text-center text-muted-foreground mt-1 bg-background/80 rounded px-1">
-            Tap for SOS
-          </p>
-        </div>
-
-        {/* Current navigation card */}
-        {selectedPlace && (
-          <Card className="absolute bottom-4 left-4 right-4 z-[1000]">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {selectedPlace.type === 'hospital' && <Hospital className="w-4 h-4 text-emerald-700" />}
-                    {selectedPlace.type === 'police' && <Shield className="w-4 h-4 text-primary" />}
-                    {selectedPlace.type === 'shelter' && <Building2 className="w-4 h-4 text-primary" />}
-                    <span className="font-medium text-foreground line-clamp-1">{selectedPlace.name}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {route 
-                      ? `${route.distance} • ${route.duration}` 
-                      : `${selectedPlace.distanceText} • ${selectedPlace.duration}`
-                    }
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={clearRoute}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                <Button
-                  className="flex-1 bg-primary hover:bg-primary/95 text-white font-bold text-xs h-9 rounded-xl shadow-xs"
-                  onClick={() => openExternalNavigation(selectedPlace)}
-                >
-                  <Navigation className="w-4 h-4 mr-1.5" />
-                  Start Directions
-                </Button>
-                {selectedPlace.phone && (
-                  <Button
-                    variant="outline"
-                    className="rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-3"
-                    onClick={() => callNumber(selectedPlace.phone!)}
-                  >
-                    <Phone className="w-4 h-4 mr-1 text-emerald-600" />
-                    Call
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl text-xs font-semibold h-9 px-3"
-                  onClick={() => {
-                    if (isNavigating) {
-                      stopInAppNavigation()
-                    } else {
-                      void startInAppNavigation(selectedPlace)
-                    }
-                  }}
-                >
-                  {isNavigating ? 'Clear Route' : 'In-App Route'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Bottom Panel - Place List */}
-      {!selectedPlace && (
-        <div className="bg-background border-t border-border max-h-[40vh] overflow-hidden flex flex-col safe-bottom">
-          {/* Filter tabs */}
-          <div className="flex gap-2 p-3 border-b border-border overflow-x-auto">
-            <Button
-              size="sm"
-              variant={activeFilter === 'all' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('all')}
-              className="shrink-0"
-            >
-              All ({safePlaces.length})
-            </Button>
-            <Button
-              size="sm"
-              variant={activeFilter === 'hospital' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('hospital')}
-              className="shrink-0"
-            >
-              <Hospital className="w-4 h-4 mr-1" />
-              Hospitals
-            </Button>
-            <Button
-              size="sm"
-              variant={activeFilter === 'police' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('police')}
-              className="shrink-0"
-            >
-              <Shield className="w-4 h-4 mr-1" />
-              Police
-            </Button>
-          </div>
-
-          {/* Places list */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {isLoadingPlaces ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredPlaces.length === 0 ? (
-              <div className="text-center py-8">
-                <MapPin className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No places found within 50 km</p>
-              </div>
-            ) : (
-              filteredPlaces.map((place) => (
-                <Card 
-                  key={place.id}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors"
-                  onClick={() => getRoute(place)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                        place.type === 'hospital' ? 'bg-emerald-100' : 'bg-blue-100'
-                      }`}>
-                        {place.type === 'hospital' && <Hospital className="w-5 h-5 text-emerald-600" />}
-                        {place.type === 'police' && <Shield className="w-5 h-5 text-blue-600" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground line-clamp-1">{place.name}</p>
-                        <p className="text-sm text-muted-foreground line-clamp-1">{place.address}</p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Route className="w-3 h-3" />
-                            {place.distanceText}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {place.duration}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {place.phone && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              callNumber(place.phone!)
-                            }}
-                            title={`Call ${place.name}`}
-                          >
-                            <Phone className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-primary hover:bg-primary/10 rounded-lg"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openExternalNavigation(place)
-                          }}
-                          title="Navigate"
-                        >
-                          <Navigation className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
         </div>
       )}
     </div>
