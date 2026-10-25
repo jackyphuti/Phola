@@ -10,7 +10,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { INCIDENT_TYPE_LABELS, type Incident, type IncidentType } from '@/lib/types'
 import { AppBottomNav } from '@/components/app-bottom-nav'
-import { safeExit } from '@/lib/safe-exit'
 import { 
   ArrowLeft, 
   Plus, 
@@ -196,16 +195,7 @@ export default function NotesPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={safeExit}
-                className="rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-3"
-              >
-                <LogOut className="mr-1 h-3.5 w-3.5 text-primary" />
-                Quick Exit
-              </Button>
+            <div className="self-start sm:self-center">
               <Button
                 size="sm"
                 onClick={() => router.push('/report')}

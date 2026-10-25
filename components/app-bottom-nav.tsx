@@ -20,7 +20,7 @@ import {
   Phone
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { safeExit } from '@/lib/safe-exit'
+import { useAuth } from '@/lib/auth-context'
 
 const SIDE_NAV_STORAGE_KEY = 'phola_side_tabs_hidden'
 
@@ -39,8 +39,16 @@ const tabs = [
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
+  const { signOut, lock } = useAuth()
   const [isHidden, setIsHidden] = useState<boolean>(true)
   const [isMounted, setIsMounted] = useState(false)
+
+  const handleSignOut = async () => {
+    toggleHide(true)
+    lock()
+    await signOut()
+    router.push('/')
+  }
 
   useEffect(() => {
     setIsMounted(true)
@@ -202,11 +210,11 @@ export function AppBottomNav() {
             type="button"
             variant="outline"
             size="sm"
-            className="w-full justify-start rounded-xl text-xs font-semibold text-emerald-900 border-emerald-200 hover:bg-emerald-50"
-            onClick={() => safeExit()}
+            className="w-full justify-start rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            onClick={handleSignOut}
           >
-            <LogOut className="h-4 w-4 mr-2 text-primary" />
-            Quick Disguise / Exit
+            <LogOut className="h-4 w-4 mr-2 text-red-600" />
+            Logout
           </Button>
           <p className="text-[10px] text-center text-muted-foreground">Phola Safety Network • South Africa</p>
         </div>

@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AppBottomNav } from '@/components/app-bottom-nav'
 import { getApiUrl } from '@/lib/api-client'
-import { safeExit } from '@/lib/safe-exit'
 
 type NewsCategory = 'top' | 'politics' | 'economy' | 'crime' | 'sports' | 'entertainment' | 'community'
 
@@ -125,16 +124,6 @@ export function NewsFeed() {
                 Curated daily headlines across South Africa from verified media sources.
               </p>
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={safeExit}
-              className="self-start sm:self-center rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-3"
-            >
-              <LogOut className="mr-1 h-3.5 w-3.5 text-primary" />
-              Quick Exit
-            </Button>
           </div>
         </section>
 

@@ -27,7 +27,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AppBottomNav } from '@/components/app-bottom-nav'
-import { safeExit } from '@/lib/safe-exit'
 
 const NATIONAL_HOTLINES = [
   {
@@ -102,15 +101,6 @@ export function SafetyHub() {
                 Proactive transit protection, confidential incident logging, and instant national crisis lifelines.
               </p>
             </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={safeExit}
-              className="self-start sm:self-center rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50"
-            >
-              Quick Exit
-            </Button>
           </div>
         </section>
 

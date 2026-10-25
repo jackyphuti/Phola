@@ -13,7 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { safeExit } from '@/lib/safe-exit'
 import { 
   isBiometricAvailable, 
   registerBiometric, 
@@ -44,7 +43,10 @@ import {
   Phone,
   UserPlus,
   Star,
-  ShieldCheck
+  ShieldCheck,
+  Pencil,
+  Globe,
+  Lock
 } from 'lucide-react'
 
 export function SettingsPage() {
@@ -911,269 +913,441 @@ export function SettingsPage() {
       )}
 
       {/* Content */}
-      <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 sm:px-6">
+      <main className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-4 sm:px-6">
         
-        {/* Header Hero */}
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
-                  <ShieldCheck className="mr-1 h-3 w-3 text-primary" />
-                  Security & Profile
-                </Badge>
+        {/* ========================================================================= */}
+        {/* EXECUTIVE PROFILE HEADER (Big-Tech App Style)                             */}
+        {/* ========================================================================= */}
+        <section className="relative overflow-hidden rounded-[2rem] border border-emerald-100/90 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 p-6 shadow-sm dark:border-border dark:from-card dark:to-background">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            {/* Avatar Ring with Camera Trigger */}
+            <div className="relative group shrink-0">
+              <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-full ring-4 ring-white dark:ring-card shadow-md overflow-hidden bg-emerald-100/60 dark:bg-muted flex items-center justify-center">
+                {(photoDataUrl || currentPhotoUrl) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoDataUrl || currentPhotoUrl || ''}
+                    alt="Profile photo"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-primary">
+                    <User className="h-10 w-10 sm:h-12 sm:w-12 text-primary/70" />
+                  </div>
+                )}
               </div>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                Profile & Settings
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Manage your emergency trusted circle, account security, and language preferences.
-              </p>
+
+              {/* Floating Camera / Photo Action Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isEditingProfile) {
+                    setIsEditingProfile(true)
+                  }
+                  photoInputRef.current?.click()
+                }}
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white shadow-md hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all"
+                title="Change profile photo"
+                aria-label="Change profile photo"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                className="hidden"
+                onChange={(e) => handlePhotoPick(e.target.files?.[0])}
+              />
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={safeExit}
-              className="self-start sm:self-center rounded-xl border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-3"
-            >
-              <LogOut className="mr-1 h-3.5 w-3.5 text-primary" />
-              Quick Exit
-            </Button>
-          </div>
-        </section>
+            {/* Profile Info & Actions */}
+            <div className="flex-1 text-center sm:text-left min-w-0">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
+                  <ShieldCheck className="mr-1 h-3 w-3 text-primary" />
+                  Verified Member
+                </Badge>
+                <Badge variant="outline" className="border-slate-200 text-slate-600 dark:text-muted-foreground text-[10px] font-medium">
+                  Phola Safety Circle
+                </Badge>
+              </div>
 
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <LanguageSelector />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Install App</CardTitle>
-            <CardDescription>
-              Install Phola on this device any time.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InstallPrompt autoOpen={false} showTrigger />
-          </CardContent>
-        </Card>
-
-        {/* Message */}
-        {message && (
-          <Card className={message.type === 'success' ? 'border-primary/50 bg-primary/5' : 'border-destructive/50 bg-destructive/5'}>
-            <CardContent className="p-3 flex items-center gap-2">
-              {message.type === 'success' ? (
-                <Check className="w-4 h-4 text-primary shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
-              )}
-              <p className={`text-sm ${message.type === 'success' ? 'text-primary' : 'text-destructive'}`}>
-                {message.text}
+              <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground truncate">
+                {displayName || user?.user_metadata?.full_name || 'Phola Member'}
+              </h1>
+              
+              <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground truncate">
+                {user?.email}
               </p>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Profile Settings */}
-        <Card>
-          <CardHeader className="space-y-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Profile
-            </CardTitle>
-            <CardDescription>
-              {isEditingProfile
-                ? 'Editing is enabled. Save or cancel when done.'
-                : 'Profile is locked. Tap Edit Profile to make changes.'}
-            </CardDescription>
-            {!isEditingProfile && (
-              <Button type="button" variant="outline" onClick={handleStartEditingProfile}>
-                Edit Profile
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Profile Photo</Label>
-              <div className="rounded-2xl border border-border p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
-                    {(photoDataUrl || currentPhotoUrl) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={photoDataUrl || currentPhotoUrl || ''} alt="Profile photo" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs text-muted-foreground text-center px-2">No photo</span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">Your current photo</p>
-                    <p className="text-xs text-muted-foreground">Update it anytime.</p>
-                  </div>
-                </div>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  className="hidden"
-                  onChange={(e) => handlePhotoPick(e.target.files?.[0])}
-                />
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" className="flex-1" onClick={openCamera} disabled={!isEditingProfile}>
-                    <Camera className="w-4 h-4 mr-2" />
-                    Camera
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={!isEditingProfile}
-                  >
-                    Change Photo
-                  </Button>
-                </div>
-                {photoDataUrl && !isPhotoPreviewOpen && (
-                  <p className="text-xs text-muted-foreground">Photo ready to review.</p>
+              {/* Action Buttons Row */}
+              <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                {!isEditingProfile ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleStartEditingProfile}
+                      className="rounded-full bg-primary hover:bg-primary/95 text-white font-semibold text-xs px-4 h-8 shadow-xs"
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Edit Profile
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openCamera}
+                      className="rounded-full border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-8 px-3.5 shadow-2xs"
+                    >
+                      <Camera className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                      Snap Photo
+                    </Button>
+                  </>
+                ) : (
+                  <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-medium px-3 py-1">
+                    Editing Mode Active
+                  </Badge>
                 )}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name</Label>
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Display or preferred name"
-                disabled={!isEditingProfile}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="First name"
-                  disabled={!isEditingProfile}
-                />
+          </div>
+
+          {/* EDIT PROFILE DRAWER / FORM (When editing mode is active) */}
+          {isEditingProfile && (
+            <div className="mt-6 pt-5 border-t border-emerald-100 dark:border-border space-y-4 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" />
+                  Personal Information
+                </h3>
+                <span className="text-xs text-muted-foreground">Update your personal details</span>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Surname / Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Surname"
-                  disabled={!isEditingProfile}
-                />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="displayName" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Display Name
+                  </Label>
+                  <Input
+                    id="displayName"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Preferred display name"
+                    className="rounded-xl border-emerald-200/80 focus-visible:ring-primary h-10 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="dateOfBirth" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Date of Birth
+                  </Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    className="rounded-xl border-emerald-200/80 focus-visible:ring-primary h-10 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="firstName" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    First Name
+                  </Label>
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First name"
+                    className="rounded-xl border-emerald-200/80 focus-visible:ring-primary h-10 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="lastName" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Surname / Last Name
+                  </Label>
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Surname"
+                    className="rounded-xl border-emerald-200/80 focus-visible:ring-primary h-10 text-sm"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateOfBirth">Date of Birth</Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                disabled={!isEditingProfile}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                value={user?.email || ''}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-            {isEditingProfile && (
-              <div className="flex gap-2">
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Registered Email Address
+                </Label>
+                <Input
+                  value={user?.email || ''}
+                  disabled
+                  className="rounded-xl bg-slate-100 dark:bg-muted/70 text-muted-foreground h-10 text-sm cursor-not-allowed"
+                />
+                <p className="text-[11px] text-muted-foreground">Account email is managed via Supabase authentication security.</p>
+              </div>
+
+              {/* Save & Cancel Buttons */}
+              <div className="flex items-center gap-3 pt-2">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
                   onClick={handleCancelEditingProfile}
                   disabled={isSaving}
+                  className="flex-1 rounded-xl h-10 font-semibold text-xs border-slate-200 hover:bg-slate-50"
                 >
                   Cancel
                 </Button>
                 <Button
+                  type="button"
                   onClick={handleSaveProfile}
                   disabled={isSaving}
-                  className="flex-1"
+                  className="flex-1 rounded-xl h-10 font-bold text-xs bg-primary hover:bg-primary/95 text-white shadow-xs"
                 >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : null}
-                  Save Changes
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-1.5" />}
+                  Save Profile Changes
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </section>
 
-        {/* Security Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Security
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Biometric Toggle */}
-            {biometricAvailable && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                    <Fingerprint className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">Biometric Login</p>
-                    <p className="text-sm text-muted-foreground">
-                      Use fingerprint or face to unlock
-                    </p>
-                  </div>
-                </div>
-                {isEnablingBiometric ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                ) : (
-                  <Switch
-                    checked={biometricEnabled}
-                    onCheckedChange={handleToggleBiometric}
-                  />
-                )}
+        {/* Status Toast Message */}
+        {message && (
+          <div className={`flex items-center gap-3 rounded-2xl p-4 text-xs font-medium transition shadow-xs ${
+            message.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              : 'bg-red-50 text-red-900 border border-red-200'
+          }`}>
+            {message.type === 'success' ? (
+              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+            )}
+            <span className="flex-1">{message.text}</span>
+            <button
+              type="button"
+              onClick={() => setMessage(null)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 1. EMERGENCY CONTACTS (Trusted Circle)                                     */}
+        {/* ========================================================================= */}
+        <section className="rounded-2xl border border-border/80 bg-white dark:bg-card shadow-2xs overflow-hidden">
+          <div className="p-5 border-b border-border/60 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-primary">
+                <Phone className="h-5 w-5" />
               </div>
-            )}
-
-            {!biometricAvailable && (
-              <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                <Fingerprint className="w-5 h-5 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Biometric login is not available on this device
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-foreground">
+                  Emergency Contacts (Trusted Circle)
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Contacts dialed first and notified with GPS coords during SOS alerts.
                 </p>
               </div>
-            )}
+            </div>
 
-            {/* PIN Settings */}
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                  <KeyRound className="w-5 h-5 text-muted-foreground" />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setContactName('')
+                setContactPhone('')
+                setContactRelationship('')
+                setContactIsPrimary(contacts.length === 0)
+                setShowAddContact(true)
+              }}
+              className="rounded-full border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-8 px-3"
+            >
+              <UserPlus className="h-3.5 w-3.5 mr-1 text-primary" />
+              Add Contact
+            </Button>
+          </div>
+
+          <div className="p-5">
+            {isLoadingContacts ? (
+              <div className="flex items-center justify-center py-6 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                <span className="text-xs">Loading trusted contacts...</span>
+              </div>
+            ) : contacts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-emerald-200/80 bg-emerald-50/40 p-6 text-center space-y-2">
+                <Phone className="h-8 w-8 mx-auto text-primary/60" />
+                <p className="text-xs font-semibold text-foreground">No emergency contacts set yet</p>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Add at least one trusted friend, family member, or neighbor so Phola can reach them immediately in emergencies.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setContactName('')
+                    setContactPhone('')
+                    setContactRelationship('')
+                    setContactIsPrimary(true)
+                    setShowAddContact(true)
+                  }}
+                  className="rounded-full bg-primary hover:bg-primary/95 text-white text-xs font-semibold h-8 px-4"
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-1" />
+                  Add First Contact
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/70 bg-slate-50/50 dark:bg-muted/30 p-3.5 transition hover:border-emerald-200"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs uppercase">
+                        {contact.name.slice(0, 2)}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm text-foreground truncate">{contact.name}</p>
+                          {contact.is_primary && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900 border border-emerald-200">
+                              <Star className="h-2.5 w-2.5 fill-emerald-800 text-emerald-800" />
+                              Primary SOS Contact
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {contact.phone} {contact.relationship ? `• ${contact.relationship}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      {!contact.is_primary && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2.5 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleSetPrimaryContact(contact.id)}
+                        >
+                          Make Primary
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-red-50 rounded-lg"
+                        onClick={() => handleDeleteContact(contact.id)}
+                        title="Delete contact"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 2. SECURITY & AUTHENTICATION                                              */}
+        {/* ========================================================================= */}
+        <section className="rounded-2xl border border-border/80 bg-white dark:bg-card shadow-2xs overflow-hidden">
+          <div className="p-5 border-b border-border/60">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-primary">
+                <Shield className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-foreground">
+                  Security & App Lock
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Safeguard your confidential records and prevent unauthorized access.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="divide-y divide-border/60">
+            {/* Biometric Row */}
+            <div className="p-5 flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-700 dark:text-foreground mt-0.5">
+                  <Fingerprint className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">PIN Lock</p>
-                  <p className="text-sm text-muted-foreground">
-                    {profile?.pin_hash ? 'PIN is configured and active' : 'No PIN set (optional backup unlock)'}
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm text-foreground">Biometric Authentication</p>
+                    {biometricEnabled ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
+                        Active
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {biometricAvailable
+                      ? 'Unlock Phola instantly with Fingerprint or Face ID.'
+                      : 'Biometric sensors not available on this device browser.'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              {biometricAvailable && (
+                <div className="shrink-0">
+                  {isEnablingBiometric ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Switch
+                      checked={biometricEnabled}
+                      onCheckedChange={handleToggleBiometric}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* PIN Lock Row */}
+            <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-700 dark:text-foreground mt-0.5">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-sm text-foreground">Security PIN Lock</p>
+                    {profile?.pin_hash ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
+                        PIN Configured
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                        Not set
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    A 4 to 6 digit fallback code required to view encrypted incident logs.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                 {profile?.pin_hash ? (
                   <>
                     <Button
@@ -1187,6 +1361,7 @@ export function SettingsPage() {
                         setConfirmPin('')
                         setShowPinModal(true)
                       }}
+                      className="rounded-full text-xs font-semibold h-8 px-3 border-emerald-200 text-emerald-900 hover:bg-emerald-50"
                     >
                       Change PIN
                     </Button>
@@ -1194,7 +1369,7 @@ export function SettingsPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:bg-destructive/10"
+                      className="rounded-full text-xs font-semibold h-8 px-2.5 text-destructive hover:bg-red-50"
                       onClick={handleRemovePin}
                     >
                       Remove
@@ -1212,137 +1387,127 @@ export function SettingsPage() {
                       setConfirmPin('')
                       setShowPinModal(true)
                     }}
+                    className="rounded-full text-xs font-semibold h-8 px-3.5 border-emerald-200 text-emerald-900 hover:bg-emerald-50"
                   >
-                    Set PIN
+                    Set Up PIN
                   </Button>
                 )}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        {/* Emergency Contacts (Trusted Circle) */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Phone className="w-4 h-4 text-primary" />
-                Emergency Contacts (Trusted Circle)
-              </CardTitle>
-              <CardDescription>
-                Contacts alerted when you activate SOS or tap emergency speed dial.
-              </CardDescription>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setContactName('')
-                setContactPhone('')
-                setContactRelationship('')
-                setContactIsPrimary(contacts.length === 0)
-                setShowAddContact(true)
-              }}
-            >
-              <UserPlus className="w-4 h-4 mr-1.5" />
-              Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {isLoadingContacts ? (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        {/* ========================================================================= */}
+        {/* 3. PREFERENCES & LOCALIZATION                                             */}
+        {/* ========================================================================= */}
+        <section className="rounded-2xl border border-border/80 bg-white dark:bg-card shadow-2xs overflow-hidden">
+          <div className="p-5 border-b border-border/60">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-primary">
+                <Globe className="h-5 w-5" />
               </div>
-            ) : contacts.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-4 text-center">
-                <p className="text-sm text-muted-foreground">
-                  No emergency contacts added yet. Add a trusted friend, family member, or neighbor.
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-foreground">
+                  Language & Regional Settings
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  South African official languages and device preferences.
                 </p>
               </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {contacts.map((contact) => (
-                  <div key={contact.id} className="py-2.5 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm text-foreground truncate">{contact.name}</p>
-                        {contact.is_primary && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                            <Star className="w-3 h-3 fill-primary" />
-                            Primary
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {contact.phone} {contact.relationship ? `• ${contact.relationship}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {!contact.is_primary && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          onClick={() => handleSetPrimaryContact(contact.id)}
-                        >
-                          Set Primary
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteContact(contact.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Official Interface Language
+              </Label>
+              <LanguageSelector />
+            </div>
+
+            <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-foreground">Install Phola on this Device</p>
+                <p className="text-[11px] text-muted-foreground">Add to Home Screen for fast offline safety access.</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <InstallPrompt autoOpen={false} showTrigger />
+            </div>
+          </div>
+        </section>
 
-        {/* Data Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2 text-destructive">
-              <Trash2 className="w-4 h-4" />
-              Data Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Delete all your notes and data. This action cannot be undone.
+        {/* ========================================================================= */}
+        {/* 4. PRIVACY & DATA MANAGEMENT                                              */}
+        {/* ========================================================================= */}
+        <section className="rounded-2xl border border-border/80 bg-white dark:bg-card shadow-2xs overflow-hidden">
+          <div className="p-5 border-b border-border/60">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-primary">
+                <Lock className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-foreground">
+                  Privacy & Data Ownership
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  You own your data. Export, encrypt, or permanently erase your history.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 dark:bg-card p-3.5 flex items-start gap-3">
+              <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div className="text-xs space-y-0.5">
+                <p className="font-semibold text-foreground">End-to-End Client Encryption</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Incident dockets, private evidence files, and personal logs are stored securely with zero third-party commercial tracking.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <div>
+                <p className="text-xs font-semibold text-red-600 dark:text-red-400">Permanently Erase All Data</p>
+                <p className="text-[11px] text-muted-foreground">Deletes all incident notes, emergency contacts, and cached records.</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full text-xs font-semibold border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 h-8 px-3 shrink-0 self-start sm:self-auto"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Delete All Data
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 5. SESSION & LOGOUT ACTION (Executive Big-Company Footer)                 */}
+        {/* ========================================================================= */}
+        <div className="space-y-4 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSignOut}
+            className="w-full rounded-2xl h-12 border-red-200/80 bg-red-50/50 hover:bg-red-100/70 text-red-700 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/50 text-sm font-bold shadow-2xs transition-colors flex items-center justify-center gap-2"
+          >
+            <LogOut className="h-4 w-4 text-red-600" />
+            Log Out of Phola
+          </Button>
+
+          <div className="text-center space-y-1 pb-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Phola Safety Network • South Africa
             </p>
-            <Button
-              variant="outline"
-              className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete All My Data
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Sign Out */}
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={handleSignOut}
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Sign Out
-        </Button>
-
-        <p className="text-xs text-center text-muted-foreground">
-          Your data is encrypted and stored securely.
-        </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              Version 2.4.0 (Build 2026) • All rights reserved
+            </p>
+          </div>
+        </div>
       </main>
       <AppBottomNav />
     </div>
