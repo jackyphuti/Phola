@@ -4,6 +4,7 @@ const LOCAL_DATA_KEYS = [
   'phola-intro-seen',
   'phola-biometric-credential-id',
   'phola_side_tabs_hidden',
+  'phola_active_safe_ride',
 ]
 
 export function clearSensitiveLocalData() {

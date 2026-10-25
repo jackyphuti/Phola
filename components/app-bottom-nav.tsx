@@ -127,7 +127,7 @@ export function AppBottomNav() {
         {/* Tab Items List */}
         <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
           {tabs.map((tab) => {
-            const isActive = pathname === tab.href || pathname?.startsWith(`${tab.href}/`)
+            const isActive = pathname === tab.href || pathname?.startsWith(`${tab.href}/`) || (tab.href === '/safety' && pathname === '/safe-ride')
             const Icon = tab.icon
 
             return (

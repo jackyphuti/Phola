@@ -7,6 +7,15 @@
   "background_color": "#ffffff",
   "theme_color": "#0D6E6E",
   "orientation": "portrait",
+  "share_target": {
+    "action": "/safe-ride",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "shared_text",
+      "url": "url"
+    }
+  },
   "icons": [
     {
       "src": "/phola-icon-192x192.png",

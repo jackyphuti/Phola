@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { ShieldAlert, FileWarning, MapPinned, ListChecks, Siren, Info } from 'lucide-react'
+import { ShieldAlert, FileWarning, MapPinned, ListChecks, Siren, Info, Car } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
@@ -15,8 +15,26 @@ export function SafetyHub() {
         <section className="rounded-[1.75rem] border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
           <div className="pl-12 sm:pl-0">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Safety</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Safety</h1>
-          <p className="mt-2 text-sm text-muted-foreground">GBV reporting remains at the heart of your safety tools.</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Safety</h1>
+            <p className="mt-2 text-sm text-muted-foreground">GBV reporting and proactive personal safety tools.</p>
+          </div>
+        </section>
+
+        {/* Safe Ride Watchdog Card */}
+        <section className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs">
+                <Car className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-foreground sm:text-base">Safe Ride Watchdog</h2>
+                <p className="text-xs text-muted-foreground">Monitor Uber, Bolt & inDrive trips with safety timers & emergency dispatch.</p>
+              </div>
+            </div>
+            <Button onClick={() => router.push('/safe-ride')} size="sm" className="bg-primary text-white font-medium self-end sm:self-auto shrink-0">
+              Open Safe Ride
+            </Button>
           </div>
         </section>
 

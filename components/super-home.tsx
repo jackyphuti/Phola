@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, ShieldAlert, Bus, Store, Newspaper, Briefcase, Hospital, Shield, FileWarning, CircleDot, Phone, HeartHandshake } from 'lucide-react'
+import { Search, ShieldAlert, Bus, Store, Newspaper, Briefcase, Hospital, Shield, FileWarning, CircleDot, Phone, HeartHandshake, Car } from 'lucide-react'
+import { SafeRideSession } from '@/lib/safe-ride-types'
+import { getActiveSafeRide, formatCountdown, calculateRemainingSeconds } from '@/lib/safe-ride-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
@@ -26,6 +28,7 @@ type NearbyItem = {
 }
 
 const quickActions = [
+  { label: 'Safe Ride', href: '/safe-ride', icon: Car },
   { label: 'Report GBV', href: '/report', icon: ShieldAlert },
   { label: 'Report Crime', href: '/report', icon: FileWarning },
   { label: 'Safety Hub', href: '/safety', icon: HeartHandshake },
@@ -37,6 +40,8 @@ const quickActions = [
 ]
 
 const searchIndex = [
+  { label: 'Safe Ride (Uber / Bolt / inDrive)', href: '/safe-ride' },
+  { label: 'Track My Ride', href: '/safe-ride' },
   { label: 'Report GBV', href: '/report' },
   { label: 'Report Crime', href: '/report' },
   { label: 'Safety Hub & Helplines', href: '/safety' },
@@ -64,7 +69,9 @@ function formatDistance(km: number): string {
 export function SuperHome({ name }: { name: string }) {
   const router = useRouter()
   const { user } = useAuth()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
+  const [activeRide, setActiveRide] = useState<SafeRideSession | null>(null)
+  const [rideRemainingSecs, setRideRemainingSecs] = useState<number>(0)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [language, setLanguage] = useState('en')
   const [search, setSearch] = useState('')
@@ -214,6 +221,33 @@ export function SuperHome({ name }: { name: string }) {
             </div>
           </div>
         </section>
+
+        {activeRide && (
+          <section>
+            <div 
+              onClick={() => router.push('/safe-ride')}
+              className="flex items-center justify-between gap-3 rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-3.5 shadow-sm cursor-pointer hover:bg-emerald-100/80 transition"
+            >
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    Safe Ride in Progress: {activeRide.serviceName}
+                  </p>
+                  <p className="text-xs text-emerald-800">
+                    To {activeRide.destination} • {formatCountdown(rideRemainingSecs)} remaining
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 shrink-0">
+                View Watchdog
+              </Button>
+            </div>
+          </section>
+        )}
 
         <section className="relative">
           <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-white px-3 py-3 shadow-sm">
