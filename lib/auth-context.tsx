@@ -19,14 +19,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function purgeStaleSupabaseStorage() {
+  if (typeof window === 'undefined') return
+  try {
+    Object.keys(window.localStorage).forEach((key) => {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        window.localStorage.removeItem(key)
+      }
+    })
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [supabase] = useState(() => createClient())
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  
-  const supabase = createClient()
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -35,12 +47,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('*')
         .eq('id', userId)
         .single()
-      
+
       if (data && !error) {
         const p = data as Profile
         setProfile(p)
         if (p.pin_hash) {
-          const isSessionUnlocked = typeof window !== 'undefined' && window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
+          const isSessionUnlocked =
+            typeof window !== 'undefined' &&
+            window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
           setIsLocked(!isSessionUnlocked)
         } else {
           setIsLocked(false)
@@ -59,20 +73,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
+    let didComplete = false
 
     const getUser = async () => {
       const sessionInit = (async () => {
         try {
           const { data, error } = await supabase.auth.getUser()
+          didComplete = true
           if (error) {
             const errorMsg = error.message?.toLowerCase() || ''
-            if (errorMsg.includes('invalid refresh token') || errorMsg.includes('refresh_token_not_found') || errorMsg.includes('jwt expired')) {
-              console.warn('Invalid refresh token detected in local storage. Purging stale auth state.')
-              try {
-                await supabase.auth.signOut()
-              } catch {
-                // ignore
-              }
+            if (
+              errorMsg.includes('invalid refresh token') ||
+              errorMsg.includes('refresh_token_not_found') ||
+              errorMsg.includes('jwt expired')
+            ) {
+              purgeStaleSupabaseStorage()
+              await supabase.auth.signOut().catch(() => {})
             }
             if (isMounted) {
               setUser(null)
@@ -91,15 +107,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (error: any) {
+          didComplete = true
           console.error('Failed to initialize Supabase auth session', error)
-          const errStr = String(error?.message || error).toLowerCase()
-          if (errStr.includes('refresh') || errStr.includes('token') || errStr.includes('jwt')) {
-            try {
-              await supabase.auth.signOut()
-            } catch {
-              // ignore
-            }
-          }
+          purgeStaleSupabaseStorage()
+          await supabase.auth.signOut().catch(() => {})
           if (isMounted) {
             setUser(null)
             setProfile(null)
@@ -108,8 +119,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       })()
 
-      // Enforce a strict 6-second timeout so app never hangs indefinitely on loading
-      const timeoutFallback = new Promise((resolve) => setTimeout(resolve, 6000))
+      const timeoutFallback = new Promise<void>((resolve) =>
+        setTimeout(() => {
+          if (!didComplete) {
+            console.warn('Supabase auth initialization timed out; clearing stale tokens.')
+            purgeStaleSupabaseStorage()
+          }
+          resolve()
+        }, 6000)
+      )
 
       await Promise.race([sessionInit, timeoutFallback])
 
@@ -224,18 +242,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       window.sessionStorage.clear()
     }
-    await supabase.auth.signOut()
+    purgeStaleSupabaseStorage()
+    await supabase.auth.signOut().catch(() => {})
     setUser(null)
     setProfile(null)
     setIsLocked(false)
   }
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        profile, 
-        isLoading, 
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        isLoading,
         isAuthenticated: !!user,
         isLocked,
         signOut,

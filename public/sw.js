@@ -2,7 +2,7 @@
  * Phola Service Worker - Web Push, Background Notifications & Network-First Caching
  */
 
-const CACHE_NAME = 'phola-cache-v4'
+const CACHE_NAME = 'phola-cache-v5'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -23,11 +23,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
-  // 1. NEVER intercept API routes, Supabase calls, OAuth/auth flows, or non-GET requests
+  // 1. NEVER intercept API routes, Supabase calls, OAuth/auth flows, Webpack HMR, or non-GET requests
   if (
     event.request.method !== 'GET' ||
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
+    url.pathname.startsWith('/_next/webpack-hmr') ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('overpass-api.de') ||
     url.hostname.includes('overpass.kumi.systems')

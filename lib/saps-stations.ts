@@ -16,6 +16,8 @@ export const SAPS_STATIONS: SAPSStation[] = [
   { code: 'GP-ALEXANDRA', name: 'Alexandra SAPS', lat: -26.1042, lng: 28.0935, province: 'Gauteng', phone: '0113217600' },
   { code: 'GP-ROSEBANK', name: 'Rosebank SAPS', lat: -26.1472, lng: 28.0416, province: 'Gauteng', phone: '0117784700' },
   { code: 'GP-PRETORIA-CENTRAL', name: 'Pretoria Central SAPS', lat: -25.7516, lng: 28.1878, province: 'Gauteng', phone: '0123534000' },
+  { code: 'GP-HATFIELD', name: 'Hatfield SAPS (Pretoria)', lat: -25.7486, lng: 28.2380, province: 'Gauteng', phone: '0123661700' },
+  { code: 'GP-GARSFONTEIN', name: 'Garsfontein SAPS', lat: -25.7956, lng: 28.2994, province: 'Gauteng', phone: '0124704200' },
   { code: 'GP-SUNNYSIDE', name: 'Sunnyside SAPS', lat: -25.7562, lng: 28.2125, province: 'Gauteng', phone: '0124223600' },
   { code: 'GP-BROOKLYN', name: 'Brooklyn SAPS', lat: -25.7725, lng: 28.2394, province: 'Gauteng', phone: '0123661700' },
   { code: 'GP-MIDRAND', name: 'Midrand SAPS', lat: -25.9984, lng: 28.1278, province: 'Gauteng', phone: '0113471600' },
@@ -63,6 +65,9 @@ export const POPULAR_SA_MALLS = [
   { id: 'eastgate-mall', name: 'Eastgate Shopping Centre', lat: -26.1802, lng: 28.1185, address: '43 Bradford Rd, Bedfordview, Germiston' },
   { id: 'crestas-centre', name: 'Cresta Shopping Centre', lat: -26.1332, lng: 27.9715, address: 'Beyers Naudé Dr, Cresta, Randburg' },
   { id: 'menlyn-park', name: 'Menlyn Park Shopping Centre', lat: -25.7825, lng: 28.2755, address: 'Atterbury Rd & Lois Ave, Menlyn, Pretoria' },
+  { id: 'hatfield-plaza', name: 'Hatfield Mall Plaza', lat: -25.7495, lng: 28.2385, address: '1122 Burnett St, Hatfield, Pretoria' },
+  { id: 'loftus-park', name: 'Loftus Park', lat: -25.7532, lng: 28.2256, address: '416 Kirkness St, Arcadia, Pretoria' },
+  { id: 'brooklyn-mall', name: 'Brooklyn Mall', lat: -25.7715, lng: 28.2355, address: 'Cnr Veale & Fehrsen St, Nieuw Muckleneuk, Pretoria' },
   { id: 'maponya-mall', name: 'Maponya Mall (Soweto)', lat: -26.2625, lng: 27.8992, address: '2127 Chris Hani Rd, Klipspruit Ext 5, Soweto' },
 
   // Western Cape
@@ -116,7 +121,7 @@ export function getNearestSAPSStation(lat: number, lng: number): SAPSStation | n
 export function getNearbySAPSStations(
   lat: number,
   lng: number,
-  limit = 10
+  limit = 15
 ): Array<SAPSStation & { distanceKm: number }> {
   return SAPS_STATIONS.map((station) => ({
     ...station,
@@ -129,7 +134,7 @@ export function getNearbySAPSStations(
 export function getNearbyMalls(
   lat: number,
   lng: number,
-  limit = 10
+  limit = 15
 ): Array<{ id: string; name: string; lat: number; lng: number; address: string; distanceKm: number }> {
   return POPULAR_SA_MALLS.map((mall) => ({
     ...mall,

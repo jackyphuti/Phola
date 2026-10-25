@@ -132,7 +132,7 @@ function getCuratedFallbacks(category: NearbyCategory, lat: number, lng: number)
   return []
 }
 
-function buildOverpassQuery(lat: number, lng: number, category: NearbyCategory, radius = 25000): string {
+function buildOverpassQuery(lat: number, lng: number, category: NearbyCategory, radius = 12000): string {
   const parts: string[] = []
 
   switch (category) {
@@ -171,7 +171,23 @@ function buildOverpassQuery(lat: number, lng: number, category: NearbyCategory, 
   }
 
   if (parts.length === 0) return ''
-  return `[out:json][timeout:15];(${parts.join('')});out center 40;`
+  // Use 180 instead of 40 so Overpass doesn't truncate closest nodes before distance sorting
+  return `[out:json][timeout:12];(${parts.join('')});out center 180;`
+}
+
+function mergeAndDeduplicate(liveResults: PlaceResult[], curatedResults: PlaceResult[]): PlaceResult[] {
+  const combined = [...liveResults]
+  for (const curated of curatedResults) {
+    const isDuplicate = combined.some(
+      (item) =>
+        item.name.toLowerCase() === curated.name.toLowerCase() ||
+        haversineKm(item.location.lat, item.location.lng, curated.location.lat, curated.location.lng) < 0.25
+    )
+    if (!isDuplicate) {
+      combined.push(curated)
+    }
+  }
+  return sortByDistance(combined).slice(0, 30)
 }
 
 async function fetchFromOverpass(lat: number, lng: number, category: NearbyCategory): Promise<PlaceResult[]> {
@@ -179,7 +195,7 @@ async function fetchFromOverpass(lat: number, lng: number, category: NearbyCateg
     return getCuratedFallbacks('taxi_ranks', lat, lng)
   }
 
-  const query = buildOverpassQuery(lat, lng, category, 25000)
+  const query = buildOverpassQuery(lat, lng, category, 12000)
   if (!query) {
     return getCuratedFallbacks(category, lat, lng)
   }
@@ -223,10 +239,14 @@ async function fetchFromOverpass(lat: number, lng: number, category: NearbyCateg
             } satisfies PlaceResult
           })
           .filter((item: PlaceResult | null): item is PlaceResult => item !== null)
-      ).slice(0, 30)
+      )
 
-      if (parsed.length > 0) {
-        return parsed
+      const namedOnly = parsed.filter((p) => p.name !== 'Nearby Place' && p.name !== 'police' && p.name !== 'mall')
+      const curatedNearby = getCuratedFallbacks(category, lat, lng).filter((c) => c.distanceKm <= 35)
+      const finalResults = mergeAndDeduplicate(namedOnly.length > 0 ? namedOnly : parsed, curatedNearby)
+
+      if (finalResults.length > 0) {
+        return finalResults
       }
     } catch {
       // Try next mirror
@@ -256,7 +276,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       category,
       results,
-      source: results.length > 0 ? 'overpass' : 'fallback',
+      source: results.length > 0 ? 'overpass+curated' : 'fallback',
     })
   } catch (error) {
     captureException(error)

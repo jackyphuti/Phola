@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MapPin, Navigation, Building2, Star, Clock } from 'lucide-react'
+import { MapPin, Navigation, Building2, Star, Clock, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppBottomNav } from '@/components/app-bottom-nav'
@@ -49,8 +49,8 @@ function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`
 }
 
-function getCacheKey(category: NearbyCategory): string {
-  return `nearby-cache-${category}`
+function getCacheKey(category: NearbyCategory, lat: number, lng: number): string {
+  return `nearby-v2-${category}-${lat.toFixed(2)}-${lng.toFixed(2)}`
 }
 
 export function NearbyFinder() {
@@ -60,16 +60,29 @@ export function NearbyFinder() {
 
   const [category, setCategory] = useState<NearbyCategory>(initialCategory)
   const [location, setLocation] = useState<{ lat: number; lng: number }>(DEFAULT_SOUTH_AFRICA_LOCATION)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLocationReady, setIsLocationReady] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [results, setResults] = useState<NearbyResult[]>([])
   const [source, setSource] = useState('')
+
+  const refreshLocation = () => {
+    setIsLoading(true)
+    void getReliableLocation().then((loc) => {
+      if (loc) {
+        setLocation(loc)
+      }
+      setIsLocationReady(true)
+    })
+  }
 
   useEffect(() => {
     let isMounted = true
     void getReliableLocation().then((loc) => {
-      if (isMounted && loc) {
+      if (!isMounted) return
+      if (loc) {
         setLocation(loc)
       }
+      setIsLocationReady(true)
     })
     return () => {
       isMounted = false
@@ -77,33 +90,34 @@ export function NearbyFinder() {
   }, [])
 
   useEffect(() => {
-    const key = getCacheKey(category)
-    const cachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
-    if (cachedRaw) {
-      try {
-        const cached = JSON.parse(cachedRaw) as { results: NearbyResult[]; source: string }
-        if (Array.isArray(cached?.results) && cached.results.length > 0) {
-          setResults(cached.results)
-          setSource(`${cached.source} (cached)`)
-        }
-      } catch {
+    if (!isLocationReady) return
+
+    let isMounted = true
+    const cacheKey = getCacheKey(category, location.lat, location.lng)
+
+    // 1. Load location-specific cache immediately if available (< 30 mins old)
+    if (typeof window !== 'undefined') {
+      const cachedRaw = window.localStorage.getItem(cacheKey)
+      if (cachedRaw) {
         try {
-          window.localStorage.removeItem(key)
+          const cached = JSON.parse(cachedRaw) as { results: NearbyResult[]; source: string; ts?: number }
+          const isFresh = !cached.ts || Date.now() - cached.ts < 30 * 60 * 1000
+          if (isFresh && Array.isArray(cached?.results) && cached.results.length > 0) {
+            setResults(cached.results)
+            setSource(`${cached.source} (cached)`)
+          }
         } catch {
-          // ignore
+          window.localStorage.removeItem(cacheKey)
         }
       }
     }
-  }, [category])
 
-  useEffect(() => {
-    let isMounted = true
-
+    // 2. Fetch fresh results for the resolved GPS coordinates
     const fetchResults = async () => {
       setIsLoading(true)
       try {
         const url = getApiUrl(`/api/nearby?lat=${location.lat}&lng=${location.lng}&category=${category}`)
-        const response = await fetch(url)
+        const response = await fetch(url, { cache: 'no-store' })
         const data = await response.json()
         const nextResults = Array.isArray(data?.results) ? data.results : []
 
@@ -114,11 +128,14 @@ export function NearbyFinder() {
 
         if (typeof window !== 'undefined' && nextResults.length > 0) {
           try {
-            window.localStorage.setItem(getCacheKey(category), JSON.stringify({
-              results: nextResults,
-              source: data?.source || 'live',
-              ts: Date.now(),
-            }))
+            window.localStorage.setItem(
+              cacheKey,
+              JSON.stringify({
+                results: nextResults,
+                source: data?.source || 'live',
+                ts: Date.now(),
+              })
+            )
           } catch {
             // ignore quota
           }
@@ -137,7 +154,7 @@ export function NearbyFinder() {
     return () => {
       isMounted = false
     }
-  }, [location, category])
+  }, [location, category, isLocationReady])
 
   const categoryLabel = useMemo(() => categories.find((item) => item.value === category)?.label || 'Nearby', [category])
 
@@ -159,9 +176,15 @@ export function NearbyFinder() {
             <div className="pl-12 sm:pl-0">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Nearby services</p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Find shops, taxi ranks, and essential services fast.</h1>
-              <p className="mt-2 text-sm text-muted-foreground">Results are tailored to your location and cached for faster return visits.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Results are tailored to your location ({location.lat.toFixed(3)}, {location.lng.toFixed(3)}).</p>
             </div>
-            <Button variant="outline" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => router.push('/dashboard')}>Back Home</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={refreshLocation} disabled={isLoading}>
+                <RefreshCw className={`mr-1.5 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh GPS
+              </Button>
+              <Button variant="outline" size="sm" className="border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50" onClick={() => router.push('/dashboard')}>Back Home</Button>
+            </div>
           </div>
         </section>
 
@@ -184,7 +207,10 @@ export function NearbyFinder() {
             <CardContent className="flex items-center justify-between p-3">
               <div>
                 <p className="text-sm font-medium text-foreground">{categoryLabel}</p>
-                <p className="text-xs text-muted-foreground">Source: {source || 'loading'}{isLoading ? ' • updating...' : ''}</p>
+                <p className="text-xs text-muted-foreground">
+                  Source: {!isLocationReady ? 'detecting GPS location...' : source || 'loading'}
+                  {isLoading ? ' • updating...' : ''}
+                </p>
               </div>
               <MapPin className="h-5 w-5 text-primary" />
             </CardContent>
