@@ -302,10 +302,8 @@
 }
 
 /* PWA safe area padding for mobile */
-@supports (padding: env(safe-area-inset-top)) {
-  .safe-top {
-    padding-top: env(safe-area-inset-top);
-  }
+/* PWA safe area bottom helper */
+@supports (padding: env(safe-area-inset-bottom)) {
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }

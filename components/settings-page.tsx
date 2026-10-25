@@ -21,8 +21,9 @@ import {
   clearCredentialId
 } from '@/lib/biometric'
 import { getProfilePhotoUrl } from '@/lib/profile-photo'
-import { LanguageSelector } from '@/components/language-selector'
-import InstallPrompt from '@/components/install-prompt'
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/language-options'
+import { loadLanguagePreference, saveLanguagePreference } from '@/lib/locale-storage'
+import i18n from '@/lib/i18n'
 import { clearSensitiveLocalData } from '@/lib/privacy'
 import { getApiUrl } from '@/lib/api-client'
 import { hashPin, verifyPin } from '@/lib/pin'
@@ -46,7 +47,8 @@ import {
   ShieldCheck,
   Pencil,
   Globe,
-  Lock
+  Lock,
+  ChevronDown
 } from 'lucide-react'
 
 export function SettingsPage() {
@@ -93,6 +95,31 @@ export function SettingsPage() {
   const [contactRelationship, setContactRelationship] = useState('')
   const [contactIsPrimary, setContactIsPrimary] = useState(false)
   const [isSavingContact, setIsSavingContact] = useState(false)
+
+  // Language preference state
+  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('en')
+  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false)
+
+  useEffect(() => {
+    void loadLanguagePreference().then((lang) => {
+      if (lang) {
+        setCurrentLanguage(lang)
+      }
+    })
+  }, [])
+
+  const handleLanguageChange = async (newLang: SupportedLanguage) => {
+    setCurrentLanguage(newLang)
+    await i18n.changeLanguage(newLang)
+    await saveLanguagePreference(newLang)
+    document.documentElement.lang = newLang
+    setIsLanguageDropdownOpen(false)
+    const langObj = SUPPORTED_LANGUAGES.find((l) => l.code === newLang)
+    setMessage({
+      type: 'success',
+      text: `Language updated to ${langObj?.nativeName || newLang} (${langObj?.englishName || ''})`,
+    })
+  }
 
   useEffect(() => {
     const checkBiometric = async () => {
@@ -618,7 +645,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       {isPhotoPreviewOpen && photoDataUrl && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-md">
@@ -1408,30 +1435,73 @@ export function SettingsPage() {
               </div>
               <div>
                 <h2 className="text-sm sm:text-base font-bold text-foreground">
-                  Language & Regional Settings
+                  Language Preferences
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  South African official languages and device preferences.
+                  Choose your preferred official South African language for safety alerts and navigation.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-5 space-y-4">
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Official Interface Language
-              </Label>
-              <LanguageSelector />
+            {/* Current Active Language Pill + Change Action Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-emerald-100 bg-emerald-50/40 dark:bg-muted/30">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-2xl" aria-hidden="true">
+                  {SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.flag || '🇿🇦'}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground font-medium">Currently Selected Language</p>
+                  <p className="text-sm font-bold text-foreground truncate">
+                    {SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.nativeName || 'English'}
+                    <span className="text-xs font-normal text-muted-foreground ml-1.5">
+                      ({SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.englishName || 'English'})
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsLanguageDropdownOpen(!isLanguageDropdownOpen)}
+                className="rounded-full border-emerald-200 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 h-9 px-4 shrink-0 shadow-2xs"
+              >
+                Change Preferred Language
+                <ChevronDown className={`ml-1.5 h-3.5 w-3.5 text-primary transition-transform duration-200 ${isLanguageDropdownOpen ? 'rotate-180' : ''}`} />
+              </Button>
             </div>
 
-            <div className="pt-3 border-t border-border/60 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-foreground">Install Phola on this Device</p>
-                <p className="text-[11px] text-muted-foreground">Add to Home Screen for fast offline safety access.</p>
+            {/* Dropdown Menu (revealed when user presses "Change Preferred Language") */}
+            {isLanguageDropdownOpen && (
+              <div className="pt-2 animate-in fade-in duration-200 space-y-2">
+                <Label htmlFor="language-dropdown-select" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Select your Preferred Language
+                </Label>
+                <div className="relative">
+                  <select
+                    id="language-dropdown-select"
+                    value={currentLanguage}
+                    onChange={(e) => void handleLanguageChange(e.target.value as SupportedLanguage)}
+                    className="w-full h-11 rounded-xl border border-emerald-200 bg-white dark:bg-card px-4 pr-10 text-sm font-semibold text-foreground shadow-2xs focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+                  >
+                    {SUPPORTED_LANGUAGES.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.flag} {lang.nativeName} ({lang.englishName})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-500">
+                    <ChevronDown className="h-4 w-4" />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Phola will immediately switch all crisis instructions and labels to your chosen language.
+                </p>
               </div>
-              <InstallPrompt autoOpen={false} showTrigger />
-            </div>
+            )}
           </div>
         </section>
 

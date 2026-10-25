@@ -83,7 +83,7 @@ export function AppBottomNav() {
       {/* ========================================================================= */}
       {/* GOOGLE-STYLE TOP APP BAR (Pinned header, exactly like Gmail & Google Apps) */}
       {/* ========================================================================= */}
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95 safe-top">
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95">
         {/* Left: Hamburger Button + Logo + Title (Gmail / Google style) */}
         <div className="flex items-center gap-2 sm:gap-3">
           <button

@@ -31,7 +31,7 @@ export function JobsBoard() {
   }, [query])
 
   return (
-    <div className="min-h-screen bg-[#ECE9E4] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] safe-top">
+    <div className="min-h-screen bg-[#ECE9E4] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto w-full max-w-3xl space-y-3 p-4">
         <section>
           <h1 className="text-xl font-semibold text-foreground">Jobs & Opportunities</h1>
