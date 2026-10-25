@@ -2,7 +2,6 @@ import { captureException } from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit, rateLimitResponse } from '@/lib/api'
 
-export const runtime = 'edge'
 
 type NearbyCategory =
   | 'taxi_ranks'

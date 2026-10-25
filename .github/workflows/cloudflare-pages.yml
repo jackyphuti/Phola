@@ -39,4 +39,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy .open-next/cloudflare --project-name=${{ secrets.CLOUDFLARE_PROJECT_NAME || 'phola' }}
+          command: pages deploy .open-next/assets --project-name=${{ secrets.CLOUDFLARE_PROJECT_NAME || 'phola' }}

@@ -4,7 +4,6 @@ import { buildGeminiPrompt, type GeminiAssistantRequest, type GeminiAssistantRes
 import { checkRateLimit, rateLimitResponse, validateJsonBody, withTimeout } from '@/lib/api'
 import { z } from 'zod'
 
-export const runtime = 'edge'
 
 const assistantRequestSchema = z.object({
   message: z.string().trim().min(1),
