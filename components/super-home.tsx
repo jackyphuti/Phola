@@ -33,15 +33,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AppBottomNav } from '@/components/app-bottom-nav'
-import { loadLanguagePreference, saveLanguagePreference } from '@/lib/locale-storage'
-import { SUPPORTED_LANGUAGES, isSupportedLanguage, type SupportedLanguage } from '@/lib/language-options'
+import { loadLanguagePreference } from '@/lib/locale-storage'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { notifySOSActivated, subscribeForProductionPush } from '@/lib/push-notifications'
 import { getApiUrl } from '@/lib/api-client'
 import { SafeRideSession } from '@/lib/safe-ride-types'
 import { getActiveSafeRide, formatCountdown, calculateRemainingSeconds } from '@/lib/safe-ride-service'
-import { safeExit } from '@/lib/safe-exit'
 
 type NewsItem = {
   title: string
@@ -93,7 +91,6 @@ export function SuperHome({ name }: { name: string }) {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<'all' | 'safety' | 'transit' | 'services'>('all')
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [locationName, setLocationName] = useState<string>('Detecting GPS...')
   const [news, setNews] = useState<NewsItem[]>([])
   const [nearest, setNearest] = useState<{ taxi?: NearbyItem; shop?: NearbyItem; clinic?: NearbyItem; police?: NearbyItem }>({})
   const [isSOSHolding, setIsSOSHolding] = useState(false)
@@ -108,13 +105,6 @@ export function SuperHome({ name }: { name: string }) {
   useEffect(() => {
     void loadLanguagePreference().then((value) => setLanguage(value || 'en'))
   }, [])
-
-  const handleLanguageChange = (langCode: string) => {
-    if (isSupportedLanguage(langCode)) {
-      setLanguage(langCode)
-      void saveLanguagePreference(langCode)
-    }
-  }
 
   // 2. Active Safe Ride Monitor Heartbeat
   useEffect(() => {
@@ -135,31 +125,14 @@ export function SuperHome({ name }: { name: string }) {
 
   // 3. Location Detection
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationName('South Africa')
-      return
-    }
+    if (!navigator.geolocation) return
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-        setLocation(coords)
-        // Detect general region
-        if (coords.lat > -26.0 && coords.lat < -25.5 && coords.lng > 28.0 && coords.lng < 28.5) {
-          setLocationName('Pretoria / Tshwane')
-        } else if (coords.lat > -26.5 && coords.lat < -26.0 && coords.lng > 27.8 && coords.lng < 28.3) {
-          setLocationName('Johannesburg, GP')
-        } else if (coords.lat > -34.2 && coords.lat < -33.7 && coords.lng > 18.2 && coords.lng < 18.8) {
-          setLocationName('Cape Town, WC')
-        } else if (coords.lat > -30.1 && coords.lat < -29.6 && coords.lng > 30.8 && coords.lng < 31.2) {
-          setLocationName('Durban / eThekwini')
-        } else {
-          setLocationName('South Africa (GPS Active)')
-        }
+        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
       },
       () => {
         setLocation(null)
-        setLocationName('South Africa')
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     )
@@ -305,39 +278,6 @@ export function SuperHome({ name }: { name: string }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        
-        {/* ========================================================================= */}
-        {/* TOP STATUS BAR: App Identity, Location Pill, Quick Exit                    */}
-        {/* ========================================================================= */}
-        <header className="flex items-center justify-between gap-2 pt-1 pb-1">
-          {/* Left: Location & GPS Badge */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-900 shadow-2xs">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-              </span>
-              <MapPin className="h-3 w-3 text-primary" />
-              <span className="truncate max-w-[140px] sm:max-w-xs">{locationName}</span>
-            </div>
-          </div>
-
-          {/* Right: Language Chip & Quick Disguise Button */}
-          <div className="flex items-center gap-2">
-            <select
-              aria-label="Select app language"
-              value={language}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-900 shadow-2xs outline-none hover:bg-emerald-50 cursor-pointer"
-            >
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.nativeName}
-                </option>
-              ))}
-            </select>
-          </div>
-        </header>
 
         {/* ========================================================================= */}
         {/* ACTIVE SAFE RIDE LIVE WIDGET (Shows whenever ride is active)              */}
