@@ -31,3 +31,5 @@ cpp/traffic-monitor/traffic-monitor
 traffic-monitor
 .vercel
 .env*
+*.apk
+.vscode/

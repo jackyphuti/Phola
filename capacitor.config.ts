@@ -1,6 +1,6 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
-const prodServerUrl = process.env.CAPACITOR_SERVER_URL || process.env.PROD_SERVER_URL;
+const prodServerUrl = process.env.CAPACITOR_SERVER_URL || process.env.PROD_SERVER_URL || 'https://phola-beta.vercel.app';
 const devServerUrl = process.env.CAPACITOR_DEV_SERVER_URL || 'http://10.0.2.2:3000';
 const useDevServer = process.env.CAPACITOR_DEV_SERVER === '1' || Boolean(process.env.CAPACITOR_DEV_SERVER_URL);
 
