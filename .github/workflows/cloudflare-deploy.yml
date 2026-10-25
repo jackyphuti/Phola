@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Pages
+name: Deploy to Cloudflare
 
 on:
   push:
@@ -30,13 +30,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build:pages
+      - name: Build with OpenNext
+        run: pnpm build:worker
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         if: env.CLOUDFLARE_API_TOKEN != ''
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy .open-next/assets --project-name=${{ secrets.CLOUDFLARE_PROJECT_NAME || 'phola' }}
+          command: deploy

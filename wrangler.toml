@@ -1,4 +1,0 @@
-name = "phola"
-pages_build_output_dir = ".open-next/assets"
-compatibility_date = "2025-03-25"
-compatibility_flags = ["nodejs_compat"]

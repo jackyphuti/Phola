@@ -15,9 +15,15 @@ export async function updateSession(request: NextRequest) {
 
   // With Fluid compute, don't put this client in a global environment
   // variable. Always create a new one on each request.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = getSupabaseKey()
+  if (!supabaseUrl || !supabaseKey) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    getSupabaseKey()!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
