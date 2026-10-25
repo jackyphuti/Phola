@@ -11,7 +11,7 @@
     "cap:add:android": "npx cap add android",
     "cap:open:android": "npx cap open android",
     "cap:sync": "npx cap sync",
-    "build:apk": "npx cap sync android && cd android && gradlew assembleDebug",
+    "build:apk": "node scripts/build-apk.js",
     "start": "next start",
     "import:gbv": "node scripts/import-gbv-media.js",
     "lint": "eslint .",
