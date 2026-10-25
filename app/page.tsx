@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
 import { useTranslation } from 'react-i18next'
 import { LockScreen } from '@/components/lock-screen'
-import { ArrowRight, Loader2, ShieldCheck, MapPinned, Sparkles, MessageCircleMore } from 'lucide-react'
+import { ArrowRight, Loader2, ShieldCheck, MapPinned, MessageCircleMore } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { safeExit } from '@/lib/safe-exit'
@@ -55,11 +55,6 @@ export default function HomePage() {
       </Button>
       <main className="relative mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-10 lg:grid-cols-[1.08fr_0.92fr]">
         <section className="space-y-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-medium text-emerald-800 shadow-sm">
-            <Sparkles className="h-4 w-4" />
-            Private safety tools for everyday life
-          </div>
-
           <div className="flex flex-col items-start gap-6 text-left sm:max-w-2xl sm:items-start">
             <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[1.75rem] border border-emerald-100 bg-white shadow-[0_20px_60px_rgba(13,110,110,0.12)]">
             <Image

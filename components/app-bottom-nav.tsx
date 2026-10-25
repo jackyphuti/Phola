@@ -11,8 +11,8 @@ import {
   User, 
   FileText, 
   Sparkles, 
-  PanelLeftClose, 
-  PanelLeftOpen, 
+  Menu, 
+  X, 
   LogOut 
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ const tabs = [
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const [isHidden, setIsHidden] = useState<boolean>(false)
+  const [isHidden, setIsHidden] = useState<boolean>(true)
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -43,6 +43,10 @@ export function AppBottomNav() {
       setIsHidden(stored === 'true')
     }
   }, [])
+
+  useEffect(() => {
+    setIsHidden(true)
+  }, [pathname])
 
   const toggleHide = (hidden: boolean) => {
     setIsHidden(hidden)
@@ -62,24 +66,23 @@ export function AppBottomNav() {
 
   return (
     <>
-      {/* Floating UNHIDE button when sidebar is hidden */}
+      {/* 3 (-) Hamburger menu button when sidebar is closed */}
       {isHidden && (
         <button
           type="button"
           onClick={() => toggleHide(false)}
-          className="fixed left-3 top-3 z-50 flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/95 px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-md backdrop-blur hover:bg-emerald-50 transition-all hover:scale-105 active:scale-95"
-          title="Unhide navigation tabs"
-          aria-label="Unhide navigation tabs"
+          className="fixed left-3.5 top-3.5 z-50 flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200/90 bg-white/95 text-emerald-900 shadow-md backdrop-blur hover:bg-emerald-50 hover:border-emerald-300 transition-all hover:scale-105 active:scale-95"
+          title="Menu"
+          aria-label="Open navigation menu"
         >
-          <PanelLeftOpen className="h-4 w-4 text-emerald-700" />
-          <span>Tabs</span>
+          <Menu className="h-5 w-5 text-emerald-800" />
         </button>
       )}
 
-      {/* Backdrop for mobile */}
+      {/* Backdrop */}
       {!isHidden && (
         <div
-          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] md:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] transition-opacity"
           onClick={() => toggleHide(true)}
           aria-hidden="true"
         />
@@ -91,7 +94,7 @@ export function AppBottomNav() {
           isHidden ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
-        {/* Header with App Icon and HIDE button */}
+        {/* Header with App Icon and Close button */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-emerald-100/80 dark:border-border">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
@@ -113,11 +116,11 @@ export function AppBottomNav() {
           <button
             type="button"
             onClick={() => toggleHide(true)}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
-            title="Hide navigation tabs"
-            aria-label="Hide navigation tabs"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+            title="Close menu"
+            aria-label="Close navigation menu"
           >
-            <PanelLeftClose className="h-5 w-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
@@ -133,10 +136,7 @@ export function AppBottomNav() {
                 type="button"
                 onClick={() => {
                   router.push(tab.href)
-                  // Auto-close on smaller mobile screens after selection
-                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                    toggleHide(true)
-                  }
+                  toggleHide(true)
                 }}
                 className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all ${
                   isActive
@@ -157,7 +157,7 @@ export function AppBottomNav() {
         </nav>
 
         {/* Footer Actions */}
-        <div className="p-3 border-t border-emerald-100/80 dark:border-border space-y-2">
+        <div className="p-3 border-t border-emerald-100/80 dark:border-border">
           <Button
             type="button"
             variant="outline"
@@ -167,17 +167,6 @@ export function AppBottomNav() {
           >
             <LogOut className="h-4 w-4 mr-2" />
             Quick Exit
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full justify-center text-xs text-muted-foreground"
-            onClick={() => toggleHide(true)}
-          >
-            <PanelLeftClose className="h-3.5 w-3.5 mr-1.5" />
-            Hide Tabs
           </Button>
         </div>
       </aside>
