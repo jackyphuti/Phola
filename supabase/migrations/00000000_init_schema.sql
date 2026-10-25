@@ -18,24 +18,24 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
-create policy "Users can view own profile"
-  on public.profiles for select
+drop policy if exists "Users can view own profile" on public.profiles;
+create policy "Users can view own profile" on public.profiles for select
   to authenticated
   using (auth.uid() = id);
 
-create policy "Users can insert own profile"
-  on public.profiles for insert
+drop policy if exists "Users can insert own profile" on public.profiles;
+create policy "Users can insert own profile" on public.profiles for insert
   to authenticated
   with check (auth.uid() = id);
 
-create policy "Users can update own profile"
-  on public.profiles for update
+drop policy if exists "Users can update own profile" on public.profiles;
+create policy "Users can update own profile" on public.profiles for update
   to authenticated
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
-create policy "Users can delete own profile"
-  on public.profiles for delete
+drop policy if exists "Users can delete own profile" on public.profiles;
+create policy "Users can delete own profile" on public.profiles for delete
   to authenticated
   using (auth.uid() = id);
 
@@ -65,24 +65,24 @@ create table if not exists public.incidents (
 
 alter table public.incidents enable row level security;
 
-create policy "Users can view own incidents"
-  on public.incidents for select
+drop policy if exists "Users can view own incidents" on public.incidents;
+create policy "Users can view own incidents" on public.incidents for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own incidents"
-  on public.incidents for insert
+drop policy if exists "Users can insert own incidents" on public.incidents;
+create policy "Users can insert own incidents" on public.incidents for insert
   to authenticated
   with check (auth.uid() = user_id);
 
-create policy "Users can update own incidents"
-  on public.incidents for update
+drop policy if exists "Users can update own incidents" on public.incidents;
+create policy "Users can update own incidents" on public.incidents for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy "Users can delete own incidents"
-  on public.incidents for delete
+drop policy if exists "Users can delete own incidents" on public.incidents;
+create policy "Users can delete own incidents" on public.incidents for delete
   to authenticated
   using (auth.uid() = user_id);
 
@@ -102,24 +102,24 @@ create table if not exists public.emergency_contacts (
 
 alter table public.emergency_contacts enable row level security;
 
-create policy "Users can view own emergency contacts"
-  on public.emergency_contacts for select
+drop policy if exists "Users can view own emergency contacts" on public.emergency_contacts;
+create policy "Users can view own emergency contacts" on public.emergency_contacts for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own emergency contacts"
-  on public.emergency_contacts for insert
+drop policy if exists "Users can insert own emergency contacts" on public.emergency_contacts;
+create policy "Users can insert own emergency contacts" on public.emergency_contacts for insert
   to authenticated
   with check (auth.uid() = user_id);
 
-create policy "Users can update own emergency contacts"
-  on public.emergency_contacts for update
+drop policy if exists "Users can update own emergency contacts" on public.emergency_contacts;
+create policy "Users can update own emergency contacts" on public.emergency_contacts for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy "Users can delete own emergency contacts"
-  on public.emergency_contacts for delete
+drop policy if exists "Users can delete own emergency contacts" on public.emergency_contacts;
+create policy "Users can delete own emergency contacts" on public.emergency_contacts for delete
   to authenticated
   using (auth.uid() = user_id);
 
@@ -133,44 +133,44 @@ values
 on conflict (id) do nothing;
 
 -- Storage policies for profile-photos
-create policy "Anyone can view profile photos"
-  on storage.objects for select
+drop policy if exists "Anyone can view profile photos" on storage.objects;
+create policy "Anyone can view profile photos" on storage.objects for select
   using (bucket_id = 'profile-photos');
 
-create policy "Authenticated users can upload profile photos"
-  on storage.objects for insert
+drop policy if exists "Authenticated users can upload profile photos" on storage.objects;
+create policy "Authenticated users can upload profile photos" on storage.objects for insert
   to authenticated
   with check (bucket_id = 'profile-photos');
 
-create policy "Users can update their profile photos"
-  on storage.objects for update
+drop policy if exists "Users can update their profile photos" on storage.objects;
+create policy "Users can update their profile photos" on storage.objects for update
   to authenticated
   using (bucket_id = 'profile-photos');
 
-create policy "Users can delete their profile photos"
-  on storage.objects for delete
+drop policy if exists "Users can delete their profile photos" on storage.objects;
+create policy "Users can delete their profile photos" on storage.objects for delete
   to authenticated
   using (bucket_id = 'profile-photos');
 
 -- Storage policies for incident-evidence
-create policy "Users can view own evidence"
-  on storage.objects for select
+drop policy if exists "Users can view own evidence" on storage.objects;
+create policy "Users can view own evidence" on storage.objects for select
   to authenticated
   using (
     bucket_id = 'incident-evidence' and
     (storage.foldername(name))[1] = auth.uid()::text
   );
 
-create policy "Users can upload own evidence"
-  on storage.objects for insert
+drop policy if exists "Users can upload own evidence" on storage.objects;
+create policy "Users can upload own evidence" on storage.objects for insert
   to authenticated
   with check (
     bucket_id = 'incident-evidence' and
     (storage.foldername(name))[1] = auth.uid()::text
   );
 
-create policy "Users can delete own evidence"
-  on storage.objects for delete
+drop policy if exists "Users can delete own evidence" on storage.objects;
+create policy "Users can delete own evidence" on storage.objects for delete
   to authenticated
   using (
     bucket_id = 'incident-evidence' and

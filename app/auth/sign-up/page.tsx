@@ -16,7 +16,6 @@ import { safeExit } from '@/lib/safe-exit'
 import { LanguageSelector } from '@/components/language-selector'
 import { getAuthCallbackUrl } from '@/lib/auth-url'
 import { PrivacyConsent } from '@/components/privacy-consent'
-import InstallPrompt from '@/components/install-prompt'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -91,7 +90,7 @@ export default function SignUpPage() {
     safeExit()
   }
 
-  const handleOAuthSignUp = async (provider: 'google' | 'apple') => {
+  const handleOAuthSignUp = async (provider: 'google') => {
     setIsOAuthLoading(provider)
     setError('')
 
@@ -100,6 +99,11 @@ export default function SignUpPage() {
         provider,
         options: {
           redirectTo: getAuthCallbackUrl('/dashboard'),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          scopes: 'openid email profile https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read',
         },
       })
 
@@ -145,7 +149,7 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo: getAuthCallbackUrl('/auth/login?verified=1'),
+          emailRedirectTo: getAuthCallbackUrl('/auth/verified'),
           data: {
             display_name: fullName.trim(),
             full_name: fullName.trim(),
@@ -222,7 +226,6 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 safe-top safe-bottom">
-      <InstallPrompt />
       {success && (
         <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center p-6">
           <div className="w-full max-w-sm rounded-3xl border border-border bg-background p-6 shadow-2xl space-y-5">
@@ -386,24 +389,6 @@ export default function SignUpPage() {
                 )}
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-11 flex items-center justify-center gap-2"
-                onClick={() => handleOAuthSignUp('apple')}
-                disabled={isOAuthLoading !== ''}
-              >
-                {isOAuthLoading === 'apple' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M17.05 13.5c-.91 0-1.42.55-2.15.55-.73 0-1.22-.55-2.05-.55-1.06 0-2.29.92-2.29 1.77 0 .9.64 1.43 1.68 2.59.68.77 1.23 1.48 1.23 2.41 0 1.13-.73 1.77-1.77 1.77-.91 0-1.62-.36-2.24-1.08-.62-.72-1.06-1.72-1.06-2.77 0-4.29 3.26-6.64 5.25-7.59 1.15-.58 2.34-.58 3.37-.58 1.03 0 2.22 0 3.37.58 1.99.95 5.25 3.3 5.25 7.59 0 1.05-.44 2.05-1.06 2.77-.62.72-1.33 1.08-2.24 1.08-1.04 0-1.77-.64-1.77-1.77 0-.93.55-1.64 1.23-2.41 1.04-1.16 1.68-1.69 1.68-2.59 0-.85-1.23-1.77-2.29-1.77z"/>
-                    </svg>
-                    Sign up with Apple
-                  </>
-                )}
-              </Button>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">

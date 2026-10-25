@@ -1,5 +1,7 @@
 'use client'
 
+import { AppBottomNav } from '@/components/app-bottom-nav'
+
 import { useRef, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -50,7 +52,10 @@ export function SettingsPage() {
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
   
-  const [displayName, setDisplayName] = useState(profile?.display_name || '')
+  const [displayName, setDisplayName] = useState(profile?.display_name || user?.user_metadata?.full_name || '')
+  const [firstName, setFirstName] = useState(profile?.first_name || user?.user_metadata?.first_name || user?.user_metadata?.given_name || '')
+  const [lastName, setLastName] = useState(profile?.last_name || user?.user_metadata?.last_name || user?.user_metadata?.family_name || '')
+  const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || user?.user_metadata?.date_of_birth || '')
   const [photoDataUrl, setPhotoDataUrl] = useState('')
   const [photoZoom, setPhotoZoom] = useState(1)
   const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false)
@@ -93,10 +98,13 @@ export function SettingsPage() {
   }, [])
 
   useEffect(() => {
-    if (profile?.display_name) {
-      setDisplayName(profile.display_name)
+    if (profile) {
+      setDisplayName(profile.display_name || user?.user_metadata?.full_name || '')
+      setFirstName(profile.first_name || user?.user_metadata?.first_name || user?.user_metadata?.given_name || '')
+      setLastName(profile.last_name || user?.user_metadata?.last_name || user?.user_metadata?.family_name || '')
+      setDateOfBirth(profile.date_of_birth || user?.user_metadata?.date_of_birth || '')
     }
-  }, [profile])
+  }, [profile, user])
 
   useEffect(() => {
     return () => {
@@ -435,15 +443,30 @@ export function SettingsPage() {
     setMessage(null)
 
     try {
+      const computedDisplayName = displayName.trim() || [firstName, lastName].filter(Boolean).join(' ') || 'User'
       const { error } = await supabase
         .from('profiles')
         .update({
-          display_name: displayName,
+          display_name: computedDisplayName,
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
+          date_of_birth: dateOfBirth || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
 
       if (error) throw error
+
+      await supabase.auth.updateUser({
+        data: {
+          full_name: computedDisplayName,
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
+          given_name: firstName.trim() || null,
+          family_name: lastName.trim() || null,
+          date_of_birth: dateOfBirth || null,
+        },
+      })
 
       await refreshProfile()
       setMessage({ type: 'success', text: 'Profile updated successfully' })
@@ -497,7 +520,10 @@ export function SettingsPage() {
   }
 
   const handleCancelEditingProfile = () => {
-    setDisplayName(profile?.display_name || '')
+    setDisplayName(profile?.display_name || user?.user_metadata?.full_name || '')
+    setFirstName(profile?.first_name || user?.user_metadata?.first_name || user?.user_metadata?.given_name || '')
+    setLastName(profile?.last_name || user?.user_metadata?.last_name || user?.user_metadata?.family_name || '')
+    setDateOfBirth(profile?.date_of_birth || user?.user_metadata?.date_of_birth || '')
     setPhotoDataUrl('')
     setPhotoZoom(1)
     setIsPhotoPreviewOpen(false)
@@ -1009,7 +1035,39 @@ export function SettingsPage() {
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your name"
+                placeholder="Display or preferred name"
+                disabled={!isEditingProfile}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="First name"
+                  disabled={!isEditingProfile}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Surname / Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Surname"
+                  disabled={!isEditingProfile}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              <Input
+                id="dateOfBirth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
                 disabled={!isEditingProfile}
               />
             </div>
@@ -1034,7 +1092,7 @@ export function SettingsPage() {
                 </Button>
                 <Button
                   onClick={handleSaveProfile}
-                  disabled={isSaving || displayName === profile?.display_name}
+                  disabled={isSaving}
                   className="flex-1"
                 >
                   {isSaving ? (
@@ -1274,6 +1332,7 @@ export function SettingsPage() {
           Your data is encrypted and stored securely.
         </p>
       </main>
+      <AppBottomNav />
     </div>
   )
 }

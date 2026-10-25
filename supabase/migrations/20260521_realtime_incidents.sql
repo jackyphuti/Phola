@@ -2,7 +2,19 @@
 
 alter table public.incidents replica identity full;
 
-alter publication supabase_realtime add table public.incidents;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'incidents'
+  ) then
+    execute 'alter publication supabase_realtime add table public.incidents';
+  end if;
+end
+$$;
 
 do $$
 begin

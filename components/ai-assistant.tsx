@@ -1,5 +1,7 @@
 'use client'
 
+import { AppBottomNav } from '@/components/app-bottom-nav'
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
@@ -286,6 +288,7 @@ export function AIAssistant() {
           </CardContent>
         </Card>
       </main>
+      <AppBottomNav />
     </div>
   )
 }

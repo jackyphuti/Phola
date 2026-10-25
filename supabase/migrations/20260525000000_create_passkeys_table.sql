@@ -19,18 +19,18 @@ CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON passkeys(credential_id)
 ALTER TABLE passkeys ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-CREATE POLICY "Users can view their own passkeys"
-  ON passkeys FOR SELECT
+drop policy if exists "Users can view their own passkeys" on passkeys;
+create policy "Users can view their own passkeys" on passkeys FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own passkeys"
-  ON passkeys FOR INSERT
+drop policy if exists "Users can insert their own passkeys" on passkeys;
+create policy "Users can insert their own passkeys" on passkeys FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own passkeys"
-  ON passkeys FOR UPDATE
+drop policy if exists "Users can update their own passkeys" on passkeys;
+create policy "Users can update their own passkeys" on passkeys FOR UPDATE
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own passkeys"
-  ON passkeys FOR DELETE
+drop policy if exists "Users can delete their own passkeys" on passkeys;
+create policy "Users can delete their own passkeys" on passkeys FOR DELETE
   USING (auth.uid() = user_id);

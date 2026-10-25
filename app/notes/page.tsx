@@ -8,6 +8,7 @@ import { LockScreen } from '@/components/lock-screen'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { INCIDENT_TYPE_LABELS, type Incident, type IncidentType } from '@/lib/types'
+import { AppBottomNav } from '@/components/app-bottom-nav'
 import { safeExit } from '@/lib/safe-exit'
 import { 
   ArrowLeft, 
@@ -279,6 +280,7 @@ export default function NotesPage() {
           </div>
         )}
       </main>
+      <AppBottomNav />
     </div>
   )
 }
