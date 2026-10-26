@@ -28,6 +28,7 @@ import { clearSensitiveLocalData } from '@/lib/privacy'
 import { getApiUrl } from '@/lib/api-client'
 import { hashPin, verifyPin } from '@/lib/pin'
 import type { EmergencyContact } from '@/lib/types'
+import { getStoredEmergencyContacts, saveStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 import { 
   ArrowLeft, 
   Camera,
@@ -55,7 +56,7 @@ export function SettingsPage() {
   const router = useRouter()
   const { user, profile, signOut, lock, refreshProfile } = useAuth()
   const { t } = useTranslation()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
@@ -146,108 +147,159 @@ export function SettingsPage() {
   }, [])
 
   const loadContacts = async () => {
+    // 1. Immediately load cached local contacts (0ms - instant)
+    const local = getStoredEmergencyContacts(user?.id)
+    if (local.length > 0) {
+      setContacts(local)
+    }
+
     if (!user?.id) return
-    setIsLoadingContacts(true)
+    setIsLoadingContacts(local.length === 0)
+
     try {
-      const { data, error } = await supabase
+      const fetchPromise = supabase
         .from('emergency_contacts')
         .select('*')
         .eq('user_id', user.id)
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true })
 
-      if (data && !error) {
-        setContacts(data as EmergencyContact[])
+      const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
+        setTimeout(() => reject(new Error('Contacts query timeout')), 3500)
+      )
+
+      const result = await Promise.race([fetchPromise, timeoutPromise]) as any
+      if (result.data && !result.error && Array.isArray(result.data)) {
+        setContacts(result.data as EmergencyContact[])
+        saveStoredEmergencyContacts(result.data as EmergencyContact[], user.id)
       }
     } catch {
-      // Failed to load contacts
+      // Kept local contacts
     } finally {
       setIsLoadingContacts(false)
     }
   }
 
   useEffect(() => {
-    if (user?.id) {
-      void loadContacts()
-    }
+    void loadContacts()
   }, [user?.id])
 
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user?.id) return
     if (!contactName.trim() || !contactPhone.trim()) {
       setMessage({ type: 'error', text: 'Contact name and phone number are required.' })
       return
     }
 
     setIsSavingContact(true)
-    try {
-      if (contactIsPrimary) {
-        await supabase
-          .from('emergency_contacts')
-          .update({ is_primary: false })
-          .eq('user_id', user.id)
+
+    const newContact: EmergencyContact = {
+      id: `ec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      user_id: user?.id || 'local_user',
+      name: contactName.trim(),
+      phone: contactPhone.trim(),
+      relationship: contactRelationship.trim() || null,
+      is_primary: contacts.length === 0 ? true : contactIsPrimary,
+      created_at: new Date().toISOString(),
+    }
+
+    // 1. Immediately update state and local storage (0ms - instant save!)
+    let updatedContacts = newContact.is_primary
+      ? contacts.map((c) => ({ ...c, is_primary: false }))
+      : [...contacts]
+    updatedContacts = [newContact, ...updatedContacts]
+
+    setContacts(updatedContacts)
+    saveStoredEmergencyContacts(updatedContacts, user?.id)
+
+    setContactName('')
+    setContactPhone('')
+    setContactRelationship('')
+    setContactIsPrimary(false)
+    setShowAddContact(false)
+    setIsSavingContact(false)
+    setMessage({ type: 'success', text: 'Emergency contact added successfully!' })
+
+    // 2. Sync to Supabase in the background if user is authenticated (with 4s timeout)
+    if (user?.id) {
+      try {
+        const syncAction = async () => {
+          if (newContact.is_primary) {
+            await supabase
+              .from('emergency_contacts')
+              .update({ is_primary: false })
+              .eq('user_id', user.id)
+          }
+
+          const { data, error } = await supabase
+            .from('emergency_contacts')
+            .insert({
+              user_id: user.id,
+              name: newContact.name,
+              phone: newContact.phone,
+              relationship: newContact.relationship,
+              is_primary: newContact.is_primary,
+            })
+            .select()
+            .single()
+
+          if (!error && data) {
+            setContacts((prev) =>
+              prev.map((c) => (c.id === newContact.id ? (data as EmergencyContact) : c))
+            )
+          }
+        }
+
+        void Promise.race([
+          syncAction(),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ])
+      } catch (err) {
+        console.warn('Background Supabase contact sync skipped:', err)
       }
-
-      const { error } = await supabase.from('emergency_contacts').insert({
-        user_id: user.id,
-        name: contactName.trim(),
-        phone: contactPhone.trim(),
-        relationship: contactRelationship.trim() || null,
-        is_primary: contacts.length === 0 ? true : contactIsPrimary,
-      })
-
-      if (error) throw error
-
-      setContactName('')
-      setContactPhone('')
-      setContactRelationship('')
-      setContactIsPrimary(false)
-      setShowAddContact(false)
-      await loadContacts()
-      setMessage({ type: 'success', text: 'Emergency contact added successfully' })
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to add emergency contact' })
-    } finally {
-      setIsSavingContact(false)
     }
   }
 
   const handleDeleteContact = async (contactId: string) => {
-    if (!user?.id) return
-    try {
-      const { error } = await supabase
-        .from('emergency_contacts')
-        .delete()
-        .eq('id', contactId)
-        .eq('user_id', user.id)
+    const updated = contacts.filter((c) => c.id !== contactId)
+    setContacts(updated)
+    saveStoredEmergencyContacts(updated, user?.id)
+    setMessage({ type: 'success', text: 'Emergency contact removed' })
 
-      if (error) throw error
-      await loadContacts()
-      setMessage({ type: 'success', text: 'Emergency contact removed' })
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to remove emergency contact' })
+    if (user?.id) {
+      try {
+        void Promise.race([
+          supabase.from('emergency_contacts').delete().eq('id', contactId).eq('user_id', user.id),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ])
+      } catch {
+        // ignore
+      }
     }
   }
 
   const handleSetPrimaryContact = async (contactId: string) => {
-    if (!user?.id) return
-    try {
-      await supabase
-        .from('emergency_contacts')
-        .update({ is_primary: false })
-        .eq('user_id', user.id)
+    const updated = contacts.map((c) => ({
+      ...c,
+      is_primary: c.id === contactId,
+    }))
+    setContacts(updated)
+    saveStoredEmergencyContacts(updated, user?.id)
+    setMessage({ type: 'success', text: 'Primary emergency contact updated' })
 
-      await supabase
-        .from('emergency_contacts')
-        .update({ is_primary: true })
-        .eq('id', contactId)
-        .eq('user_id', user.id)
-
-      await loadContacts()
-      setMessage({ type: 'success', text: 'Primary emergency contact updated' })
-    } catch {
-      setMessage({ type: 'error', text: 'Failed to update primary contact' })
+    if (user?.id) {
+      try {
+        const syncPrimary = async () => {
+          await supabase.from('emergency_contacts').update({ is_primary: false }).eq('user_id', user.id)
+          await supabase.from('emergency_contacts').update({ is_primary: true }).eq('id', contactId).eq('user_id', user.id)
+        }
+        void Promise.race([
+          syncPrimary(),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ])
+      } catch {
+        // ignore
+      }
     }
   }
 

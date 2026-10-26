@@ -808,7 +808,7 @@ export function SOSMap() {
 
   // Current Turn Maneuver Icon
   const getTurnIcon = (modifier?: string, type?: string) => {
-    if (type === 'arrive') return <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+    if (type === 'arrive') return <CheckCircle2 className="w-7 h-7 text-white" />
     if (modifier === 'left' || modifier === 'sharp left') return <CornerUpLeft className="w-7 h-7 text-white" />
     if (modifier === 'slight left') return <ArrowUpLeft className="w-7 h-7 text-white" />
     if (modifier === 'right' || modifier === 'sharp right') return <CornerUpRight className="w-7 h-7 text-white" />
@@ -860,7 +860,7 @@ export function SOSMap() {
       {/* ========================================================================= */}
       {/* 2. MAIN MAP CONTAINER & IN-APP NAVIGATION HUD                             */}
       {/* ========================================================================= */}
-      <div className={`flex-1 flex flex-col ${isNavigating ? 'p-0 w-full h-screen fixed inset-0 z-[150] bg-slate-900' : 'p-3 sm:p-4 max-w-5xl mx-auto w-full gap-3'}`}>
+      <div className={`flex-1 flex flex-col ${isNavigating ? 'p-0 w-full h-screen fixed inset-0 z-[150] bg-background' : 'p-3 sm:p-4 max-w-5xl mx-auto w-full gap-3'}`}>
         
         {/* Map Canvas Box */}
         <div className={`overflow-hidden relative ${
@@ -876,25 +876,25 @@ export function SOSMap() {
           {/* ------------------------------------------------------------- */}
           {isNavigating && route && route.steps.length > 0 && (
             <div className="absolute top-4 left-4 right-4 z-30 flex flex-col gap-2 max-w-lg mx-auto pointer-events-auto">
-              <div className="rounded-2xl bg-slate-900/95 text-white backdrop-blur-md border border-emerald-500/40 p-4 shadow-2xl flex items-center justify-between gap-3">
+              <div className="rounded-2xl bg-white/95 text-slate-900 backdrop-blur-md border-2 border-primary p-4 shadow-xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-md">
+                  <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-md">
                     {getTurnIcon(
                       route.steps[currentStepIndex]?.modifier,
                       route.steps[currentStepIndex]?.type
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary">
                       {route.steps[currentStepIndex]?.distanceMeters > 0 
                         ? `In ${formatMeters(route.steps[currentStepIndex].distanceMeters)}` 
                         : 'Now'}
                     </p>
-                    <h2 className="text-base sm:text-lg font-bold leading-tight truncate">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
                       {route.steps[currentStepIndex]?.instruction || `Proceed to ${selectedPlace?.name}`}
                     </h2>
                     {route.steps[currentStepIndex + 1] && (
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
                         Then: {route.steps[currentStepIndex + 1].instruction}
                       </p>
                     )}
@@ -904,11 +904,11 @@ export function SOSMap() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-slate-400 hover:text-white shrink-0 rounded-full h-8 w-8"
+                  className="text-primary hover:bg-emerald-50 shrink-0 rounded-full h-8 w-8"
                   onClick={() => setIsVoiceMuted(!isVoiceMuted)}
                   title={isVoiceMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}
                 >
-                  {isVoiceMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
+                  {isVoiceMuted ? <VolumeX className="w-5 h-5 text-red-500" /> : <Volume2 className="w-5 h-5 text-primary" />}
                 </Button>
               </div>
             </div>
@@ -919,23 +919,27 @@ export function SOSMap() {
           {/* ------------------------------------------------------------- */}
           {isNavigating && hasArrived && selectedPlace && (
             <div className="absolute inset-x-4 top-24 z-40 max-w-md mx-auto animate-in zoom-in-95">
-              <div className="rounded-2xl bg-emerald-700 text-white p-5 shadow-2xl border-2 border-emerald-300 text-center space-y-3">
-                <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-200 animate-bounce" />
-                <h3 className="text-lg font-bold">You have arrived!</h3>
-                <p className="text-xs text-emerald-100">{selectedPlace.name}</p>
+              <div className="rounded-2xl bg-white/98 text-slate-900 p-5 shadow-2xl border-2 border-primary text-center space-y-3">
+                <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center mx-auto text-primary">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">You have arrived!</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{selectedPlace.name}</p>
+                </div>
                 <div className="flex gap-2 justify-center pt-2">
                   {selectedPlace.phone && (
                     <Button 
-                      className="bg-white text-emerald-900 font-bold text-xs h-9 rounded-xl hover:bg-emerald-50"
+                      className="bg-primary text-white font-bold text-xs h-9 rounded-xl hover:bg-primary/90"
                       onClick={() => callNumber(selectedPlace.phone!)}
                     >
-                      <Phone className="w-3.5 h-3.5 mr-1 text-emerald-700" />
+                      <Phone className="w-3.5 h-3.5 mr-1 text-white" />
                       Call Facility
                     </Button>
                   )}
                   <Button 
                     variant="outline" 
-                    className="border-white text-white hover:bg-emerald-800 text-xs font-bold h-9 rounded-xl"
+                    className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 text-xs font-bold h-9 rounded-xl"
                     onClick={stopInAppNavigation}
                   >
                     Finish Route
@@ -1006,37 +1010,37 @@ export function SOSMap() {
           {/* ------------------------------------------------------------- */}
           {isNavigating && selectedPlace && (
             <div className="absolute bottom-4 left-4 right-4 z-30 max-w-lg mx-auto">
-              <Card className="border border-emerald-500/40 bg-slate-900/95 text-white backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden">
+              <Card className="border-2 border-emerald-500 bg-white/95 text-slate-900 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden">
                 <CardContent className="p-3.5 sm:p-4 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         {selectedPlace.type === 'hospital' ? (
-                          <Hospital className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <Hospital className="w-4 h-4 text-emerald-600 shrink-0" />
                         ) : (
                           <Shield className="w-4 h-4 text-primary shrink-0" />
                         )}
-                        <span className="font-bold text-sm sm:text-base truncate text-white">
+                        <span className="font-bold text-sm sm:text-base truncate text-slate-900">
                           {selectedPlace.name}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-slate-300 font-medium">
-                        <span className="text-emerald-400 font-bold">{route?.duration || selectedPlace.duration}</span>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-slate-600 font-medium">
+                        <span className="text-primary font-bold">{route?.duration || selectedPlace.duration}</span>
                         <span>•</span>
                         <span>{route?.distance || selectedPlace.distanceText}</span>
                         {userSpeedKmH !== null && (
                           <>
                             <span>•</span>
-                            <span className="text-slate-400">{userSpeedKmH} km/h</span>
+                            <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-md font-semibold text-[11px]">{userSpeedKmH} km/h</span>
                           </>
                         )}
                       </div>
                     </div>
 
                     <Button
-                      variant="destructive"
+                      variant="ghost"
                       size="sm"
-                      className="rounded-xl text-xs font-bold shrink-0 h-8"
+                      className="rounded-xl text-xs font-bold shrink-0 h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={stopInAppNavigation}
                     >
                       <X className="w-3.5 h-3.5 mr-1" />
@@ -1049,17 +1053,17 @@ export function SOSMap() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1 bg-slate-800 border-slate-700 text-white hover:bg-slate-700 text-xs rounded-xl h-9"
+                      className="flex-1 border-emerald-200 text-emerald-900 hover:bg-emerald-50 font-semibold text-xs rounded-xl h-9"
                       onClick={() => handleOpenEHailing(selectedPlace)}
                     >
-                      <Car className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                      <Car className="w-3.5 h-3.5 mr-1.5 text-primary" />
                       Request Ride (Uber/Bolt)
                     </Button>
 
                     {selectedPlace.phone && (
                       <Button
                         size="sm"
-                        className="bg-primary hover:bg-primary/90 text-white text-xs rounded-xl h-9 px-3"
+                        className="bg-primary hover:bg-primary/90 text-white font-semibold text-xs rounded-xl h-9 px-3"
                         onClick={() => callNumber(selectedPlace.phone!)}
                       >
                         <Phone className="w-3.5 h-3.5 mr-1 text-white" />
