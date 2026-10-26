@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Phola — Official Presentation Deck</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+    @page {
+      size: 16in 9in;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #064e3b;
+      color: #0f172a;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .slide {
+      width: 16in;
+      height: 9in;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 0.65in 0.8in 0.5in 0.8in;
+      background: #ffffff;
+    }
+
+    /* Cover Slide */
+    .slide.cover {
+      background: radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.25), transparent 45%),
+                  radial-gradient(circle at 10% 80%, rgba(13, 110, 110, 0.2), transparent 40%),
+                  linear-gradient(135deg, #022c22 0%, #064e3b 50%, #0f766e 100%);
+      color: #ffffff;
+    }
+
+    .slide.dark {
+      background: linear-gradient(135deg, #022c22 0%, #064e3b 60%, #042f2e 100%);
+      color: #ffffff;
+    }
+
+    /* Header & Footer */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.3in;
+    }
+
+    .slide-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.05in;
+    }
+
+    .slide-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      width: fit-content;
+    }
+
+    .dark .slide-tag {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .slide-title {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+    }
+
+    .dark .slide-title, .cover .slide-title {
+      color: #ffffff;
+    }
+
+    .slide-subtitle {
+      font-size: 16px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .dark .slide-subtitle {
+      color: #94a3b8;
+    }
+
+    .slide-brand-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f766e;
+    }
+
+    .dark .slide-brand-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #34d399;
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.2in;
+      border-top: 1px solid #f1f5f9;
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .dark .slide-footer {
+      border-top-color: rgba(255, 255, 255, 0.1);
+      color: #64748b;
+    }
+
+    /* Content Layouts */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35in;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.25in;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 0.2in;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    /* Cards */
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 0.28in;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 12px;
+    }
+
+    .card.highlight {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    .dark .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .card-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dark .card-title {
+      color: #ffffff;
+    }
+
+    .card-body {
+      font-size: 14px;
+      line-height: 1.55;
+      color: #475569;
+    }
+
+    .dark .card-body {
+      color: #cbd5e1;
+    }
+
+    .pill-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+      width: fit-content;
+    }
+
+    .code-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 10px 14px;
+      border-radius: 10px;
+      word-break: break-all;
+    }
+
+    /* Key Metrics */
+    .metric-value {
+      font-size: 38px;
+      font-weight: 800;
+      color: #0f766e;
+      line-height: 1.1;
+    }
+
+    .dark .metric-value {
+      color: #34d399;
+    }
+
+    .metric-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Timeline User Story */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+
+    .timeline-step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 18px;
+    }
+
+    .timeline-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f766e;
+      background: #ccfbf1;
+      padding: 4px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    /* Table */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    table.data-table th {
+      background: #0f766e;
+      color: #ffffff;
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 700;
+      border: 1px solid #0d9488;
+    }
+
+    table.data-table td {
+      padding: 8px 12px;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+      vertical-align: top;
+      background: #ffffff;
+    }
+
+    table.data-table tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .credentials-banner {
+      background: linear-gradient(135deg, #042f2e, #065f46);
+      border: 2px solid #34d399;
+      border-radius: 16px;
+      padding: 20px 28px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 1: COVER & SUBMISSION OVERVIEW                                      -->
+  <!-- ========================================================================= -->
+  <div class="slide cover">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800;">
+          🛡️
+        </div>
+        <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.01em;">PHOLA</span>
+      </div>
+      <span style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); padding: 6px 16px; border-radius: 9999px; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">
+        Official Hackathon Submission Deck
+      </span>
+    </div>
+
+    <div style="margin: auto 0; max-width: 12in;">
+      <div style="display: inline-block; background: #10b981; color: #022c22; font-weight: 800; font-size: 13px; padding: 4px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;">
+        AI Travel Watchdog & GBV Safety Companion
+      </div>
+      <h1 style="font-size: 58px; font-weight: 800; line-height: 1.08; letter-spacing: -0.03em; margin-bottom: 20px;">
+        Protecting Every Commuter.<br/>
+        Zero-Knowledge Safety in 11 Languages.
+      </h1>
+      <p style="font-size: 20px; line-height: 1.5; color: #a7f3d0; max-width: 9in; font-weight: 500;">
+        Phola combines real-time transit anomaly detection, native in-app turn-by-turn navigation to SAPS police stations, 1-tap SOS panic, and encrypted digital evidence preservation.
+      </p>
+    </div>
+
+    <div class="credentials-banner">
+      <div>
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #6ee7b7; margin-bottom: 4px;">
+          Judge / Assessor Testing Account (Live & Active)
+        </div>
+        <div style="font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace;">
+          Email: <span style="color: #fef08a;">jackympoka@gmail.com</span> &nbsp;|&nbsp; Password: <span style="color: #fef08a;">Mpokabetty221@</span>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 12px; color: #a7f3d0; margin-bottom: 4px;">Live Progressive Web App</div>
+        <div style="font-size: 16px; font-weight: 700; color: #ffffff; font-family: 'JetBrains Mono', monospace;">
+          https://phola-beta.vercel.app
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Lead Developer: Jacky Mpoka</span>
+      <span>GitHub: https://github.com/jackyphuti/Phola</span>
+      <span>Slide 1 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 2: THE PROBLEM (SOUTH AFRICA'S REALITY)                             -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Problem Statement</span>
+        <h2 class="slide-title">South Africa's Transit & GBV Safety Crisis</h2>
+        <p class="slide-subtitle">Vulnerability after dark, delayed emergency response, and evidence destruction.</p>
+      </div>
+      <div class="slide-brand-pill">🚨 Critical Context</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-4">
+        <div class="card" style="border-left: 4px solid #ef4444;">
+          <div style="font-size: 32px;">🛑</div>
+          <div class="card-title">1 in 3 Women</div>
+          <div class="card-body">
+            South Africa suffers from pandemic-level rates of Gender-Based Violence (GBV). Victims frequently travel alone and lack safe, discreet intervention channels.
+          </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid #f97316;">
+          <div style="font-size: 32px;">🚕</div>
+          <div class="card-title">Night Transit Risk</div>
+          <div class="card-body">
+            Millions of commuters rely on e-hailing (Uber/Bolt) and minibus taxis. Unauthorized route deviations, unregistered drivers, and dark transit corridors pose severe risks.
+          </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid #eab308;">
+          <div style="font-size: 32px;">⏱️</div>
+          <div class="card-title">45+ Min 10111 Delay</div>
+          <div class="card-body">
+            Calling 10111 or 112 during an active attack or robbery is dangerous, slow, and fails to transmit real-time satellite GPS coordinates to first responders.
+          </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid #6366f1;">
+          <div style="font-size: 32px;">📱</div>
+          <div class="card-title">Evidence Destruction</div>
+          <div class="card-body">
+            Perpetrators routinely seize, search, or destroy victim devices. Traditional photos and text messages are lost, undermining legal prosecution in courts.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Problem Analysis</span>
+      <span>Slide 2 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 3: THE SOLUTION                                                     -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Solution Architecture</span>
+        <h2 class="slide-title">Introducing Phola: An Autonomous Digital Bodyguard</h2>
+        <p class="slide-subtitle">A multi-layered safety shield designed specifically for South African commuters.</p>
+      </div>
+      <div class="slide-brand-pill">✨ Core Solution</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-3">
+        <div class="card highlight">
+          <div style="font-size: 28px;">🛰️</div>
+          <div class="card-title">SafeRide Watchdog</div>
+          <div class="card-body">
+            Monitors trips autonomously. If your driver deviates from the expected route or stops in an unlit corridor, Phola automatically checks in and pings your emergency circle.
+          </div>
+        </div>
+
+        <div class="card highlight">
+          <div style="font-size: 28px;">🗺️</div>
+          <div class="card-title">Native Police Navigation</div>
+          <div class="card-body">
+            1-tap routing directly inside Phola to the nearest SAPS police station or trauma clinic. Continuous turn-by-turn guidance keeps the user protected inside the app.
+          </div>
+        </div>
+
+        <div class="card highlight">
+          <div style="font-size: 28px;">🚨</div>
+          <div class="card-title">Silent 1-Tap SOS</div>
+          <div class="card-body">
+            Instant multi-channel panic alerting SAPS (10111), Emergency Medical (112), and the National GBV Command Centre (0800 428 428) with live satellite coordinates.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size: 28px;">🔒</div>
+          <div class="card-title">Zero-Knowledge Vault</div>
+          <div class="card-body">
+            Audio notes, photo logs, and incident diaries are encrypted on-device via Web Crypto SHA-256 and AES-GCM before syncing to the cloud. Tamper-evident and secure.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size: 28px;">🌦️</div>
+          <div class="card-title">Stealth Decoy Exit</div>
+          <div class="card-body">
+            Under physical threat or phone inspection, 1 tap on "Quick Exit" instantly wipes DOM trace states and presents an innocent local weather forecast within 50ms.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size: 28px;">🇿🇦</div>
+          <div class="card-title">11 Official Languages</div>
+          <div class="card-body">
+            Full native accessibility in isiZulu, isiXhosa, Afrikaans, Sepedi, Setswana, Sesotho, Xitsonga, siSwati, Tshivenda, isiNdebele, and English.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Solution Architecture</span>
+      <span>Slide 3 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 4: USER JOURNEY STORY                                               -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">User Story</span>
+        <h2 class="slide-title">Thandi's Midnight Ride: Real-World Experience</h2>
+        <p class="slide-subtitle">How Phola protects a student returning home late from campus.</p>
+      </div>
+      <div class="slide-brand-pill">📖 Persona Journey</div>
+    </div>
+
+    <div class="content-area">
+      <div class="timeline">
+        <div class="timeline-step">
+          <span class="timeline-time">11:15 PM</span>
+          <div>
+            <div style="font-size: 16px; font-weight: 700; color: #0f172a;">Booking Ride & Activating Watchdog</div>
+            <div style="font-size: 13.5px; color: #475569; margin-top: 2px;">
+              Thandi leaves the university library and requests an e-hailing cab. She taps <strong>"Start SafeRide"</strong> in Phola. The app locks her vehicle notes and initiates background GPS tracking.
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <span class="timeline-time">11:28 PM</span>
+          <div>
+            <div style="font-size: 16px; font-weight: 700; color: #0f172a;">Route Deviation Anomaly Detected</div>
+            <div style="font-size: 13.5px; color: #475569; margin-top: 2px;">
+              The vehicle abruptly takes an unlit access bypass away from her residential address. Phola detects the corridor divergence, alerts Thandi, and silently transmits her live GPS pin to her sister.
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-step" style="border-left: 4px solid #0f766e; background: #f0fdf4;">
+          <span class="timeline-time" style="background: #0f766e; color: #ffffff;">11:30 PM</span>
+          <div>
+            <div style="font-size: 16px; font-weight: 700; color: #065f46;">1-Tap Safe Haven: Go to Nearest SAPS Station</div>
+            <div style="font-size: 13.5px; color: #047857; margin-top: 2px;">
+              Feeling threatened, Thandi taps <strong>"Go to Nearest Police Station"</strong>. Phola automatically plots an in-app high-contrast route to Brixton SAPS (1.8 km away) with live turn-by-turn instruction banners.
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <span class="timeline-time">11:36 PM</span>
+          <div>
+            <div style="font-size: 16px; font-weight: 700; color: #0f172a;">Safe Arrival & Cryptographic Evidence Preserved</div>
+            <div style="font-size: 13.5px; color: #475569; margin-top: 2px;">
+              Driver pulls into the illuminated police station gate. Thandi exits safely. The entire telemetry log and route record remain encrypted in her Zero-Knowledge incident vault.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>User Journey</span>
+      <span>Slide 4 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 5: CORE FEATURES & UI SHOWCASE                                      -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Product Walkthrough</span>
+        <h2 class="slide-title">Interactive Core Features & Interface</h2>
+        <p class="slide-subtitle">Engineered for high stress situations: high contrast, zero clutter, instant response.</p>
+      </div>
+      <div class="slide-brand-pill">📱 Feature Suite</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title">🗺️ In-App SOS Map</div>
+          <div class="card-body">
+            • Continuous high-accuracy GPS tracking with user heading arrow.<br/>
+            • 500m pulse emergency radius circle.<br/>
+            • Multi-tier resilient routing: Mapbox API ➡️ OSRM ➡️ Straight-line vector.<br/>
+            • 1-tap route directly to nearest SAPS police station.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔐 Biometric & PIN Security</div>
+          <div class="card-body">
+            • Native Apple Face ID (iOS) & Android Fingerprint sensor support.<br/>
+            • Auto-prompts on app resume or next sign-in.<br/>
+            • Salted SHA-256 PIN fallback.<br/>
+            • Smooth unblocked sign-out for all users.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🗄️ Zero-Knowledge Vault</div>
+          <div class="card-body">
+            • Client-side AES-GCM encrypted notes, photos, and voice notes.<br/>
+            • Encrypted before cloud sync—even database admins cannot read files.<br/>
+            • 1-tap data deletion complying with POPIA legislation.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🌦️ Stealth Weather Decoy</div>
+          <div class="card-body">
+            • Fixed top-corner Quick Exit accessible from any screen.<br/>
+            • Instantly unmounts emergency telemetry and renders realistic weather.<br/>
+            • Protects victims facing physical coercion or phone inspection.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🇿🇦 Multilingual Localization</div>
+          <div class="card-body">
+            • Minimal header pill for seamless language toggling.<br/>
+            • Full translation coverage across all 11 official South African languages.<br/>
+            • Eliminates linguistic barriers during high-stress emergencies.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ Enterprise Sign-In / Sign-Up</div>
+          <div class="card-body">
+            • Unified segmented pill control.<br/>
+            • Google 1-Tap OAuth & live password strength meter.<br/>
+            • Pre-registered emergency contact setup during onboarding.<br/>
+            • POPIA consent agreement.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Feature Walkthrough</span>
+      <span>Slide 5 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 6: TECHNICAL ARCHITECTURE                                           -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Technical Architecture</span>
+        <h2 class="slide-title">Production Technology Stack & Resilience</h2>
+        <p class="slide-subtitle">Modern, hybrid, and fault-tolerant architecture built for offline durability.</p>
+      </div>
+      <div class="slide-brand-pill">⚙️ System Design</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-3">
+        <div class="card">
+          <span class="pill-badge">Frontend & Hybrid</span>
+          <div class="card-title">Next.js 16 + Capacitor 5</div>
+          <div class="card-body">
+            • React 19 with Turbopack for sub-second build and execution.<br/>
+            • Capacitor 5 Android & iOS bridges compile native native packages.<br/>
+            • Tailwind CSS + Radix UI with South African design palette (`#0D6E6E`).<br/>
+            • Progressive Web App (PWA) with offline caching.
+          </div>
+        </div>
+
+        <div class="card">
+          <span class="pill-badge">Backend & Storage</span>
+          <div class="card-title">Supabase PostgreSQL</div>
+          <div class="card-body">
+            • Row-Level Security (RLS) enforcing strict user-isolated boundaries.<br/>
+            • Supabase Auth JWT with automatic stale token invalidation.<br/>
+            • Cloudflare Workers edge proxying for low-latency dispatch.<br/>
+            • Realtime subscriptions for trip tracking.
+          </div>
+        </div>
+
+        <div class="card">
+          <span class="pill-badge">GIS & Routing</span>
+          <div class="card-title">Resilient Geolocation Engine</div>
+          <div class="card-body">
+            • Continuous GPS heading & speed telemetry via Geolocation API.<br/>
+            • Mapbox Directions API with automatic fallback to OSRM nodes.<br/>
+            • Offline straight-line compass fallback if network drops completely.<br/>
+            • Turf.js spatial calculation for nearest police station discovery.
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 0.25in; background: #0f172a; border-radius: 14px; padding: 16px 24px; color: #ffffff; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700;">Zero External Map Dependency</span>
+          <p style="color: #94a3b8; font-size: 13px; margin-top: 2px;">Unlike competing panic buttons that divert to Google Maps, Phola navigates entirely within the secure app container.</p>
+        </div>
+        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); padding: 6px 14px; border-radius: 8px; color: #38bdf8; font-size: 12px; font-weight: 700;">
+          Containerized Safety
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Technical Architecture</span>
+      <span>Slide 6 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 7: SSDLC & ENTERPRISE COMPLIANCE                                    -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Security & Compliance</span>
+        <h2 class="slide-title">Secure SDLC & POPIA Compliance</h2>
+        <p class="slide-subtitle">Adherence to South African Privacy Law and Defense-in-Depth Cryptography.</p>
+      </div>
+      <div class="slide-brand-pill">🛡️ SSDLC Certified</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-4">
+        <div class="card">
+          <div class="card-title">1. Requirements</div>
+          <div class="card-body">
+            • Data Minimization: Zero passive background tracking without active trip.<br/>
+            • Explicit POPIA consent gathered on sign-up.<br/>
+            • Right to be Forgotten: 1-tap complete data purge in Settings.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">2. Architecture</div>
+          <div class="card-body">
+            • STRIDE Threat Modeling applied across all data flows.<br/>
+            • Zero-Knowledge cryptography: Web Crypto AES-GCM client-side encryption.<br/>
+            • Row-Level Security (RLS) on all database tables.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">3. Implementation</div>
+          <div class="card-body">
+            • Salted SHA-256 PIN hashing (`${userId}:phola-pin-salt:${pin}`).<br/>
+            • WebAuthn Passkeys & Biometrics (`PublicKeyCredential`).<br/>
+            • Strict TypeScript with zero any-casts in crypto routines.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">4. Verification</div>
+          <div class="card-body">
+            • Automated SAST & type-checking (`tsc --noEmit`).<br/>
+            • Next.js static page bundle auditing (28 routes verified).<br/>
+            • Native Android APK compiled with Gradle 8 and Java 17.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Secure SDLC</span>
+      <span>Slide 7 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 8: LEAN BUSINESS CANVAS (SUMMARY)                                   -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Business Model</span>
+        <h2 class="slide-title">Lean Business Canvas Overview</h2>
+        <p class="slide-subtitle">Viable, scalable, and socially impactful business strategy.</p>
+      </div>
+      <div class="slide-brand-pill">💼 Strategy</div>
+    </div>
+
+    <div class="content-area">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 20%;">Problem & Segments</th>
+            <th style="width: 25%;">Value Proposition & Solution</th>
+            <th style="width: 20%;">Channels & Advantage</th>
+            <th style="width: 17%;">Revenue Streams</th>
+            <th style="width: 18%;">Cost Structure</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>Problem:</strong><br/>
+              • 1 in 3 women face GBV<br/>
+              • Night e-hailing risks<br/>
+              • 45+ min 10111 response delay<br/>
+              • Evidence destruction<br/><br/>
+              <strong>Customers:</strong><br/>
+              • Commuters & students<br/>
+              • Night healthcare staff<br/>
+              • Campuses & CPFs
+            </td>
+            <td>
+              <strong>Unique Value Prop:</strong><br/>
+              "Your autonomous travel watchdog and GBV companion with in-app police navigation and zero-knowledge vaults."<br/><br/>
+              <strong>Solution:</strong><br/>
+              • SafeRide trip watchdog<br/>
+              • In-app turn-by-turn routing<br/>
+              • 1-Tap SOS to 10111/112<br/>
+              • Stealth weather exit<br/>
+              • 11 official SA languages
+            </td>
+            <td>
+              <strong>Channels:</strong><br/>
+              • PWA & Play Store<br/>
+              • University campus drives<br/>
+              • GBV shelter networks (POWA)<br/>
+              • Community policing (CPF)<br/><br/>
+              <strong>Unfair Advantage:</strong><br/>
+              • Native in-app navigation<br/>
+              • Zero-Knowledge crypto<br/>
+              • 11 Official SA languages
+            </td>
+            <td>
+              • <strong>Free Tier:</strong> Public safety & SOS (always free)<br/>
+              • <strong>Phola Plus:</strong> R39/mo armed response integration<br/>
+              • <strong>B2B Campus:</strong> R15/student/mo campus safety portal<br/>
+              • <strong>CSI & Grants:</strong> GBV justice sponsorships
+            </td>
+            <td>
+              • Next.js hosting & Supabase DB<br/>
+              • Mapbox & OSRM routing APIs<br/>
+              • SMS/WhatsApp emergency gateways<br/>
+              • POPIA audits & maintenance
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Lean Business Canvas</span>
+      <span>Slide 8 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 9: MARKET OPPORTUNITY & TRACTION                                    -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Market Opportunity</span>
+        <h2 class="slide-title">South African Market Scale & Growth Path</h2>
+        <p class="slide-subtitle">Targeting 15 million daily commuters and 2.5 million higher-education students.</p>
+      </div>
+      <div class="slide-brand-pill">📈 Growth Strategy</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-3">
+        <div class="card" style="text-align: center; justify-content: center;">
+          <div class="metric-value">15M+</div>
+          <div class="metric-label">Daily Commuters</div>
+          <div class="card-body" style="margin-top: 8px;">
+            South Africans traveling via minibus taxis, e-hailing, and metro trains daily, with over 40% traveling during dark early-morning or late-night hours.
+          </div>
+        </div>
+
+        <div class="card" style="text-align: center; justify-content: center;">
+          <div class="metric-value">2.5M</div>
+          <div class="metric-label">Tertiary Students</div>
+          <div class="card-body" style="margin-top: 8px;">
+            Enrolled across 26 public universities and 50 TVET colleges. Students represent our primary launchpad through institutional campus partnerships.
+          </div>
+        </div>
+
+        <div class="card" style="text-align: center; justify-content: center;">
+          <div class="metric-value">&lt; 3s</div>
+          <div class="metric-label">Emergency Latency</div>
+          <div class="card-body" style="margin-top: 8px;">
+            Benchmark latency from user 1-tap SOS activation to emergency SMS transmission with live GPS coordinates to personal contacts.
+          </div>
+        </div>
+      </div>
+
+      <div class="card highlight" style="margin-top: 0.25in;">
+        <div class="card-title">🤝 Strategic Partnership Strategy</div>
+        <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 4px;">
+          <div><strong>1. University Campuses:</strong> Integration into university security operations (Wits, UJ, UCT, UP) for perimeter and transit monitoring.</div>
+          <div><strong>2. Armed Response Networks:</strong> API sync with private security providers (Fidelity, ADT) for premium rapid dispatch.</div>
+          <div><strong>3. GBV Support Shelters:</strong> Partnerships with organizations like POWA and TEARS Foundation for verified trauma referrals.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Market Opportunity</span>
+      <span>Slide 9 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 10: SUBMISSION DELIVERABLES & LIVE ACCESS                           -->
+  <!-- ========================================================================= -->
+  <div class="slide dark">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Judge Verification</span>
+        <h2 class="slide-title">Official Submission Deliverables & Live Access</h2>
+        <p class="slide-subtitle">All materials required for judging are live, verified, and ready to inspect.</p>
+      </div>
+      <div class="slide-brand-pill">✅ Verified Links</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🌐 Live Web Application (PWA)</div>
+          <div class="card-body">
+            Hosted and deployed live on Vercel edge infrastructure:
+          </div>
+          <div class="code-box">https://phola-beta.vercel.app</div>
+          <div class="card-body" style="font-size: 13px;">
+            Compatible with modern mobile and desktop browsers. Supports progressive installation and WebAuthn biometrics.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📦 Android APK Package</div>
+          <div class="card-body">
+            Compiled native debug APK ready for Android testing:
+          </div>
+          <div class="code-box">phola-debug.apk (3.64 MB)</div>
+          <div class="card-body" style="font-size: 13px;">
+            Built with Gradle 8 & Java 17. Stored directly in the project root directory and available for immediate installation.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">💻 Open Source Git Repository</div>
+          <div class="card-body">
+            Complete clean commit history on branch <code>main</code>:
+          </div>
+          <div class="code-box">https://github.com/jackyphuti/Phola</div>
+          <div class="card-body" style="font-size: 13px;">
+            Includes full source code, Next.js routes, Capacitor mobile bridges, and comprehensive documentation in <code>PHOLA_SUBMISSION_PACK.md</code>.
+          </div>
+        </div>
+
+        <div class="card highlight" style="background: rgba(16, 185, 129, 0.15); border-color: #10b981;">
+          <div class="card-title" style="color: #6ee7b7;">🔑 Judge Demo Credentials</div>
+          <div class="card-body" style="color: #ffffff;">
+            Live account created and verified for the evaluation panel:
+          </div>
+          <div class="code-box" style="background: #022c22; color: #a7f3d0;">
+            Email: jackympoka@gmail.com<br/>
+            Password: Mpokabetty221@
+          </div>
+          <div class="card-body" style="color: #a7f3d0; font-size: 13px;">
+            Video demo will be uploaded to Google Drive following physical recording.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Deliverables & Access</span>
+      <span>Slide 10 / 11</span>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SLIDE 11: JUDGE TESTING GUIDE                                             -->
+  <!-- ========================================================================= -->
+  <div class="slide">
+    <div class="slide-header">
+      <div class="slide-title-wrap">
+        <span class="slide-tag">Evaluation Guide</span>
+        <h2 class="slide-title">Judge 5-Minute Evaluation Walkthrough</h2>
+        <p class="slide-subtitle">Step-by-step instructions to test Phola's breakthrough features.</p>
+      </div>
+      <div class="slide-brand-pill">🧪 Test Protocol</div>
+    </div>
+
+    <div class="content-area">
+      <div class="grid-3">
+        <div class="card">
+          <div class="pill-badge">Step 1</div>
+          <div class="card-title">1. Sign In & Languages</div>
+          <div class="card-body">
+            • Open <code>https://phola-beta.vercel.app</code> or launch the APK.<br/>
+            • Tap the top language pill to switch to <strong>isiZulu</strong>, <strong>isiXhosa</strong>, or <strong>Afrikaans</strong>.<br/>
+            • Log in with <strong>jackympoka@gmail.com</strong> / <strong>Mpokabetty221@</strong>.
+          </div>
+        </div>
+
+        <div class="card highlight">
+          <div class="pill-badge" style="background: #0f766e; color: #ffffff;">Step 2 (Key Test)</div>
+          <div class="card-title">2. In-App Navigation</div>
+          <div class="card-body">
+            • Tap <strong>Safe Ride</strong> on the bottom navigation.<br/>
+            • Tap <strong>"Go to Nearest Police Station (SAPS)"</strong>.<br/>
+            • Watch the high-contrast emerald route render with live turn-by-turn guidance banners without opening external maps.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="pill-badge">Step 3</div>
+          <div class="card-title">3. 1-Tap SOS Panic</div>
+          <div class="card-body">
+            • Tap the central red <strong>SOS / Panic</strong> button.<br/>
+            • Verify instant 1-tap links for SAPS (10111), Emergency Medical (112), and the National GBV Command Centre.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="pill-badge">Step 4</div>
+          <div class="card-title">4. Biometrics / PIN</div>
+          <div class="card-body">
+            • Navigate to <strong>Settings</strong> (<code>/settings</code>).<br/>
+            • Enable <strong>Face ID</strong> (iOS) or <strong>Fingerprint</strong> (Android) or set a 4-digit PIN.<br/>
+            • Sign out and sign back in to observe automatic biometric authentication.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="pill-badge">Step 5</div>
+          <div class="card-title">5. Stealth Quick Exit</div>
+          <div class="card-body">
+            • From any screen, tap <strong>Quick Exit</strong> in the upper right corner.<br/>
+            • Observe the immediate &lt;50ms teardown into an innocent, fully realistic weather forecast screen.
+          </div>
+        </div>
+
+        <div class="card" style="background: #f8fafc; border: 2px dashed #0f766e; justify-content: center; text-align: center;">
+          <div style="font-size: 28px;">🇿🇦</div>
+          <div class="card-title" style="justify-content: center; font-size: 16px;">Phola Safety Network</div>
+          <div class="card-body" style="font-size: 12px; color: #64748b;">
+            "Phola" is a South African Nguni word meaning <em>"relax, be at ease, be safe"</em>.<br/><br/>
+            Built by @Jacky Mpoka for the safety of all South Africans.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-footer">
+      <span>Phola Hackathon Presentation Deck</span>
+      <span>Judge Evaluation Protocol</span>
+      <span>Slide 11 / 11</span>
+    </div>
+  </div>
+
+</body>
+</html>

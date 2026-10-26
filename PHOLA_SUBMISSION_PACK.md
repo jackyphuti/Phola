@@ -4,8 +4,9 @@
 > **Author / Lead Developer:** Jacky Mpoka  
 > **Git Repository:** [https://github.com/jackyphuti/Phola](https://github.com/jackyphuti/Phola)  
 > **Production Web App:** [https://phola-beta.vercel.app](https://phola-beta.vercel.app)  
+> **Presentation Deck PDF:** [`Phola_Presentation_Deck.pdf`](./Phola_Presentation_Deck.pdf) (11 Widescreen Slides, 2.26 MB)  
 > **Android APK Build:** `phola-debug.apk` (Compiled in project root, 3.64 MB)  
-> **Demo Account Login:** `demo@phola.co.za` / `Phola2026!Safe`
+> **Demo Account Login:** `jackympoka@gmail.com` / `Mpokabetty221@`
 
 ---
 
@@ -112,7 +113,7 @@ flowchart LR
 - **Presenter:** Jacky Mpoka
 - **Official Repository:** `https://github.com/jackyphuti/Phola`
 - **Live Application:** `https://phola-beta.vercel.app`
-- **Judge Demo Account:** `demo@phola.co.za` | Password: `Phola2026!Safe`
+- **Judge Demo Account:** `jackympoka@gmail.com` | Password: `Mpokabetty221@`
 
 ### Slide 2: The Problem (South Africa's Reality)
 - **Bullet Points:**
@@ -174,9 +175,9 @@ flowchart LR
 - **Web App / PWA:** `https://phola-beta.vercel.app`
 - **GitHub Repository:** `https://github.com/jackyphuti/Phola`
 - **Demo Credentials:**
-  - Email: `demo@phola.co.za`
-  - Password: `Phola2026!Safe`
-- **Demo Video:** `[Insert Google Drive Link Here]`
+  - Email: `jackympoka@gmail.com`
+  - Password: `Mpokabetty221@`
+- **Demo Video:** `[Google Drive Link - Recorded by Jacky Mpoka]`
 
 ---
 
@@ -218,14 +219,14 @@ flowchart LR
 Judges can test the application using either the pre-configured demo account or by creating their own account in 5 seconds:
 
 ### Pre-Configured Demo Credentials
-- **Email:** `demo@phola.co.za`
-- **Password:** `Phola2026!Safe`
+- **Email:** `jackympoka@gmail.com`
+- **Password:** `Mpokabetty221@`
 
 ### Recommended Judge Test Flow
 1. **Sign-In & Language Test:**
    - Open [phola-beta.vercel.app](https://phola-beta.vercel.app) or the APK.
    - Tap the language pill in the header to switch between **English**, **isiZulu**, **isiXhosa**, or **Afrikaans**.
-   - Log in using `demo@phola.co.za` / `Phola2026!Safe`.
+   - Log in using `jackympoka@gmail.com` / `Mpokabetty221@`.
 2. **In-App Police Navigation Test:**
    - Tap **Safe Ride** or **SOS Map** on the bottom navigation.
    - Tap **"Go to Nearest Police Station (SAPS)"**.

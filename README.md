@@ -9,6 +9,7 @@
 > **Built by @Jacky Mpoka**  
 > **Official Git Repository:** [https://github.com/jackyphuti/Phola](https://github.com/jackyphuti/Phola)  
 > **Production Web App:** [https://phola-beta.vercel.app](https://phola-beta.vercel.app)  
+> **Presentation Deck PDF:** [`Phola_Presentation_Deck.pdf`](./Phola_Presentation_Deck.pdf) (11 Widescreen Slides, 2.26 MB)  
 > **Android Build (APK):** [`phola-debug.apk`](./phola-debug.apk) (3.64 MB)  
 > **Judge Submission Package:** [PHOLA_SUBMISSION_PACK.md](./PHOLA_SUBMISSION_PACK.md)
 
@@ -49,7 +50,7 @@ For judges and assessors, all required materials are consolidated in [**`PHOLA_S
 - ✅ **11-Slide Presentation Deck:** Content structured and ready for PDF export.
 - ✅ **App Build File (APK):** Pre-compiled `phola-debug.apk` in the repository root.
 - ✅ **80-Second Demo Video Script:** Second-by-second storyboard and voiceover script under 90 seconds.
-- ✅ **Judge Demo Account:** `demo@phola.co.za` / `Phola2026!Safe`.
+- ✅ **Judge Demo Account:** `jackympoka@gmail.com` / `Mpokabetty221@`.
 
 ---
 
