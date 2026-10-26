@@ -17,3 +17,13 @@ export async function verifyPin(pin: string, userId: string, storedHash: string)
   const computedHash = await hashPin(pin, userId)
   return computedHash === storedHash
 }
+
+/**
+ * Checks whether a user profile has a valid, configured security PIN.
+ * Rejects null, undefined, empty strings, and malformed non-hash strings.
+ */
+export function hasConfiguredPin(profile: { pin_hash?: string | null } | null | undefined): boolean {
+  if (!profile || !profile.pin_hash) return false
+  const hash = profile.pin_hash.trim()
+  return typeof hash === 'string' && hash.length >= 10 && hash !== 'null' && hash !== 'undefined'
+}

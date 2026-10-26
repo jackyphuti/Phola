@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, ty
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
+import { hasConfiguredPin } from '@/lib/pin'
 
 interface AuthContextType {
   user: User | null
@@ -40,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLocked, setIsLocked] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -51,7 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && !error) {
         const p = data as Profile
         setProfile(p)
-        if (p.pin_hash) {
+        const hasSecurity = hasConfiguredPin(p) || Boolean(p.biometric_enabled)
+        if (hasSecurity) {
           const isSessionUnlocked =
             typeof window !== 'undefined' &&
             window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
@@ -59,9 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setIsLocked(false)
         }
+        return p
       }
+      return null
     } catch (e) {
       console.warn('Failed to fetch user profile:', e)
+      return null
     }
   }, [supabase])
 
@@ -144,12 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setUser(session?.user ?? null)
         if (session?.user) {
-          await fetchProfile(session.user.id)
+          const p = await fetchProfile(session.user.id)
           if (event === 'SIGNED_IN') {
-            if (typeof window !== 'undefined') {
-              window.sessionStorage.setItem(`phola_unlocked_${session.user.id}`, 'true')
+            const hasSecurity = hasConfiguredPin(p) || Boolean(p?.biometric_enabled)
+            if (hasSecurity) {
+              // User has configured a PIN or biometrics: require unlock on sign-in
+              if (typeof window !== 'undefined') {
+                window.sessionStorage.removeItem(`phola_unlocked_${session.user.id}`)
+              }
+              setIsLocked(true)
+            } else {
+              // User has no PIN and no biometrics: never lock
+              if (typeof window !== 'undefined') {
+                window.sessionStorage.setItem(`phola_unlocked_${session.user.id}`, 'true')
+              }
+              setIsLocked(false)
             }
-            setIsLocked(false)
           }
         } else if (event === 'SIGNED_OUT') {
           if (typeof window !== 'undefined') {
@@ -169,12 +184,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [supabase, fetchProfile])
 
+  // Inactivity timeout & background lock (ONLY active if user configured a PIN or biometrics)
   useEffect(() => {
     if (!user) {
       if (idleTimerRef.current) {
         clearTimeout(idleTimerRef.current)
         idleTimerRef.current = null
       }
+      return
+    }
+
+    const hasSecurity = hasConfiguredPin(profile) || Boolean(profile?.biometric_enabled)
+    if (!hasSecurity) {
+      // User has not configured PIN or biometric lock - never lock
+      setIsLocked(false)
       return
     }
 
@@ -186,17 +209,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       idleTimerRef.current = setTimeout(() => {
-        if (profile?.pin_hash) {
-          if (typeof window !== 'undefined') {
-            window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
-          }
-          setIsLocked(true)
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
         }
+        setIsLocked(true)
       }, idleMs)
     }
 
     const lockOnHide = () => {
-      if (document.visibilityState === 'hidden' && profile?.pin_hash) {
+      if (document.visibilityState === 'hidden') {
         if (typeof window !== 'undefined') {
           window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
         }
@@ -208,7 +229,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }))
     document.addEventListener('visibilitychange', lockOnHide)
-    window.addEventListener('blur', lockOnHide)
 
     resetIdleTimer()
 
@@ -220,9 +240,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetIdleTimer))
       document.removeEventListener('visibilitychange', lockOnHide)
-      window.removeEventListener('blur', lockOnHide)
     }
-  }, [user, profile?.pin_hash])
+  }, [user, profile])
 
   const unlock = useCallback(() => {
     if (user?.id && typeof window !== 'undefined') {
@@ -232,15 +251,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id])
 
   const lock = useCallback(() => {
+    const hasSecurity = hasConfiguredPin(profile) || Boolean(profile?.biometric_enabled)
+    if (!hasSecurity) {
+      // Never lock an account that has no PIN and no biometric set up
+      setIsLocked(false)
+      return
+    }
     if (user?.id && typeof window !== 'undefined') {
       window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
     }
     setIsLocked(true)
-  }, [user?.id])
+  }, [user?.id, profile])
 
   const signOut = async () => {
     if (typeof window !== 'undefined') {
-      window.sessionStorage.clear()
+      try {
+        window.sessionStorage.clear()
+        Object.keys(window.sessionStorage).forEach((key) => {
+          if (key.startsWith('phola_unlocked_')) {
+            window.sessionStorage.removeItem(key)
+          }
+        })
+      } catch {
+        // Storage might be restricted
+      }
     }
     purgeStaleSupabaseStorage()
     await supabase.auth.signOut().catch(() => {})

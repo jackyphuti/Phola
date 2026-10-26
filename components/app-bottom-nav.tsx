@@ -39,15 +39,14 @@ const tabs = [
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const { signOut, lock } = useAuth()
+  const { signOut } = useAuth()
   const [isHidden, setIsHidden] = useState<boolean>(true)
   const [isMounted, setIsMounted] = useState(false)
 
   const handleSignOut = async () => {
     toggleHide(true)
-    lock()
     await signOut()
-    router.push('/')
+    router.replace('/auth/login')
   }
 
   useEffect(() => {

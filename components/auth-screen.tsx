@@ -31,6 +31,8 @@ import { safeExit } from '@/lib/safe-exit'
 import { LanguageSelector } from '@/components/language-selector'
 import { getAuthCallbackUrl } from '@/lib/auth-url'
 import { saveStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
+import { useAuth } from '@/lib/auth-context'
+import { LockScreen } from '@/components/lock-screen'
 
 interface AuthScreenProps {
   initialMode?: 'login' | 'signup'
@@ -40,10 +42,18 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [supabase] = useState(() => createClient())
+  const { user, isLoading: authLoading, isLocked } = useAuth()
   const { t } = useTranslation()
 
   // Tab State: 'login' | 'signup'
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode)
+
+  // Redirect if already authenticated and unlocked
+  useEffect(() => {
+    if (!authLoading && user && !isLocked) {
+      router.replace('/dashboard')
+    }
+  }, [authLoading, user, isLocked, router])
 
   // Form Fields
   const [email, setEmail] = useState('')
@@ -241,6 +251,11 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
     if (password.length >= 10 && /[^A-Za-z0-9]/.test(password)) score++
     return score
   })()
+
+  // If user is logged in but locked, present the Lock Screen
+  if (!authLoading && user && isLocked) {
+    return <LockScreen />
+  }
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.1),_transparent_45%),linear-gradient(180deg,#f8fcfb_0%,#ffffff_100%)] px-4 py-8 safe-top safe-bottom">

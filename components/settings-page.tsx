@@ -18,7 +18,9 @@ import {
   registerBiometric, 
   saveCredentialId,
   getCredentialId,
-  clearCredentialId
+  clearCredentialId,
+  getBiometricType,
+  getBiometricLabel
 } from '@/lib/biometric'
 import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/language-options'
@@ -26,13 +28,14 @@ import { loadLanguagePreference, saveLanguagePreference } from '@/lib/locale-sto
 import i18n from '@/lib/i18n'
 import { clearSensitiveLocalData } from '@/lib/privacy'
 import { getApiUrl } from '@/lib/api-client'
-import { hashPin, verifyPin } from '@/lib/pin'
+import { hashPin, verifyPin, hasConfiguredPin } from '@/lib/pin'
 import type { EmergencyContact } from '@/lib/types'
 import { getStoredEmergencyContacts, saveStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 import { 
   ArrowLeft, 
   Camera,
   Fingerprint, 
+  ScanFace,
   KeyRound, 
   User,
   Shield,
@@ -308,7 +311,7 @@ export function SettingsPage() {
     if (!user?.id) return
     setPinError('')
 
-    if (profile?.pin_hash) {
+    if (hasConfiguredPin(profile) && profile?.pin_hash) {
       if (!currentPin) {
         setPinError('Please enter your current PIN.')
         return
@@ -691,9 +694,8 @@ export function SettingsPage() {
   }
 
   const handleSignOut = async () => {
-    lock()
     await signOut()
-    router.push('/')
+    router.replace('/auth/login')
   }
 
   return (
@@ -834,7 +836,7 @@ export function SettingsPage() {
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-primary" />
-                  {profile?.pin_hash ? 'Change PIN' : 'Set PIN Lock'}
+                  {hasConfiguredPin(profile) ? 'Change PIN' : 'Set PIN Lock'}
                 </CardTitle>
                 <CardDescription>
                   Protect your app with a 4 to 6 digit security PIN.
@@ -846,7 +848,7 @@ export function SettingsPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSavePin} className="space-y-4">
-                {profile?.pin_hash && (
+                {hasConfiguredPin(profile) && (
                   <div className="space-y-1">
                     <Label htmlFor="currentPin">Current PIN</Label>
                     <Input
@@ -1368,11 +1370,17 @@ export function SettingsPage() {
             <div className="p-5 flex items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-muted text-slate-700 dark:text-foreground mt-0.5">
-                  <Fingerprint className="h-5 w-5" />
+                  {getBiometricType() === 'faceID' ? (
+                    <ScanFace className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+                  ) : (
+                    <Fingerprint className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm text-foreground">Biometric Authentication</p>
+                    <p className="font-semibold text-sm text-foreground">
+                      {getBiometricLabel()} Authentication
+                    </p>
                     {biometricEnabled ? (
                       <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
                         Active
@@ -1381,7 +1389,7 @@ export function SettingsPage() {
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {biometricAvailable
-                      ? 'Unlock Phola instantly with Fingerprint or Face ID.'
+                      ? `Unlock Phola instantly with ${getBiometricLabel()} on next sign-in.`
                       : 'Biometric sensors not available on this device browser.'}
                   </p>
                 </div>
@@ -1410,7 +1418,7 @@ export function SettingsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-sm text-foreground">Security PIN Lock</p>
-                    {profile?.pin_hash ? (
+                    {hasConfiguredPin(profile) ? (
                       <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 border border-emerald-200">
                         PIN Configured
                       </span>
@@ -1421,13 +1429,13 @@ export function SettingsPage() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    A 4 to 6 digit fallback code required to view encrypted incident logs.
+                    A 4 to 6 digit code required to unlock Phola on sign-in or app resume.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                {profile?.pin_hash ? (
+                {hasConfiguredPin(profile) ? (
                   <>
                     <Button
                       type="button"

@@ -1,26 +1,67 @@
-// WebAuthn utilities for biometric authentication in PWA
+// WebAuthn utilities for biometric authentication in PWA, iOS, and Android
 
 export interface BiometricCredential {
   credentialId: string
   publicKey: string
 }
 
+export type BiometricType = 'faceID' | 'fingerprint' | 'biometrics'
+
 let biometricCredentialId: string | null = null
 
 export function isBiometricSupported(): boolean {
-  return typeof window !== 'undefined' && 
+  return (
+    typeof window !== 'undefined' &&
     'PublicKeyCredential' in window &&
     'isUserVerifyingPlatformAuthenticatorAvailable' in PublicKeyCredential
+  )
 }
 
 export async function isBiometricAvailable(): Promise<boolean> {
   if (!isBiometricSupported()) return false
-  
+
   try {
     return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
   } catch {
     return false
   }
+}
+
+/**
+ * Determine whether device is iOS (Face ID) or Android (Fingerprint) or generic desktop biometrics.
+ */
+export function getBiometricType(): BiometricType {
+  if (typeof window === 'undefined') return 'biometrics'
+  const ua = (window.navigator?.userAgent || '').toLowerCase()
+  const platform = (window.navigator?.platform || '').toLowerCase()
+
+  // iOS devices (iPhone, iPad, iPod, or iPadOS Safari with desktop UA)
+  if (
+    /iphone|ipad|ipod/.test(ua) ||
+    (platform.includes('mac') && typeof window.navigator.maxTouchPoints === 'number' && window.navigator.maxTouchPoints > 1)
+  ) {
+    return 'faceID'
+  }
+
+  // Android devices
+  if (/android/.test(ua)) {
+    return 'fingerprint'
+  }
+
+  return 'biometrics'
+}
+
+/**
+ * Returns human-readable label matching the native OS:
+ * iOS: "Face ID"
+ * Android: "Fingerprint"
+ * Desktop/Other: "Biometrics"
+ */
+export function getBiometricLabel(): string {
+  const type = getBiometricType()
+  if (type === 'faceID') return 'Face ID'
+  if (type === 'fingerprint') return 'Fingerprint'
+  return 'Biometrics'
 }
 
 function generateChallenge(): Uint8Array {
@@ -48,25 +89,25 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 export async function registerBiometric(userId: string): Promise<BiometricCredential | null> {
-  if (!await isBiometricAvailable()) return null
+  if (!(await isBiometricAvailable())) return null
 
   try {
     const challenge = generateChallenge()
-    
-    const credential = await navigator.credentials.create({
+
+    const credential = (await navigator.credentials.create({
       publicKey: {
         challenge,
         rp: {
-          name: 'Phola',
+          name: 'Phola Safety',
           id: window.location.hostname,
         },
         user: {
           id: new TextEncoder().encode(userId),
-          name: 'User',
-          displayName: 'User',
+          name: 'Phola User',
+          displayName: 'Phola User',
         },
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },  // ES256
+          { alg: -7, type: 'public-key' }, // ES256
           { alg: -257, type: 'public-key' }, // RS256
         ],
         authenticatorSelection: {
@@ -77,12 +118,12 @@ export async function registerBiometric(userId: string): Promise<BiometricCreden
         timeout: 60000,
         attestation: 'none',
       },
-    }) as PublicKeyCredential | null
+    })) as PublicKeyCredential | null
 
     if (!credential) return null
 
     const response = credential.response as AuthenticatorAttestationResponse
-    
+
     return {
       credentialId: arrayBufferToBase64(credential.rawId),
       publicKey: arrayBufferToBase64(response.getPublicKey() || new ArrayBuffer(0)),
@@ -94,22 +135,26 @@ export async function registerBiometric(userId: string): Promise<BiometricCreden
 }
 
 export async function authenticateBiometric(credentialId?: string): Promise<boolean> {
-  if (!await isBiometricAvailable()) return false
+  if (!(await isBiometricAvailable())) return false
 
   try {
     const challenge = generateChallenge()
-    
+
     const options: CredentialRequestOptions = {
       publicKey: {
         challenge,
         rpId: window.location.hostname,
         userVerification: 'required',
         timeout: 60000,
-        allowCredentials: credentialId ? [{
-          id: base64ToArrayBuffer(credentialId),
-          type: 'public-key',
-          transports: ['internal'],
-        }] : [],
+        allowCredentials: credentialId
+          ? [
+              {
+                id: base64ToArrayBuffer(credentialId),
+                type: 'public-key',
+                transports: ['internal'],
+              },
+            ]
+          : [],
       },
     }
 
