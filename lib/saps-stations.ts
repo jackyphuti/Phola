@@ -10,18 +10,26 @@ export type SAPSStation = {
 export const SAPS_STATIONS: SAPSStation[] = [
   // Gauteng
   { code: 'GP-JHB-CENTRAL', name: 'Johannesburg Central SAPS', lat: -26.2049, lng: 28.0473, province: 'Gauteng', phone: '0113755911' },
+  { code: 'GP-HILLBROW', name: 'Hillbrow SAPS', lat: -26.1912, lng: 28.0494, province: 'Gauteng', phone: '0114886511' },
   { code: 'GP-MOROKA', name: 'Moroka SAPS (Soweto)', lat: -26.2674, lng: 27.8582, province: 'Gauteng', phone: '0119388601' },
   { code: 'GP-ORLANDO', name: 'Orlando SAPS (Soweto)', lat: -26.2335, lng: 27.9152, province: 'Gauteng', phone: '0119358200' },
+  { code: 'GP-DOBSONVILLE', name: 'Dobsonville SAPS (Soweto)', lat: -26.2162, lng: 27.8722, province: 'Gauteng', phone: '0119831500' },
+  { code: 'GP-ELDORADO', name: 'Eldorado Park SAPS', lat: -26.2894, lng: 27.9048, province: 'Gauteng', phone: '0119460300' },
   { code: 'GP-SANDTON', name: 'Sandton SAPS', lat: -26.1076, lng: 28.0567, province: 'Gauteng', phone: '0117228800' },
+  { code: 'GP-RANDBURG', name: 'Randburg SAPS', lat: -26.0911, lng: 28.0053, province: 'Gauteng', phone: '0114499000' },
   { code: 'GP-ALEXANDRA', name: 'Alexandra SAPS', lat: -26.1042, lng: 28.0935, province: 'Gauteng', phone: '0113217600' },
   { code: 'GP-ROSEBANK', name: 'Rosebank SAPS', lat: -26.1472, lng: 28.0416, province: 'Gauteng', phone: '0117784700' },
+  { code: 'GP-MIDRAND', name: 'Midrand SAPS', lat: -25.9984, lng: 28.1278, province: 'Gauteng', phone: '0113471600' },
+  { code: 'GP-TEMBISA', name: 'Tembisa SAPS', lat: -26.0125, lng: 28.2255, province: 'Gauteng', phone: '0119262970' },
+  { code: 'GP-KEMPTON-PARK', name: 'Kempton Park SAPS', lat: -26.1012, lng: 28.2361, province: 'Gauteng', phone: '0113938600' },
+  { code: 'GP-BOKSBURG', name: 'Boksburg SAPS', lat: -26.2155, lng: 28.2572, province: 'Gauteng', phone: '0118413600' },
+  { code: 'GP-GERMISTON', name: 'Germiston SAPS', lat: -26.2238, lng: 28.1691, province: 'Gauteng', phone: '0118715000' },
   { code: 'GP-PRETORIA-CENTRAL', name: 'Pretoria Central SAPS', lat: -25.7516, lng: 28.1878, province: 'Gauteng', phone: '0123534000' },
   { code: 'GP-HATFIELD', name: 'Hatfield SAPS (Pretoria)', lat: -25.7486, lng: 28.2380, province: 'Gauteng', phone: '0123661700' },
+  { code: 'GP-CENTURION', name: 'Lyttelton / Centurion SAPS', lat: -25.8361, lng: 28.2045, province: 'Gauteng', phone: '0126448600' },
   { code: 'GP-GARSFONTEIN', name: 'Garsfontein SAPS', lat: -25.7956, lng: 28.2994, province: 'Gauteng', phone: '0124704200' },
   { code: 'GP-SUNNYSIDE', name: 'Sunnyside SAPS', lat: -25.7562, lng: 28.2125, province: 'Gauteng', phone: '0124223600' },
   { code: 'GP-BROOKLYN', name: 'Brooklyn SAPS', lat: -25.7725, lng: 28.2394, province: 'Gauteng', phone: '0123661700' },
-  { code: 'GP-MIDRAND', name: 'Midrand SAPS', lat: -25.9984, lng: 28.1278, province: 'Gauteng', phone: '0113471600' },
-  { code: 'GP-TEMBISA', name: 'Tembisa SAPS', lat: -26.0125, lng: 28.2255, province: 'Gauteng', phone: '0119262970' },
 
   // Western Cape
   { code: 'WC-CPT-CENTRAL', name: 'Cape Town Central SAPS', lat: -33.9249, lng: 18.4241, province: 'Western Cape', phone: '0214678000' },
@@ -29,6 +37,8 @@ export const SAPS_STATIONS: SAPSStation[] = [
   { code: 'WC-WOODSTOCK', name: 'Woodstock SAPS', lat: -33.9298, lng: 18.4526, province: 'Western Cape', phone: '0214421200' },
   { code: 'WC-CLAREMONT', name: 'Claremont SAPS', lat: -33.9818, lng: 18.4682, province: 'Western Cape', phone: '0216572240' },
   { code: 'WC-BELLVILLE', name: 'Bellville SAPS', lat: -33.8986, lng: 18.6292, province: 'Western Cape', phone: '0219183000' },
+  { code: 'WC-STELLENBOSCH', name: 'Stellenbosch SAPS', lat: -33.9352, lng: 18.8601, province: 'Western Cape', phone: '0218095000' },
+  { code: 'WC-GEORGE', name: 'George SAPS', lat: -33.9582, lng: 22.4611, province: 'Western Cape', phone: '0448034700' },
   { code: 'WC-MITCHELLS-PLAIN', name: 'Mitchells Plain SAPS', lat: -34.0494, lng: 18.6272, province: 'Western Cape', phone: '0213701600' },
   { code: 'WC-KHAYELITSHA', name: 'Khayelitsha SAPS', lat: -34.0363, lng: 18.6761, province: 'Western Cape', phone: '0213601600' },
 

@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { notifySOSActivated } from '@/lib/push-notifications'
 import { getNearbySAPSStations, getNearbyHospitals } from '@/lib/saps-stations'
-import { getReliableLocation, getCachedLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
+import { getReliableLocation, getCachedLocation, watchReliableLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
 import { launchEHailingWithDestination, RideServiceId } from '@/lib/safe-ride-service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -178,6 +178,7 @@ export function SOSMap() {
   const placesMarkersRef = useRef<mapboxgl.Marker[]>([])
   const watchIdRef = useRef<number | null>(null)
   const lastSpokenRef = useRef<string>('')
+  const isFirstFixRef = useRef<boolean>(true)
 
   // State
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -334,20 +335,22 @@ export function SOSMap() {
     }
   }, [isNavigating])
 
-  // 4. Resolve Live Coordinates
+  // 4. Resolve Live Coordinates & Keep Real-Time Watcher Active
   useEffect(() => {
     let isMounted = true
 
+    // Immediately use cached GPS position if available
     const cached = getCachedLocation()
     if (cached) {
       setCurrentLocation(cached)
       setLocationStatus('active')
       loadSafePlacesForLocation(cached.lat, cached.lng)
-      if (mapRef.current) {
+      if (mapRef.current && isFirstFixRef.current) {
         mapRef.current.flyTo({ center: [cached.lng, cached.lat], zoom: 14 })
       }
     }
 
+    // Fast initial one-shot lookup
     void getReliableLocation().then((coords) => {
       if (!isMounted) return
       if (coords && (coords.lat !== DEFAULT_SOUTH_AFRICA_LOCATION.lat || coords.lng !== DEFAULT_SOUTH_AFRICA_LOCATION.lng)) {
@@ -355,18 +358,45 @@ export function SOSMap() {
         setLocationStatus('active')
         loadSafePlacesForLocation(coords.lat, coords.lng)
 
-        if (mapRef.current) {
-          mapRef.current.flyTo({ center: [coords.lng, coords.lat], zoom: 14 })
+        if (mapRef.current && isFirstFixRef.current) {
+          isFirstFixRef.current = false
+          mapRef.current.flyTo({ center: [coords.lng, coords.lat], zoom: 15, duration: 1000 })
         }
-      } else {
+      } else if (!cached) {
         setCurrentLocation(DEFAULT_SOUTH_AFRICA_LOCATION)
         setLocationStatus('denied')
         loadSafePlacesForLocation(DEFAULT_SOUTH_AFRICA_LOCATION.lat, DEFAULT_SOUTH_AFRICA_LOCATION.lng)
       }
     })
 
+    // Continuous real-time GPS tracking (updates as user moves)
+    const cleanupWatch = watchReliableLocation(
+      (coords) => {
+        if (!isMounted) return
+        const newCoords = { lat: coords.lat, lng: coords.lng }
+        setCurrentLocation(newCoords)
+        setLocationStatus('active')
+        loadSafePlacesForLocation(coords.lat, coords.lng)
+
+        if (mapRef.current) {
+          if (isFirstFixRef.current) {
+            isFirstFixRef.current = false
+            mapRef.current.flyTo({ center: [newCoords.lng, newCoords.lat], zoom: 15, duration: 1000 })
+          }
+        }
+      },
+      (err) => {
+        if (!isMounted) return
+        console.warn('Geolocation watcher warning:', err)
+        if (!cached && locationStatus === 'loading') {
+          setLocationStatus('denied')
+        }
+      }
+    )
+
     return () => {
       isMounted = false
+      cleanupWatch()
     }
   }, [loadSafePlacesForLocation])
 
@@ -466,26 +496,90 @@ export function SOSMap() {
   }, [isVoiceMuted])
 
   // 7. Route Polyline & Turn-By-Turn Steps Fetching
-  const getRoute = useCallback(async (place: SafePlace) => {
-    if (!currentLocation) return
+  const getRoute = useCallback(async (place: SafePlace): Promise<RouteInfo | null> => {
+    if (!currentLocation) return null
 
     setIsLoadingRoute(true)
     try {
-      const routingUrl = MAPBOX_TOKEN
-        ? `https://api.mapbox.com/directions/v5/mapbox/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?geometries=geojson&steps=true&access_token=${MAPBOX_TOKEN}`
-        : `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?overview=full&geometries=geojson&steps=true`
+      let routeData: any = null
+      let coords: [number, number][] = []
+      let parsedSteps: NavigationStep[] = []
 
-      const response = await fetch(routingUrl)
-      if (!response.ok) throw new Error('Routing request failed')
+      // 1. Try Mapbox Directions API
+      if (MAPBOX_TOKEN) {
+        try {
+          const mapboxUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?geometries=geojson&steps=true&overview=full&access_token=${MAPBOX_TOKEN}`
+          const response = await fetch(mapboxUrl)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.routes && data.routes[0]) {
+              routeData = data.routes[0]
+              coords = routeData.geometry.coordinates as [number, number][]
+            }
+          }
+        } catch (err) {
+          console.warn('Mapbox route fetch failed, trying OSRM fallback:', err)
+        }
+      }
 
-      const data = await response.json()
-      if (data.routes && data.routes[0]) {
-        const routeData = data.routes[0]
-        const coords = routeData.geometry.coordinates as [number, number][]
+      // 2. Try OSRM fallback
+      if (!routeData) {
+        try {
+          const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentLocation.lng},${currentLocation.lat};${place.location.lng},${place.location.lat}?overview=full&geometries=geojson&steps=true`
+          const response = await fetch(osrmUrl)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.routes && data.routes[0]) {
+              routeData = data.routes[0]
+              coords = routeData.geometry.coordinates as [number, number][]
+            }
+          }
+        } catch (err) {
+          console.warn('OSRM route fetch failed:', err)
+        }
+      }
 
-        // Parse Turn-by-Turn Steps
+      let computedRoute: RouteInfo
+
+      // 3. Fallback: Direct waypoint path if network routing failed
+      if (!routeData || coords.length === 0) {
+        const distKm = calculateDistanceKm(currentLocation.lat, currentLocation.lng, place.location.lat, place.location.lng)
+        const estDurationSec = Math.round((distKm / 35) * 3600)
+        coords = [
+          [currentLocation.lng, currentLocation.lat],
+          [place.location.lng, place.location.lat],
+        ]
+        parsedSteps = [
+          {
+            instruction: `Head straight towards ${place.name}`,
+            distanceMeters: Math.round(distKm * 1000),
+            durationSeconds: estDurationSec,
+            streetName: place.name,
+            type: 'depart',
+            location: [currentLocation.lng, currentLocation.lat],
+          },
+          {
+            instruction: `Arrive at ${place.name}`,
+            distanceMeters: 0,
+            durationSeconds: 0,
+            streetName: place.name,
+            type: 'arrive',
+            location: [place.location.lng, place.location.lat],
+          },
+        ]
+
+        computedRoute = {
+          coordinates: coords,
+          distance: formatDistance(distKm),
+          duration: estimateDuration(distKm),
+          distanceMeters: distKm * 1000,
+          durationSeconds: estDurationSec,
+          steps: parsedSteps,
+        }
+      } else {
+        // Parse Turn-by-Turn Steps from routeData
         const rawSteps = routeData.legs?.[0]?.steps || []
-        const parsedSteps: NavigationStep[] = rawSteps.map((step: any, index: number) => {
+        parsedSteps = rawSteps.map((step: any, index: number) => {
           const isLast = index === rawSteps.length - 1
           return {
             instruction: parseManeuverInstruction(step, isLast, place.name),
@@ -517,72 +611,94 @@ export function SOSMap() {
           })
         }
 
-        setRoute({
+        computedRoute = {
           coordinates: coords,
           distance: formatDistance(routeData.distance / 1000),
           duration: `${Math.round(routeData.duration / 60)} min`,
           distanceMeters: routeData.distance,
           durationSeconds: routeData.duration,
           steps: parsedSteps,
-        })
-        setSelectedPlace(place)
-        setCurrentStepIndex(0)
+        }
+      }
 
-        // Draw line on mapbox
-        const map = mapRef.current
-        if (map) {
-          const geojsonSource = map.getSource('route-source') as mapboxgl.GeoJSONSource
-          if (geojsonSource) {
-            geojsonSource.setData({
+      setRoute(computedRoute)
+      setSelectedPlace(place)
+      setCurrentStepIndex(0)
+
+      // Draw line on mapbox with casing layer for high contrast
+      const map = mapRef.current
+      if (map) {
+        const geojsonSource = map.getSource('route-source') as mapboxgl.GeoJSONSource
+        if (geojsonSource) {
+          geojsonSource.setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: coords,
+            },
+          })
+        } else {
+          map.addSource('route-source', {
+            type: 'geojson',
+            data: {
               type: 'Feature',
               properties: {},
               geometry: {
                 type: 'LineString',
                 coordinates: coords,
               },
-            })
-          } else {
-            map.addSource('route-source', {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                  type: 'LineString',
-                  coordinates: coords,
-                },
-              },
-            })
+            },
+          })
 
-            map.addLayer({
-              id: 'route-layer',
-              type: 'line',
-              source: 'route-source',
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round',
-              },
-              paint: {
-                'line-color': '#0D6E6E',
-                'line-width': 6,
-                'line-opacity': 0.9,
-              },
-            })
-          }
+          // Route casing
+          map.addLayer({
+            id: 'route-casing',
+            type: 'line',
+            source: 'route-source',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
+            paint: {
+              'line-color': '#ffffff',
+              'line-width': 9,
+              'line-opacity': 0.9,
+            },
+          })
 
-          // Fit bounds to show route if not navigating
-          if (!isNavigating) {
-            const bounds = coords.reduce(
-              (b, c) => b.extend(c as [number, number]),
-              new mapboxgl.LngLatBounds(coords[0], coords[0])
-            )
-            map.fitBounds(bounds, { padding: 60, duration: 800 })
-          }
+          // Route line
+          map.addLayer({
+            id: 'route-layer',
+            type: 'line',
+            source: 'route-source',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round',
+            },
+            paint: {
+              'line-color': '#0D6E6E',
+              'line-width': 6,
+              'line-opacity': 0.95,
+            },
+          })
+        }
+
+        // Fit bounds to show route if not navigating
+        if (!isNavigating) {
+          const bounds = coords.reduce(
+            (b, c) => b.extend(c as [number, number]),
+            new mapboxgl.LngLatBounds([currentLocation.lng, currentLocation.lat], [place.location.lng, place.location.lat])
+          )
+          map.fitBounds(bounds, { padding: { top: 70, bottom: 120, left: 40, right: 40 }, duration: 800 })
         }
       }
+
+      return computedRoute
     } catch (e) {
       console.warn('Failed to calculate route:', e)
       setSelectedPlace(place)
+      return null
     } finally {
       setIsLoadingRoute(false)
     }
@@ -595,9 +711,10 @@ export function SOSMap() {
     setCurrentStepIndex(0)
     setIsFollowingUser(true)
 
-    // Ensure route is computed
-    if (!route || route.steps.length === 0) {
-      await getRoute(place)
+    // Ensure route is computed and retrieve it
+    let activeRoute = route
+    if (!activeRoute || activeRoute.steps.length === 0 || selectedPlace?.id !== place.id) {
+      activeRoute = await getRoute(place)
     }
 
     setIsNavigating(true)
@@ -618,11 +735,29 @@ export function SOSMap() {
     }
 
     // Voice announcement
-    if (route && route.steps[0]) {
-      speakInstruction(`Starting navigation to ${place.name}. ${route.steps[0].instruction}`)
+    if (activeRoute && activeRoute.steps[0]) {
+      speakInstruction(`Starting navigation to ${place.name}. ${activeRoute.steps[0].instruction}`)
     } else {
       speakInstruction(`Starting navigation to ${place.name}.`)
     }
+  }
+
+  // Quick Actions for SAPS Police Stations
+  const navigateToNearestPoliceStation = async () => {
+    const policeStations = safePlaces.filter((p) => p.type === 'police')
+    const nearest = policeStations[0]
+    if (!nearest) return
+    setSelectedPlace(nearest)
+    await startInAppNavigation(nearest)
+  }
+
+  const showNearestPoliceStationRoute = async () => {
+    const policeStations = safePlaces.filter((p) => p.type === 'police')
+    const nearest = policeStations[0]
+    if (!nearest) return
+    setActiveFilter('police')
+    setSelectedPlace(nearest)
+    await getRoute(nearest)
   }
 
   // 9. Stop/Exit Navigation
@@ -720,18 +855,54 @@ export function SOSMap() {
     }
   }, [isNavigating, isFollowingUser, userBearing, selectedPlace, route, currentStepIndex, hasArrived, speakInstruction])
 
-  // Recenter Camera to User
+  // Recenter Camera to User & Force GPS Refresh
   const recenterToUser = () => {
     setIsFollowingUser(true)
-    const map = mapRef.current
-    if (map && currentLocation) {
-      map.easeTo({
-        center: [currentLocation.lng, currentLocation.lat],
-        bearing: userBearing || 0,
-        pitch: isNavigating ? 55 : 0,
-        zoom: isNavigating ? 17.5 : 15,
-        duration: 800,
-      })
+
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+          setCurrentLocation(coords)
+          setLocationStatus('active')
+          loadSafePlacesForLocation(coords.lat, coords.lng)
+
+          const map = mapRef.current
+          if (map) {
+            map.flyTo({
+              center: [coords.lng, coords.lat],
+              bearing: userBearing || 0,
+              pitch: isNavigating ? 55 : 0,
+              zoom: isNavigating ? 17.5 : 15,
+              duration: 800,
+            })
+          }
+        },
+        () => {
+          const map = mapRef.current
+          if (map && currentLocation) {
+            map.flyTo({
+              center: [currentLocation.lng, currentLocation.lat],
+              bearing: userBearing || 0,
+              pitch: isNavigating ? 55 : 0,
+              zoom: isNavigating ? 17.5 : 15,
+              duration: 800,
+            })
+          }
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 5000 }
+      )
+    } else {
+      const map = mapRef.current
+      if (map && currentLocation) {
+        map.flyTo({
+          center: [currentLocation.lng, currentLocation.lat],
+          bearing: userBearing || 0,
+          pitch: isNavigating ? 55 : 0,
+          zoom: isNavigating ? 17.5 : 15,
+          duration: 800,
+        })
+      }
     }
   }
 
@@ -1145,8 +1316,34 @@ export function SOSMap() {
         {/* ========================================================================= */}
         {!isNavigating && (
           <>
+            {/* Quick Police Station Navigation Action */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+              <Button
+                onClick={() => void navigateToNearestPoliceStation()}
+                className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm h-11 rounded-2xl shadow-sm flex items-center justify-between px-4 border border-emerald-600/30"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Shield className="w-4 h-4 text-emerald-200 shrink-0" />
+                  <span className="truncate">Go to Nearest Police Station (SAPS)</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs bg-white/20 px-2.5 py-1 rounded-lg shrink-0">
+                  <Navigation className="w-3.5 h-3.5 text-white" />
+                  <span>Navigate In-App</span>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => void showNearestPoliceStationRoute()}
+                className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 font-semibold text-xs h-11 rounded-2xl px-3 shrink-0"
+              >
+                <Route className="w-3.5 h-3.5 mr-1 text-primary" />
+                View Route
+              </Button>
+            </div>
+
             {/* Category Filters */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1">
               <Button
                 size="sm"
                 variant={activeFilter === 'all' ? 'default' : 'outline'}
@@ -1159,19 +1356,23 @@ export function SOSMap() {
                 size="sm"
                 variant={activeFilter === 'police' ? 'default' : 'outline'}
                 onClick={() => setActiveFilter('police')}
-                className="rounded-full text-xs font-semibold shrink-0 border-emerald-200"
+                className={`rounded-full text-xs font-semibold shrink-0 border-emerald-200 ${
+                  activeFilter === 'police' ? 'bg-primary text-white hover:bg-primary/90' : ''
+                }`}
               >
                 <Shield className="w-3.5 h-3.5 mr-1" />
-                SAPS Police Stations
+                SAPS Police Stations ({safePlaces.filter(p => p.type === 'police').length})
               </Button>
               <Button
                 size="sm"
                 variant={activeFilter === 'hospital' ? 'default' : 'outline'}
                 onClick={() => setActiveFilter('hospital')}
-                className="rounded-full text-xs font-semibold shrink-0 border-emerald-200"
+                className={`rounded-full text-xs font-semibold shrink-0 border-emerald-200 ${
+                  activeFilter === 'hospital' ? 'bg-primary text-white hover:bg-primary/90' : ''
+                }`}
               >
                 <Hospital className="w-3.5 h-3.5 mr-1" />
-                Trauma Hospitals
+                Trauma Hospitals ({safePlaces.filter(p => p.type === 'hospital').length})
               </Button>
             </div>
 
@@ -1259,15 +1460,16 @@ export function SOSMap() {
                         {/* Direct In-App Navigation Button */}
                         <Button
                           variant="default"
-                          size="icon"
-                          className="h-9 w-9 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-xs"
+                          size="sm"
+                          className="h-9 px-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
                           onClick={(e) => {
                             e.stopPropagation()
                             void startInAppNavigation(place)
                           }}
                           title="Start In-App Navigation"
                         >
-                          <Navigation className="w-4 h-4" />
+                          <Navigation className="w-3.5 h-3.5" />
+                          <span>Navigate</span>
                         </Button>
                       </div>
                     </CardContent>

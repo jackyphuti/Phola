@@ -1,7 +1,7 @@
 /**
  * High-speed, high-reliability geolocation helper.
- * Uses cached position immediately (if fresh), tries fast GPS (3s timeout),
- * and instantly falls back to coarse Network/Cell location.
+ * Uses cached position immediately (if fresh), keeps active GPS watcher,
+ * and falls back gracefully.
  */
 
 export const DEFAULT_SOUTH_AFRICA_LOCATION = {
@@ -12,16 +12,16 @@ export const DEFAULT_SOUTH_AFRICA_LOCATION = {
 let memoryLocationCache: { lat: number; lng: number; ts: number } | null = null
 
 export function getCachedLocation(): { lat: number; lng: number } | null {
-  if (memoryLocationCache && Date.now() - memoryLocationCache.ts < 10 * 60 * 1000) {
+  if (memoryLocationCache && Date.now() - memoryLocationCache.ts < 15 * 60 * 1000) {
     return { lat: memoryLocationCache.lat, lng: memoryLocationCache.lng }
   }
 
   if (typeof window !== 'undefined') {
     try {
-      const raw = window.sessionStorage.getItem('phola_last_gps')
+      const raw = window.sessionStorage.getItem('phola_last_gps') || window.localStorage.getItem('phola_last_gps')
       if (raw) {
         const parsed = JSON.parse(raw)
-        if (parsed?.lat && parsed?.lng && Date.now() - (parsed.ts || 0) < 15 * 60 * 1000) {
+        if (parsed?.lat && parsed?.lng && Date.now() - (parsed.ts || 0) < 60 * 60 * 1000) {
           memoryLocationCache = parsed
           return { lat: parsed.lat, lng: parsed.lng }
         }
@@ -38,7 +38,9 @@ export function saveLocationToCache(lat: number, lng: number) {
   memoryLocationCache = { lat, lng, ts: Date.now() }
   if (typeof window !== 'undefined') {
     try {
-      window.sessionStorage.setItem('phola_last_gps', JSON.stringify(memoryLocationCache))
+      const serialized = JSON.stringify(memoryLocationCache)
+      window.sessionStorage.setItem('phola_last_gps', serialized)
+      window.localStorage.setItem('phola_last_gps', serialized)
     } catch {
       // ignore storage error
     }
@@ -47,11 +49,7 @@ export function saveLocationToCache(lat: number, lng: number) {
 
 export function getReliableLocation(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve) => {
-    // 0. If we have a recent GPS position (< 5 min old), resolve immediately
     const cached = getCachedLocation()
-    if (cached && memoryLocationCache && Date.now() - memoryLocationCache.ts < 5 * 60 * 1000) {
-      return resolve(cached)
-    }
 
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       return resolve(cached || DEFAULT_SOUTH_AFRICA_LOCATION)
@@ -71,11 +69,11 @@ export function getReliableLocation(): Promise<{ lat: number; lng: number }> {
       }
     }
 
-    // 1. Try GPS with high accuracy but tight 3.5s timeout and 3-minute maximumAge
+    // 1. Try GPS with high accuracy (10s timeout)
     navigator.geolocation.getCurrentPosition(
       handleSuccess,
       () => {
-        // 2. Fast fallback to coarse Network/Cell location (2.5s timeout)
+        // 2. Fast fallback to coarse Network/Cell location (5s timeout)
         navigator.geolocation.getCurrentPosition(
           handleSuccess,
           () => {
@@ -84,10 +82,43 @@ export function getReliableLocation(): Promise<{ lat: number; lng: number }> {
               resolve(cached || DEFAULT_SOUTH_AFRICA_LOCATION)
             }
           },
-          { enableHighAccuracy: false, timeout: 2500, maximumAge: 300000 }
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
         )
       },
-      { enableHighAccuracy: true, timeout: 3500, maximumAge: 180000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     )
   })
+}
+
+/**
+ * Continuous GPS watcher that triggers callback whenever user moves or GPS updates.
+ */
+export function watchReliableLocation(
+  onUpdate: (coords: { lat: number; lng: number; heading?: number | null; speed?: number | null }) => void,
+  onError?: (error: GeolocationPositionError) => void
+): () => void {
+  if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+    return () => {}
+  }
+
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        heading: pos.coords.heading,
+        speed: pos.coords.speed,
+      }
+      saveLocationToCache(coords.lat, coords.lng)
+      onUpdate(coords)
+    },
+    (err) => {
+      if (onError) onError(err)
+    },
+    { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+  )
+
+  return () => {
+    navigator.geolocation.clearWatch(watchId)
+  }
 }

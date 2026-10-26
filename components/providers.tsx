@@ -9,7 +9,6 @@ import { DEFAULT_LANGUAGE } from '@/lib/language-options'
 import { loadLanguagePreference } from '@/lib/locale-storage'
 import { OfflineBanner } from '@/components/offline-banner'
 import { OfflineSyncManager } from '@/components/offline-sync-manager'
-import { ShakeToExit } from '@/components/shake-to-exit'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -24,7 +23,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <I18nextProvider i18n={i18n}>
       <AuthProvider>
         <OfflineSyncManager />
-        <ShakeToExit />
         <OfflineBanner />
         {children}
       </AuthProvider>
