@@ -34,5 +34,6 @@ traffic-monitor
 *.apk
 *.mp4
 Phola_Submission_Pack/
+Phola_Presentation_Deck_standalone.html
 .vscode/
 package-lock.json
