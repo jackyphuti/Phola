@@ -172,6 +172,70 @@ export function launchRideApp(serviceId: RideServiceId): void {
   }
 }
 
+export function launchEHailingWithDestination(params: {
+  serviceId: RideServiceId
+  destinationName: string
+  lat: number
+  lng: number
+}): void {
+  if (typeof window === 'undefined') return
+  const { serviceId, destinationName, lat, lng } = params
+  const encodedName = encodeURIComponent(destinationName)
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+  if (serviceId === 'uber') {
+    const deepLink = `uber://?action=setPickup&pickup=my_location&dropoff[latitude]=${lat}&dropoff[longitude]=${lng}&dropoff[nickname]=${encodedName}`
+    const webLink = `https://m.uber.com/ul/?action=setPickup&client_id=phola&dropoff[latitude]=${lat}&dropoff[longitude]=${lng}&dropoff[formatted_address]=${encodedName}`
+    if (isMobile) {
+      window.location.href = deepLink
+      setTimeout(() => {
+        if (document.hidden) return
+        window.open(webLink, '_blank')
+      }, 1500)
+    } else {
+      window.open(webLink, '_blank')
+    }
+    return
+  }
+
+  if (serviceId === 'bolt') {
+    const deepLink = `bolt://?dropoff_lat=${lat}&dropoff_lng=${lng}`
+    const webLink = `https://bolt.eu`
+    if (isMobile) {
+      window.location.href = deepLink
+      setTimeout(() => {
+        if (document.hidden) return
+        window.open(webLink, '_blank')
+      }, 1500)
+    } else {
+      window.open(webLink, '_blank')
+    }
+    return
+  }
+
+  if (serviceId === 'indrive') {
+    const deepLink = `indriver://`
+    const webLink = `https://indrive.com`
+    if (isMobile) {
+      window.location.href = deepLink
+      setTimeout(() => {
+        if (document.hidden) return
+        window.open(webLink, '_blank')
+      }, 1500)
+    } else {
+      window.open(webLink, '_blank')
+    }
+    return
+  }
+
+  // Taxi / Default device e-hailing or transport intent
+  if (isMobile) {
+    window.location.href = `geo:${lat},${lng}?q=${lat},${lng}(${encodedName})`
+  } else {
+    window.open(`https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%3B${lat}%2C${lng}`, '_blank')
+  }
+}
+
 export function generateWhatsAppDispatch(session: SafeRideSession): string {
   const destination = session.destination || 'my destination'
   const service = session.serviceName
