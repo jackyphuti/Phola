@@ -7,13 +7,15 @@ import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/language-opti
 import { loadLanguagePreference, saveLanguagePreference } from '@/lib/locale-storage'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Globe, ChevronDown } from 'lucide-react'
 
 interface LanguageSelectorProps {
   compact?: boolean
   dropdown?: boolean
+  minimal?: boolean
 }
 
-export function LanguageSelector({ compact = false, dropdown = false }: LanguageSelectorProps) {
+export function LanguageSelector({ compact = false, dropdown = false, minimal = false }: LanguageSelectorProps) {
   const { t } = useTranslation()
   const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>('en')
 
@@ -32,6 +34,34 @@ export function LanguageSelector({ compact = false, dropdown = false }: Language
     document.documentElement.lang = language
   }
 
+  // 1. Minimal Header Dropdown (Top corner, clean pill)
+  if (minimal) {
+    return (
+      <div className="relative inline-flex items-center">
+        <label htmlFor="minimal-lang-select" className="sr-only">Choose Language</label>
+        <div className="pointer-events-none absolute left-2.5 z-10 flex items-center">
+          <Globe className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <select
+          id="minimal-lang-select"
+          className="h-8 rounded-full border border-emerald-200 bg-white/95 pl-7 pr-7 text-xs font-semibold text-emerald-950 shadow-2xs hover:bg-emerald-50 focus:outline-none focus:ring-1 focus:ring-primary backdrop-blur cursor-pointer appearance-none"
+          value={activeLanguage}
+          onChange={(event) => void handleChange(event.target.value as SupportedLanguage)}
+        >
+          {SUPPORTED_LANGUAGES.map((language) => (
+            <option key={language.code} value={language.code}>
+              {language.nativeName} ({language.englishName})
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute right-2.5 z-10 flex items-center">
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  // 2. Full Dropdown (e.g. in Settings)
   if (dropdown) {
     return (
       <div className="space-y-2">
@@ -54,6 +84,7 @@ export function LanguageSelector({ compact = false, dropdown = false }: Language
     )
   }
 
+  // 3. Compact Pills
   if (compact) {
     return (
       <div className="flex flex-wrap gap-2">
@@ -74,6 +105,7 @@ export function LanguageSelector({ compact = false, dropdown = false }: Language
     )
   }
 
+  // 4. Default Grid Cards
   return (
     <div className="space-y-3">
       <div>
