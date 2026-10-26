@@ -32,5 +32,7 @@ traffic-monitor
 .vercel
 .env*
 *.apk
+*.mp4
+Phola_Submission_Pack/
 .vscode/
 package-lock.json
