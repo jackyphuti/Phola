@@ -38,6 +38,9 @@
    - Granular consent management and 1-tap complete data deletion under South Africa's Protection of Personal Information Act (POPIA).
 6. **11 Official South African Languages**
    - English, isiZulu, isiXhosa, Afrikaans, Sepedi, Setswana, Sesotho, Xitsonga, siSwati, Tshivenda, and isiNdebele.
+7. **Background High-Risk Zone Geofencing & Warning System**
+   - Autonomous background GPS monitoring across major South African crime hotspots (Pretoria/Tshwane, Johannesburg CBD, Hillbrow, Alexandra, Pietermaritzburg, Durban, KwaMashu, Gqeberha Korsten/New Brighton/KwaZakhele, Western Cape townships like Nyanga & Khayelitsha).
+   - Zero UI clutter: operates completely in the background with continuous location telemetry, dispatching proactive push notifications, tactical vibration patterns, and spoken voice warnings upon zone entry.
 
 ---
 
