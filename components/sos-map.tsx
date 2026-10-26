@@ -44,8 +44,15 @@ import {
   RotateCcw,
   Sparkles,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  WifiOff,
+  Compass,
+  ListOrdered,
+  Send
 } from 'lucide-react'
+import { generateOfflineSteps, calculateBearing, getCompassCardinal, getShortCompassCardinal } from '@/lib/offline-navigation'
+import { getSOSCallPreference } from '@/lib/user-sync'
+import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 
 // Mapbox Token configuration (supports NEXT_PUBLIC_MAPBOX_TOKEN and NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)
 const MAPBOX_TOKEN = 
@@ -99,18 +106,6 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
     Math.sin(dLon / 2) * Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c
-}
-
-function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180
-  const toDeg = (rad: number) => (rad * 180) / Math.PI
-
-  const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2))
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1))
-  const brng = toDeg(Math.atan2(y, x))
-  return (brng + 360) % 360
 }
 
 function formatDistance(km: number): string {
@@ -197,6 +192,21 @@ export function SOSMap() {
   const [userBearing, setUserBearing] = useState<number>(0)
   const [userSpeedKmH, setUserSpeedKmH] = useState<number | null>(null)
   const [hasArrived, setHasArrived] = useState(false)
+  const [showDirectionsSheet, setShowDirectionsSheet] = useState(false)
+
+  // Offline service & connectivity state
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // E-Hailing Modal State
   const [showEHailingModal, setShowEHailingModal] = useState(false)
@@ -207,8 +217,15 @@ export function SOSMap() {
   const [sosActivated, setSosActivated] = useState(false)
   const [emergencyContactPhone, setEmergencyContactPhone] = useState<string | null>(null)
 
-  // 1. Fetch Emergency Contacts if authenticated
+  // 1. Fetch Emergency Contacts (Instant local lookup + Cloud sync)
   useEffect(() => {
+    // 1. Instant local cache lookup (0ms)
+    const local = getStoredEmergencyContacts(user?.id)
+    const primary = local.find((c) => c.is_primary) || local[0]
+    if (primary?.phone) {
+      setEmergencyContactPhone(primary.phone)
+    }
+
     if (!user?.id) return
 
     const fetchEmergencyContact = async () => {
@@ -541,7 +558,7 @@ export function SOSMap() {
 
       let computedRoute: RouteInfo
 
-      // 3. Fallback: Direct waypoint path if network routing failed
+      // 3. Fallback: Offline / Waypoint vector path if network routing failed
       if (!routeData || coords.length === 0) {
         const distKm = calculateDistanceKm(currentLocation.lat, currentLocation.lng, place.location.lat, place.location.lng)
         const estDurationSec = Math.round((distKm / 35) * 3600)
@@ -549,24 +566,24 @@ export function SOSMap() {
           [currentLocation.lng, currentLocation.lat],
           [place.location.lng, place.location.lat],
         ]
-        parsedSteps = [
-          {
-            instruction: `Head straight towards ${place.name}`,
-            distanceMeters: Math.round(distKm * 1000),
-            durationSeconds: estDurationSec,
-            streetName: place.name,
-            type: 'depart',
-            location: [currentLocation.lng, currentLocation.lat],
-          },
-          {
-            instruction: `Arrive at ${place.name}`,
-            distanceMeters: 0,
-            durationSeconds: 0,
-            streetName: place.name,
-            type: 'arrive',
-            location: [place.location.lng, place.location.lat],
-          },
-        ]
+
+        const offlineSteps = generateOfflineSteps(
+          currentLocation.lat,
+          currentLocation.lng,
+          place.name,
+          place.location.lat,
+          place.location.lng,
+          distKm
+        )
+        parsedSteps = offlineSteps.map((s) => ({
+          instruction: s.instruction,
+          distanceMeters: s.distanceMeters,
+          durationSeconds: s.durationSeconds,
+          streetName: s.streetName,
+          type: s.type,
+          modifier: s.modifier,
+          location: s.location,
+        }))
 
         computedRoute = {
           coordinates: coords,
@@ -581,8 +598,9 @@ export function SOSMap() {
         const rawSteps = routeData.legs?.[0]?.steps || []
         parsedSteps = rawSteps.map((step: any, index: number) => {
           const isLast = index === rawSteps.length - 1
+          const officialInstruction = step.maneuver?.instruction
           return {
-            instruction: parseManeuverInstruction(step, isLast, place.name),
+            instruction: officialInstruction || parseManeuverInstruction(step, isLast, place.name),
             distanceMeters: Math.round(step.distance || 0),
             durationSeconds: Math.round(step.duration || 0),
             streetName: step.name || 'Road',
@@ -757,7 +775,10 @@ export function SOSMap() {
     if (!nearest) return
     setActiveFilter('police')
     setSelectedPlace(nearest)
-    await getRoute(nearest)
+    const computed = await getRoute(nearest)
+    if (computed) {
+      setShowDirectionsSheet(true)
+    }
   }
 
   // 9. Stop/Exit Navigation
@@ -966,6 +987,14 @@ export function SOSMap() {
 
   const handleSOS = async () => {
     setSosActivated(true)
+    const pref = getSOSCallPreference()
+
+    if (pref === 'contact' && emergencyContactPhone) {
+      callNumber(emergencyContactPhone)
+    } else {
+      callNumber('10111')
+    }
+
     setShowEmergencyPanel(true)
 
     if (currentLocation) {
@@ -987,6 +1016,13 @@ export function SOSMap() {
     if (modifier === 'uturn') return <RotateCcw className="w-7 h-7 text-white" />
     return <ArrowUp className="w-7 h-7 text-white" />
   }
+
+  // Offline Compass Calculations
+  const nearestStation = safePlaces.find((p) => p.type === 'police') || safePlaces[0]
+  const offlineBearing = currentLocation && nearestStation
+    ? calculateBearing(currentLocation.lat, currentLocation.lng, nearestStation.location.lat, nearestStation.location.lng)
+    : 0
+  const offlineShortCardinal = getShortCompassCardinal(offlineBearing)
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1072,15 +1108,27 @@ export function SOSMap() {
                   </div>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-primary hover:bg-emerald-50 shrink-0 rounded-full h-8 w-8"
-                  onClick={() => setIsVoiceMuted(!isVoiceMuted)}
-                  title={isVoiceMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}
-                >
-                  {isVoiceMuted ? <VolumeX className="w-5 h-5 text-red-500" /> : <Volume2 className="w-5 h-5 text-primary" />}
-                </Button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-primary/40 text-primary hover:bg-emerald-50 text-xs font-bold rounded-xl h-8 px-2.5 shadow-2xs"
+                    onClick={() => setShowDirectionsSheet(true)}
+                  >
+                    <ListOrdered className="w-3.5 h-3.5 mr-1" />
+                    Steps
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-primary hover:bg-emerald-50 shrink-0 rounded-full h-8 w-8"
+                    onClick={() => setIsVoiceMuted(!isVoiceMuted)}
+                    title={isVoiceMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}
+                  >
+                    {isVoiceMuted ? <VolumeX className="w-5 h-5 text-red-500" /> : <Volume2 className="w-5 h-5 text-primary" />}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -1286,6 +1334,18 @@ export function SOSMap() {
                     Start In-App Navigation
                   </Button>
 
+                  {/* View Step-by-Step Directions */}
+                  {route && route.steps.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 text-xs font-semibold h-9 rounded-xl px-3"
+                      onClick={() => setShowDirectionsSheet(true)}
+                    >
+                      <ListOrdered className="w-3.5 h-3.5 mr-1 text-primary" />
+                      Directions ({route.steps.length})
+                    </Button>
+                  )}
+
                   {/* Open E-Hailing Drawer (Uber / Bolt / inDrive) */}
                   <Button
                     variant="outline"
@@ -1293,7 +1353,7 @@ export function SOSMap() {
                     onClick={() => handleOpenEHailing(selectedPlace)}
                   >
                     <Car className="w-3.5 h-3.5 mr-1 text-primary" />
-                    Ride (Uber/Bolt)
+                    Ride
                   </Button>
 
                   {selectedPlace.phone && (
@@ -1316,19 +1376,100 @@ export function SOSMap() {
         {/* ========================================================================= */}
         {!isNavigating && (
           <>
-            {/* Quick Police Station Navigation Action */}
+            {/* Offline Safety Mode Banner & Live Compass Guide */}
+            {isOffline && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-950 dark:text-amber-100 shadow-sm space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <WifiOff className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                      Offline Mode Active (Zero Mobile Data)
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-full font-bold">
+                    Direct Cellular & GPS
+                  </span>
+                </div>
+
+                {nearestStation && currentLocation && (
+                  <div className="bg-white/95 dark:bg-card/95 p-3.5 rounded-xl border border-amber-200/80 space-y-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <Shield className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-bold text-xs sm:text-sm text-foreground truncate">
+                            {nearestStation.name}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {nearestStation.distanceText} straight line • Compass Heading: {offlineBearing}° ({offlineShortCardinal})
+                        </p>
+                      </div>
+
+                      <div
+                        className="w-10 h-10 rounded-full bg-primary/10 border-2 border-primary/40 flex items-center justify-center shrink-0 shadow-sm transition-transform duration-500"
+                        style={{ transform: `rotate(${offlineBearing}deg)` }}
+                        title={`Heading ${offlineBearing}° ${offlineShortCardinal}`}
+                      >
+                        <Navigation className="w-5 h-5 text-primary" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <Button
+                        size="sm"
+                        className="bg-destructive hover:bg-destructive/90 text-white font-bold text-xs h-9 rounded-xl shadow-xs"
+                        onClick={() => callNumber('10111')}
+                      >
+                        <Phone className="w-3.5 h-3.5 mr-1" />
+                        Call 10111 (Direct)
+                      </Button>
+
+                      {emergencyContactPhone ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-amber-950 hover:bg-amber-50 font-bold text-xs h-9 rounded-xl"
+                          onClick={() => {
+                            const mapLink = `https://maps.google.com/?q=${currentLocation.lat},${currentLocation.lng}`
+                            window.location.href = `sms:${emergencyContactPhone}?body=${encodeURIComponent(
+                              `🚨 EMERGENCY DISTRESS: I am stranded without internet. GPS: ${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}. Heading towards: ${nearestStation.name} (${offlineShortCardinal} ${offlineBearing}°). Live map: ${mapLink}`
+                            )}`
+                          }}
+                        >
+                          <Send className="w-3.5 h-3.5 mr-1 text-amber-700" />
+                          SMS Coordinates
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-amber-950 hover:bg-amber-50 font-bold text-xs h-9 rounded-xl"
+                          onClick={() => callNumber(nearestStation.phone || '10111')}
+                        >
+                          <Phone className="w-3.5 h-3.5 mr-1 text-primary" />
+                          Call Station
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick In-App Navigation Action */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
               <Button
                 onClick={() => void navigateToNearestPoliceStation()}
                 className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm h-11 rounded-2xl shadow-sm flex items-center justify-between px-4 border border-emerald-600/30"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Shield className="w-4 h-4 text-emerald-200 shrink-0" />
-                  <span className="truncate">Go to Nearest Police Station (SAPS)</span>
+                  <Navigation className="w-4 h-4 text-emerald-200 shrink-0" />
+                  <span className="truncate">Navigate In-App Only</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs bg-white/20 px-2.5 py-1 rounded-lg shrink-0">
-                  <Navigation className="w-3.5 h-3.5 text-white" />
-                  <span>Navigate In-App</span>
+                  <Shield className="w-3.5 h-3.5 text-white" />
+                  <span>Nearest Safe Haven</span>
                 </div>
               </Button>
 
@@ -1338,7 +1479,7 @@ export function SOSMap() {
                 className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 font-semibold text-xs h-11 rounded-2xl px-3 shrink-0"
               >
                 <Route className="w-3.5 h-3.5 mr-1 text-primary" />
-                View Route
+                View Directions
               </Button>
             </div>
 
@@ -1647,6 +1788,114 @@ export function SOSMap() {
                 Close
               </Button>
             </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. TURN-BY-TURN DIRECTIONS DRAWER / MODAL                                 */}
+      {/* ========================================================================= */}
+      {showDirectionsSheet && route && (
+        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <Card className="w-full max-w-lg max-h-[85vh] bg-white dark:bg-card rounded-t-3xl sm:rounded-3xl border-emerald-200 shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-border/80 flex items-center justify-between bg-slate-50/70 dark:bg-muted/40">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Route className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-sm sm:text-base text-foreground truncate">
+                    Turn-by-Turn Directions
+                  </h3>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  To {selectedPlace?.name} • {route.distance} • {route.duration}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowDirectionsSheet(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Steps List */}
+            <div className="p-4 overflow-y-auto space-y-2.5 flex-1 divide-y divide-border/40">
+              {route.steps.map((step, idx) => {
+                const isCurrent = isNavigating && idx === currentStepIndex
+                const isCompleted = isNavigating && idx < currentStepIndex
+                return (
+                  <div
+                    key={idx}
+                    className={`pt-2.5 first:pt-0 p-3 rounded-2xl border transition flex items-start gap-3.5 ${
+                      isCurrent
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/20 text-foreground'
+                        : isCompleted
+                        ? 'border-border/30 bg-slate-50/50 dark:bg-muted/20 text-muted-foreground opacity-60'
+                        : 'border-border/60 bg-white dark:bg-card hover:border-emerald-200'
+                    }`}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                        isCurrent
+                          ? 'bg-primary text-white shadow-sm'
+                          : isCompleted
+                          ? 'bg-slate-200 dark:bg-muted text-slate-500'
+                          : 'bg-emerald-50 dark:bg-emerald-950/40 text-primary'
+                      }`}
+                    >
+                      {getTurnIcon(step.modifier, step.type)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                          Step {idx + 1}
+                        </span>
+                        {step.distanceMeters > 0 && (
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            {formatMeters(step.distanceMeters)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm font-semibold text-foreground leading-snug mt-0.5">
+                        {step.instruction}
+                      </p>
+                      {step.streetName && step.streetName !== 'Road' && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {step.streetName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border/80 bg-slate-50/70 dark:bg-muted/40 flex items-center gap-2">
+              {!isNavigating ? (
+                <Button
+                  className="flex-1 bg-primary hover:bg-primary/95 text-white font-bold text-xs h-10 rounded-xl shadow-xs"
+                  onClick={() => {
+                    setShowDirectionsSheet(false)
+                    if (selectedPlace) void startInAppNavigation(selectedPlace)
+                  }}
+                >
+                  <Navigation className="w-3.5 h-3.5 mr-1.5" />
+                  Start In-App Navigation
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="flex-1 border-emerald-200 text-emerald-950 dark:text-emerald-100 font-bold text-xs h-10 rounded-xl"
+                  onClick={() => setShowDirectionsSheet(false)}
+                >
+                  Resume Live Map View
+                </Button>
+              )}
+            </div>
           </Card>
         </div>
       )}

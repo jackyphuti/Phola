@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
 import { hasConfiguredPin } from '@/lib/pin'
+import { syncUserData } from '@/lib/user-sync'
 
 interface AuthContextType {
   user: User | null
@@ -43,6 +44,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     try {
+      // 1. Immediately read cached profile from localStorage for 0ms render
+      if (typeof window !== 'undefined') {
+        const cached = window.localStorage.getItem(`phola_profile_${userId}`)
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as Profile
+            setProfile(parsed)
+          } catch {}
+        }
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -52,6 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && !error) {
         const p = data as Profile
         setProfile(p)
+        if (typeof window !== 'undefined') {
+          try {
+            window.localStorage.setItem(`phola_profile_${userId}`, JSON.stringify(p))
+          } catch {}
+        }
+
         const hasSecurity = hasConfiguredPin(p) || Boolean(p.biometric_enabled)
         if (hasSecurity) {
           const isSessionUnlocked =
@@ -73,14 +91,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (user?.id) {
       await fetchProfile(user.id)
+      void syncUserData(user.id, supabase)
     }
-  }, [user?.id, fetchProfile])
+  }, [user?.id, fetchProfile, supabase])
 
   useEffect(() => {
     let isMounted = true
     let didComplete = false
 
     const getUser = async () => {
+      // 1. Instant Synchronous Session Check (0ms local storage lookup)
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (sessionData?.session?.user && isMounted) {
+          const sessionUser = sessionData.session.user
+          setUser(sessionUser)
+          if (typeof window !== 'undefined') {
+            const cached = window.localStorage.getItem(`phola_profile_${sessionUser.id}`)
+            if (cached) {
+              try {
+                setProfile(JSON.parse(cached))
+              } catch {}
+            }
+          }
+          setIsLoading(false)
+          void syncUserData(sessionUser.id, supabase)
+        }
+      } catch {}
+
       const sessionInit = (async () => {
         try {
           const { data, error } = await supabase.auth.getUser()
@@ -107,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(data.user)
             if (data.user) {
               await fetchProfile(data.user.id)
+              void syncUserData(data.user.id, supabase)
             } else {
               setIsLocked(false)
             }
@@ -127,11 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const timeoutFallback = new Promise<void>((resolve) =>
         setTimeout(() => {
           if (!didComplete) {
-            console.warn('Supabase auth initialization timed out; clearing stale tokens.')
-            purgeStaleSupabaseStorage()
+            console.warn('Supabase auth initialization reached soft timeout.')
           }
           resolve()
-        }, 6000)
+        }, 2500)
       )
 
       await Promise.race([sessionInit, timeoutFallback])
@@ -149,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setUser(session?.user ?? null)
         if (session?.user) {
+          void syncUserData(session.user.id, supabase)
           const p = await fetchProfile(session.user.id)
           if (event === 'SIGNED_IN') {
             const hasSecurity = hasConfiguredPin(p) || Boolean(p?.biometric_enabled)

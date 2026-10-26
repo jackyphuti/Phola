@@ -23,6 +23,7 @@ import {
   EyeOff, 
   Phone, 
   ShieldCheck, 
+  Shield,
   Sparkles,
   LogOut,
   CheckCircle2
@@ -31,6 +32,8 @@ import { safeExit } from '@/lib/safe-exit'
 import { LanguageSelector } from '@/components/language-selector'
 import { getAuthCallbackUrl } from '@/lib/auth-url'
 import { saveStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
+import { setSOSCallPreference, SOSCallTarget } from '@/lib/user-sync'
+import { hashPin } from '@/lib/pin'
 import { useAuth } from '@/lib/auth-context'
 import { LockScreen } from '@/components/lock-screen'
 
@@ -61,6 +64,10 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [emergencyPhone, setEmergencyPhone] = useState('')
+  const [contactName, setContactName] = useState('')
+  const [contactRelationship, setContactRelationship] = useState('Emergency')
+  const [sosCallTarget, setSosCallTarget] = useState<SOSCallTarget>('police')
+  const [quickPin, setQuickPin] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [hasConsented, setHasConsented] = useState(true)
@@ -186,6 +193,10 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
           data: {
             display_name: fullName.trim(),
             full_name: fullName.trim(),
+            sos_call_target: sosCallTarget,
+            primary_contact_phone: emergencyPhone.trim() || null,
+            primary_contact_name: contactName.trim() || 'Primary Contact',
+            primary_contact_relationship: contactRelationship.trim() || 'Emergency',
             consent_to_processing: true,
             consent_at: new Date().toISOString(),
           },
@@ -198,14 +209,27 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
         return
       }
 
-      // If user filled in emergency phone, save it locally & attempt DB sync
+      // If user provided a PIN and user account was created, hash and save PIN
+      if (data.user?.id && quickPin.trim().length >= 4) {
+        try {
+          const pinHash = await hashPin(quickPin.trim(), data.user.id)
+          await supabase.from('profiles').update({ pin_hash: pinHash }).eq('id', data.user.id)
+        } catch {}
+      }
+
+      // Save SOS call target preference
+      await setSOSCallPreference(sosCallTarget, data.user?.id, supabase)
+
+      // If user filled in emergency phone, save it locally & sync to Supabase
       if (emergencyPhone.trim()) {
+        const cName = contactName.trim() || 'Primary Contact'
+        const cRel = contactRelationship.trim() || 'Emergency'
         const newContact = {
           id: `contact-${Date.now()}`,
           user_id: data.user?.id || 'local-user',
-          name: 'Primary Contact',
+          name: cName,
           phone: emergencyPhone.trim(),
-          relationship: 'Emergency',
+          relationship: cRel,
           is_primary: true,
           created_at: new Date().toISOString(),
         }
@@ -216,9 +240,9 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
             await supabase.from('emergency_contacts').insert([
               {
                 user_id: data.user.id,
-                name: 'Primary Contact',
+                name: cName,
                 phone: emergencyPhone.trim(),
-                relationship: 'Emergency',
+                relationship: cRel,
                 is_primary: true,
               },
             ])
@@ -591,29 +615,97 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
                   )}
                 </div>
 
-                {/* Primary Emergency Contact (Optional Quick Setup) */}
-                <div className="space-y-1 pt-1">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="signup-emergency-phone" className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                      <span>Trusted Emergency Contact</span>
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">Optional</span>
+                {/* Emergency SOS Call Action Preference */}
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                    <span>When you press Emergency SOS, who should it call first?</span>
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSosCallTarget('police')}
+                      className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition ${
+                        sosCallTarget === 'police'
+                          ? 'border-primary bg-primary/10 text-primary font-bold ring-2 ring-primary/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300'
+                      }`}
+                    >
+                      <Shield className="w-4 h-4 mb-1 text-primary" />
+                      <span className="text-xs">SAPS Police (10111)</span>
+                      <span className="text-[10px] text-muted-foreground">Official emergency</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSosCallTarget('contact')}
+                      className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition ${
+                        sosCallTarget === 'contact'
+                          ? 'border-primary bg-primary/10 text-primary font-bold ring-2 ring-primary/20'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300'
+                      }`}
+                    >
+                      <Phone className="w-4 h-4 mb-1 text-primary" />
+                      <span className="text-xs">Primary Contact</span>
+                      <span className="text-[10px] text-muted-foreground">Mom, partner, friend</span>
+                    </button>
                   </div>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 absolute left-3.5 top-3.5 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="signup-emergency-phone"
-                      type="tel"
-                      placeholder="e.g. 082 123 4567 (Mom, Partner)"
-                      value={emergencyPhone}
-                      onChange={(e) => setEmergencyPhone(e.target.value)}
-                      className="pl-10 h-11 rounded-xl border-slate-200 text-sm focus:border-primary"
-                    />
+                </div>
+
+                {/* Primary Emergency Contact Details */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-primary" />
+                      <span>Primary Trusted Emergency Contact</span>
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">Recommended</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Contact Name (e.g. Mom, Partner)"
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
+                        className="h-10 rounded-xl border-slate-200 text-xs focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="signup-emergency-phone"
+                        type="tel"
+                        placeholder="Phone (e.g. 082 123 4567)"
+                        value={emergencyPhone}
+                        onChange={(e) => setEmergencyPhone(e.target.value)}
+                        className="h-10 rounded-xl border-slate-200 text-xs focus:border-primary"
+                      />
+                    </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    Your GPS will be shared with this contact during 1-Tap SOS or Safe Ride deviations.
+                    Your live GPS coordinates and emergency distress link will be sent to this contact.
                   </p>
+                </div>
+
+                {/* Optional Quick Security PIN */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="signup-pin" className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-primary" />
+                      <span>Security PIN (Optional)</span>
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">4 digits</span>
+                  </div>
+                  <Input
+                    id="signup-pin"
+                    type="password"
+                    maxLength={4}
+                    placeholder="e.g. 1234 for quick app unlock"
+                    value={quickPin}
+                    onChange={(e) => setQuickPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    className="h-10 rounded-xl border-slate-200 text-xs tracking-widest focus:border-primary"
+                  />
                 </div>
 
                 {/* POPIA Privacy & Consent Agreement */}

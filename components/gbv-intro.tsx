@@ -14,32 +14,33 @@ export default function GBVIntro() {
   const touchStartX = useRef<number | null>(null)
 
   useEffect(() => {
+    if (gbvIntroSeen) return
+
     async function load() {
       try {
         const res = await fetch('/gbv/list.json')
-        if (!res.ok) throw new Error('no list')
+        if (!res.ok) {
+          gbvIntroSeen = true
+          return
+        }
         const list: string[] = await res.json()
-        setItems(
-          list.map((f) => ({
-            src: `/gbv/${f}`,
-            type: /\.(mp4|mov|m4v)$/i.test(f) ? 'video' : 'image',
-          }))
-        )
+        if (Array.isArray(list) && list.length > 0) {
+          setItems(
+            list.map((f) => ({
+              src: `/gbv/${f}`,
+              type: /\.(mp4|mov|m4v)$/i.test(f) ? 'video' : 'image',
+            }))
+          )
+          setVisible(true)
+        } else {
+          gbvIntroSeen = true
+        }
       } catch {
-        setItems([])
+        gbvIntroSeen = true
       }
     }
 
-    load()
-  }, [])
-
-  useEffect(() => {
-    if (gbvIntroSeen) {
-      return
-    }
-
-    const timer = setTimeout(() => setVisible(true), 1000)
-    return () => clearTimeout(timer)
+    void load()
   }, [])
 
   function close() {

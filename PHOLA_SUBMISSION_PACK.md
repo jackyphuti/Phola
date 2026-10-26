@@ -138,7 +138,7 @@ flowchart LR
   - *11:15 PM:* Thandi books an e-hailing ride home from UJ campus and activates Phola SafeRide.
   - *11:28 PM:* The vehicle turns into an unlit industrial access road off the planned route.
   - *11:29 PM:* Phola alerts Thandi and silently transmits her live GPS pin and vehicle notes to her sister.
-  - *11:30 PM:* Thandi taps **"Go to Nearest Police Station"**—Phola delivers instant turn-by-turn guidance to Brixton SAPS without opening external apps.
+  - *11:30 PM:* Thandi taps **"Navigate In-App Only"**—Phola delivers instant turn-by-turn guidance to Brixton SAPS without opening external apps.
   - *11:36 PM:* Vehicle pulls into the station; Thandi arrives safely with verified trip logs stored in her encrypted vault.
 
 ### Slide 5: Screenshot 1 — Community Hub Dashboard
@@ -169,7 +169,7 @@ flowchart LR
 - **Context & Judge Focus:**
   - Continuous live GPS active telemetry status banner.
   - Interactive Mapbox Pretoria/Hatfield safe haven map with 35 verified locations (20 SAPS police stations, 15 trauma hospitals).
-  - Quick-action banner: *"Go to Nearest Police Station (SAPS)"* with *"Navigate In-App"* and *"View Route"* controls.
+  - Quick-action banner: *"Navigate In-App Only"* with direct in-app routing and *"View Directions"* controls.
   - Share GPS telemetry button for WhatsApp / SMS emergency dispatch.
 
 ### Slide 9: Screenshot 5 — Live In-App Turn-by-Turn Police Navigation
@@ -264,7 +264,7 @@ flowchart LR
 | :---: | :--- | :--- |
 | **0:00 - 0:12** | App opens to clean Auth screen; shows language pill in top corner switching to isiZulu, then back to English. | *"Ever taken an e-hailing ride or taxi late at night and wondered if you'll make it home safe? South Africa faces a crisis of gender-based violence and commuter vulnerability. Meet Phola—your personal travel watchdog and safety companion."* |
 | **0:12 - 0:28** | User signs in; opens SafeRide map; taps "Start Trip". Map shows live pulsating user location and route line. | *"Phola monitors your trip in real time. If your driver deviates or you feel uneasy, Phola runs automated check-ins and instantly broadcasts your live GPS coordinates to your emergency circle."* |
-| **0:28 - 0:44** | On the map, user taps **"Go to Nearest Police Station"**. In-app turn-by-turn banner appears with distance, ETA, and route. | *"Need immediate safe haven? With 1 tap, Phola activates native in-app navigation directly to the closest SAPS police station or trauma clinic—keeping you safe inside the app without needing external maps."* |
+| **0:28 - 0:44** | On the map, user taps **"Navigate In-App Only"**. In-app turn-by-turn banner appears with distance, ETA, and route. | *"Need immediate safe haven? With 1 tap, Phola activates native in-app navigation directly to the closest SAPS police station or trauma clinic—keeping you safe inside the app without needing external maps."* |
 | **0:44 - 0:58** | User demonstrates 1-Tap SOS button with emergency hotlines (10111, 112, 0800 428 428). | *"In critical danger, the 1-Tap Emergency Panic alerts 10111, 112, and the national GBV hotline with precise satellite telemetry."* |
 | **0:58 - 1:12** | User shows Encrypted Incident Diary, unlocks with Fingerprint/Face ID, then taps **Quick Exit** (instantly displays weather). | *"Evidence is protected by a Zero-Knowledge encrypted vault. If coerced, one tap on Quick Exit instantly masks Phola into an innocent weather screen."* |
 | **1:12 - 1:20** | Bottom nav showing all 11 official South African languages and closing screen with repo link and logo. | *"Built for every South African across all 11 official languages. Travel with peace of mind. Download Phola or visit phola-beta.vercel.app today."* |
@@ -286,8 +286,9 @@ Judges can test the application using either the pre-configured demo account or 
    - Log in using `jackympoka@gmail.com` / `Mpokabetty221@`.
 2. **In-App Police Navigation Test:**
    - Tap **Safe Ride** or **SOS Map** on the bottom navigation.
-   - Tap **"Go to Nearest Police Station (SAPS)"**.
-   - Watch the high-contrast emerald route render with live turn-by-turn instruction banners and continuous GPS tracking.
+   - Tap **"Navigate In-App Only"** or **"View Directions"**.
+   - Watch the high-contrast route render with full step-by-step turn directions and continuous GPS tracking.
+   - If offline or stranded without data, observe the Offline Emergency Compass Needle pointing directly toward the safe haven with cellular SOS.
 3. **Emergency Panic Dispatch Test:**
    - Tap the central red **Panic / SOS** button.
    - Review the 1-tap links for SAPS (10111), Emergency Medical (112), and GBV Command Centre (0800 428 428).

@@ -31,6 +31,7 @@ import { getApiUrl } from '@/lib/api-client'
 import { hashPin, verifyPin, hasConfiguredPin } from '@/lib/pin'
 import type { EmergencyContact } from '@/lib/types'
 import { getStoredEmergencyContacts, saveStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
+import { getSOSCallPreference, setSOSCallPreference, SOSCallTarget } from '@/lib/user-sync'
 import { 
   ArrowLeft, 
   Camera,
@@ -100,17 +101,32 @@ export function SettingsPage() {
   const [contactIsPrimary, setContactIsPrimary] = useState(false)
   const [isSavingContact, setIsSavingContact] = useState(false)
 
+  // SOS Call Target Preference ('police' | 'contact')
+  const [sosTarget, setSosTarget] = useState<SOSCallTarget>('police')
+
   // Language preference state
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('en')
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false)
 
   useEffect(() => {
+    setSosTarget(getSOSCallPreference())
     void loadLanguagePreference().then((lang) => {
       if (lang) {
         setCurrentLanguage(lang)
       }
     })
   }, [])
+
+  const handleSOSTargetChange = async (target: SOSCallTarget) => {
+    setSosTarget(target)
+    await setSOSCallPreference(target, user?.id, supabase)
+    setMessage({
+      type: 'success',
+      text: target === 'police'
+        ? 'Emergency SOS button will call SAPS Police (10111) first.'
+        : 'Emergency SOS button will call your Primary Emergency Contact first.',
+    })
+  }
 
   const handleLanguageChange = async (newLang: SupportedLanguage) => {
     setCurrentLanguage(newLang)
@@ -1260,6 +1276,62 @@ export function SettingsPage() {
           </div>
 
           <div className="p-5">
+            {/* SOS Call Target Preference Selector */}
+            <div className="mb-5 p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/70">
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="w-4 h-4 text-primary" />
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Emergency SOS Button Action
+                </h3>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Choose who Phola calls immediately when you trigger the 1-Tap Emergency SOS button:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => void handleSOSTargetChange('police')}
+                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition ${
+                    sosTarget === 'police'
+                      ? 'border-primary bg-primary/10 text-foreground font-semibold ring-2 ring-primary/20'
+                      : 'border-border bg-white dark:bg-card text-muted-foreground hover:border-emerald-300'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    sosTarget === 'police' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">SAPS Police (10111)</p>
+                    <p className="text-[11px] text-muted-foreground truncate">Direct police emergency dispatch</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSOSTargetChange('contact')}
+                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition ${
+                    sosTarget === 'contact'
+                      ? 'border-primary bg-primary/10 text-foreground font-semibold ring-2 ring-primary/20'
+                      : 'border-border bg-white dark:bg-card text-muted-foreground hover:border-emerald-300'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    sosTarget === 'contact' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-foreground">Primary Contact</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {contacts.find(c => c.is_primary)?.name ? `Calls ${contacts.find(c => c.is_primary)?.name}` : 'Calls trusted emergency contact'}
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {isLoadingContacts ? (
               <div className="flex items-center justify-center py-6 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />

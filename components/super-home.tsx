@@ -40,6 +40,8 @@ import { notifySOSActivated, subscribeForProductionPush } from '@/lib/push-notif
 import { getApiUrl } from '@/lib/api-client'
 import { SafeRideSession } from '@/lib/safe-ride-types'
 import { getActiveSafeRide, formatCountdown, calculateRemainingSeconds } from '@/lib/safe-ride-service'
+import { getSOSCallPreference } from '@/lib/user-sync'
+import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 
 type NewsItem = {
   title: string
@@ -206,38 +208,23 @@ export function SuperHome({ name }: { name: string }) {
 
   // SOS Hold Handlers with Progress Meter
   const triggerTrustedCirclePing = async () => {
-    if (!location || !user?.id) {
-      router.push('/sos')
+    const preference = getSOSCallPreference()
+    const localContacts = getStoredEmergencyContacts(user?.id)
+    const primaryContact = localContacts.find((c) => c.is_primary) || localContacts[0]
+
+    // 1. If preferred action is calling primary emergency contact
+    if (preference === 'contact' && primaryContact?.phone) {
+      window.location.href = `tel:${primaryContact.phone.replace(/\s+/g, '')}`
       return
     }
 
-    try {
-      const { data } = await supabase
-        .from('emergency_contacts')
-        .select('phone, is_primary, created_at')
-        .eq('user_id', user.id)
-        .order('is_primary', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(1)
-
-      const phone = data?.[0]?.phone
-      const mapsLink = `https://maps.google.com/?q=${location.lat},${location.lng}`
-      const message = `🚨 EMERGENCY ALERT from Phola: I need urgent help! My live location: ${mapsLink}`
-
-      if (phone) {
-        window.location.href = `sms:${phone}?body=${encodeURIComponent(message)}`
-        return
-      }
-
-      if (navigator.share) {
-        await navigator.share({ title: 'EMERGENCY SOS', text: message })
-        return
-      }
-
-      router.push('/sos')
-    } catch {
-      router.push('/sos')
+    // 2. If preferred action is calling police (10111) or if no primary contact exists
+    if (preference === 'police' || !primaryContact?.phone) {
+      window.location.href = 'tel:10111'
+      return
     }
+
+    router.push('/sos')
   }
 
   const startSOSHold = () => {

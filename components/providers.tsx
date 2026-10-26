@@ -10,6 +10,7 @@ import { loadLanguagePreference } from '@/lib/locale-storage'
 import { OfflineBanner } from '@/components/offline-banner'
 import { OfflineSyncManager } from '@/components/offline-sync-manager'
 import { HighRiskZoneMonitor } from '@/components/high-risk-zone-monitor'
+import { SafetyOnboardingModal } from '@/components/safety-onboarding-modal'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -26,6 +27,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <OfflineSyncManager />
         <OfflineBanner />
         <HighRiskZoneMonitor />
+        <SafetyOnboardingModal />
         {children}
       </AuthProvider>
     </I18nextProvider>
