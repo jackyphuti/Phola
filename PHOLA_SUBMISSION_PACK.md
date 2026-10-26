@@ -16,7 +16,7 @@
 | :--- | :---: | :--- |
 | **1. Lean Business Canvas** | ✅ Complete | [Section 1: Lean Business Canvas](#1-lean-business-canvas) |
 | **2. SSDLC (Security Architecture)** | ✅ Complete | [Section 2: Secure Software Development Life Cycle (SSDLC)](#2-secure-software-development-life-cycle-ssdlc) |
-| **3. Presentation Deck (11 Slides)** | ✅ Complete | [Section 3: Slide-by-Slide Presentation Deck](#3-slide-by-slide-presentation-deck) |
+| **3. Presentation Deck (16 Slides with App Screenshots)** | ✅ Complete | [Section 3: Slide-by-Slide Presentation Deck](#3-slide-by-slide-presentation-deck) |
 | **4. App Build File (APK) & Links** | ✅ Complete | [Section 4: App Build File & Git Repository](#4-app-build-file-apk--repository-link) |
 | **5. Demo Video (<90s Script)** | ✅ Complete | [Section 5: 80-Second Demo Video Script & Storyboard](#5-demo-video-storyboard--script-under-90-seconds) |
 | **6. Demo Account Credentials** | ✅ Complete | [Section 6: Judge Demo Account & Verification Guide](#6-judge-demo-account--testing-guide) |
@@ -141,14 +141,70 @@ flowchart LR
   - *11:30 PM:* Thandi taps **"Go to Nearest Police Station"**—Phola delivers instant turn-by-turn guidance to Brixton SAPS without opening external apps.
   - *11:36 PM:* Vehicle pulls into the station; Thandi arrives safely with verified trip logs stored in her encrypted vault.
 
-### Slide 5: Core Capabilities & Architecture Showcase
-- **Key Features:**
-  - **Interactive SOS Map:** Continuous live GPS tracking with user heading, emergency circle radius, and 1-tap police navigation.
-  - **Smart Route Fallback Engine:** Automatic failover across Mapbox Directions API, OSRM public nodes, and straight-line vector guidance.
-  - **Enterprise Authentication:** Unified segmented sign-in/sign-up, Google 1-Tap OAuth, live password strength meter, and POPIA consent.
-  - **Biometric Security:** Native Apple Face ID (iOS) and Fingerprint Sensor (Android) with salted PIN fallback.
+### Slide 5: Screenshot 1 — Community Hub Dashboard
+- **Image:** `assets/screenshots/01_dashboard_community_hub.png`
+- **Context & Judge Focus:**
+  - Personalized greeting: *"Good evening, Jacky Mpoka"* with verified encrypted status.
+  - 1.3-second press-and-hold Emergency SOS button (prevents accidental pocket triggers).
+  - National 24/7 GBV Command Centre toll-free direct line (`0800 428 428`).
+  - Nearest to You Local Radar: auto-detects Hatfield SAPS (535m), Life Groenkloof Clinic (2.9km), Bosman Taxi Rank (4.6km).
+  - Search bar across emergency services, crime reporting, taxi ranks, and clinics.
 
-### Slide 6: Technical Architecture Stack
+### Slide 6: Screenshot 2 — Navigation Drawer & Core Modules
+- **Image:** `assets/screenshots/02_navigation_drawer_menu.png`
+- **Context & Judge Focus:**
+  - Full modular menu: Home, Safe Ride Watchdog, Safety Hub & Hotlines, Emergency SOS Map, Nearby Services Radar, My Reports Vault, Mzansi News, AI Safety Assistant, Profile & Settings.
+  - South African national attribution (*"Phola Safety Network • South Africa"*).
+  - Dedicated Logout button with unblocked, PIN-free sign-out flow.
+
+### Slide 7: Screenshot 3 — Safe Ride Protection & Multi-Modal Transit
+- **Image:** `assets/screenshots/03_safe_ride_ride_selection.png`
+- **Context & Judge Focus:**
+  - Multi-service selector: **Uber, Bolt, inDrive, or Minibus Taxi / Other**.
+  - Direct integration linking to e-hailing apps while keeping Phola's protective watchdog active in the background.
+  - Destination and arrival countdown duration monitoring with automated anomaly check-ins.
+
+### Slide 8: Screenshot 4 — Emergency SOS Map & 35 Verified Safe Havens
+- **Image:** `assets/screenshots/04_emergency_sos_safe_map.png`
+- **Context & Judge Focus:**
+  - Continuous live GPS active telemetry status banner.
+  - Interactive Mapbox Pretoria/Hatfield safe haven map with 35 verified locations (20 SAPS police stations, 15 trauma hospitals).
+  - Quick-action banner: *"Go to Nearest Police Station (SAPS)"* with *"Navigate In-App"* and *"View Route"* controls.
+  - Share GPS telemetry button for WhatsApp / SMS emergency dispatch.
+
+### Slide 9: Screenshot 5 — Live In-App Turn-by-Turn Police Navigation
+- **Image:** `assets/screenshots/05_live_in_app_police_navigation.png`
+- **Context & Judge Focus:**
+  - **BREAKTHROUGH CAPABILITY:** Full turn-by-turn guidance entirely inside Phola without opening external maps.
+  - Live turn banner: *"IN 90 M: Head on Prospect Street, then rotary slight left onto Prospect Street"* with audio voice guidance.
+  - Live destination card: **Hatfield SAPS (Pretoria), 3 min • 782 m**.
+  - Action buttons: *"Request Ride (Uber/Bolt)"*, *"Call Station"*, and *"Exit"*.
+
+### Slide 10: Screenshot 6 — My Reports & Zero-Knowledge Vault
+- **Image:** `assets/screenshots/06_encrypted_reports_vault.png`
+- **Context & Judge Focus:**
+  - Client-side Web Crypto AES-GCM encrypted incident diary and legal evidence repository.
+  - Segregated category filters: All Entries, GBV Vault, Crime Reports, and Drafts.
+  - Search by keywords, coordinates, or SAPS docket case numbers.
+  - Chain-of-custody cryptographic timestamps ensuring court admissibility.
+
+### Slide 11: Screenshot 7 — Gemini AI Safety Assistant ("Sisi / Buti Bot")
+- **Image:** `assets/screenshots/07_gemini_ai_safety_assistant.png`
+- **Context & Judge Focus:**
+  - Culturally grounded Google Gemini AI companion named after South African kinship terms (Sisi / Buti).
+  - Pre-configured emergency guidance prompts (*"Help me leave safely tonight"*, *"I need to report what happened"*, *"Help me contact my trusted circle"*, *"What should I do if I am being watched?"*).
+  - Voice interaction for hands-free emergencies.
+  - Ephemeral privacy guarantee: *"The assistant does not keep your conversation after this screen"*.
+
+### Slide 12: Screenshot 8 — Profile, Trusted Circle & Biometric Security
+- **Image:** `assets/screenshots/08_profile_biometrics_settings.png`
+- **Context & Judge Focus:**
+  - Active verified member profile: **Jacky Mpoka** (`jackympoka@gmail.com`).
+  - Trusted Circle emergency contacts management.
+  - Hardware-level **Biometrics Authentication** (Apple Face ID on iOS / Fingerprint Sensor on Android).
+  - 4-6 digit salted SHA-256 Security PIN lock fallback.
+
+### Slide 13: Technical Architecture Stack
 - **Frontend / Hybrid:** Next.js 16 (React 19, Turbopack, Tailwind CSS, Radix UI).
 - **Mobile Runtime:** Capacitor 5 (Android Native SDK & iOS WebKit Bridge).
 - **Backend & Database:** Supabase PostgreSQL with strict Row-Level Security (RLS).
@@ -156,13 +212,13 @@ flowchart LR
 - **Biometrics:** WebAuthn platform authenticator standards (`PublicKeyCredential`).
 - **Internationalization:** `i18next` with complete phrase coverage across all 11 South African languages.
 
-### Slide 7: Security & SSDLC (Enterprise Compliance)
+### Slide 14: Security & SSDLC (Enterprise Compliance)
 - **Zero-Knowledge Cryptography:** Client-side Web Crypto AES-GCM and SHA-256 salting.
 - **POPIA & GDPR Certified Architecture:** Explicit consent, zero passive tracking, and 1-tap data deletion.
 - **Tamper Resistance:** Token auto-purging on expiration; automatic session lock on app backgrounding.
 - **Stealth Decoy:** Instant DOM teardown via `safeExit()`.
 
-### Slide 8: Lean Business Model & Market Traction
+### Slide 15: Lean Business Model & Market Traction
 - **Market Size:** Over 15 million daily public transit commuters and 2.5 million university students in South Africa.
 - **Revenue Model:**
   - Free Core Safety (Freemium for public good).
@@ -170,11 +226,12 @@ flowchart LR
   - B2B Enterprise & University Campus Safety Licenses (R15/student/month).
 - **Strategic Partners:** SAPS Community Policing Forums, campus security, GBV prevention NGOs.
 
-### Slide 9: Product Demo & Live Access
+### Slide 16: Product Demo & Live Access
 - **Android APK File:** Available in root repository (`phola-debug.apk`, 3.64 MB).
+- **Presentation Deck PDF:** [`Phola_Presentation_Deck.pdf`](./Phola_Presentation_Deck.pdf) (16 Widescreen Slides, 3.48 MB).
 - **Web App / PWA:** `https://phola-beta.vercel.app`
 - **GitHub Repository:** `https://github.com/jackyphuti/Phola`
-- **Demo Credentials:**
+- **Judge Credentials:**
   - Email: `jackympoka@gmail.com`
   - Password: `Mpokabetty221@`
 - **Demo Video:** `[Google Drive Link - Recorded by Jacky Mpoka]`
