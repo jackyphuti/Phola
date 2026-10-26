@@ -8,7 +8,7 @@
 
 > **Built by @Jacky Mpoka**  
 > **Official Git Repository:** [https://github.com/jackyphuti/Phola](https://github.com/jackyphuti/Phola)  
-> **Production Web App:** [https://phola.co.za](https://phola.co.za)  
+> **Production Web App:** [https://phola-beta.vercel.app](https://phola-beta.vercel.app)  
 > **Android Build (APK):** [`phola-debug.apk`](./phola-debug.apk) (3.64 MB)  
 > **Judge Submission Package:** [PHOLA_SUBMISSION_PACK.md](./PHOLA_SUBMISSION_PACK.md)
 

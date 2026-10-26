@@ -3,7 +3,7 @@
 > **Project Name:** Phola (South Africa's AI Travel Watchdog & GBV Safety Companion)  
 > **Author / Lead Developer:** Jacky Mpoka  
 > **Git Repository:** [https://github.com/jackyphuti/Phola](https://github.com/jackyphuti/Phola)  
-> **Production Web App:** [https://phola.co.za](https://phola.co.za)  
+> **Production Web App:** [https://phola-beta.vercel.app](https://phola-beta.vercel.app)  
 > **Android APK Build:** `phola-debug.apk` (Compiled in project root, 3.64 MB)  
 > **Demo Account Login:** `demo@phola.co.za` / `Phola2026!Safe`
 
@@ -52,7 +52,7 @@ flowchart TD
 | **2. Customer Segments** | • **Primary Consumers:** Women, youth, LGBTQ+ individuals, night-shift workers (nurses, hospitality), and daily commuters.<br>• **Tertiary Institutions:** Universities and TVET colleges (e.g., Wits, UJ, UCT, UP) seeking to protect students traveling between campuses and private residences.<br>• **Enterprise / Corporate:** Companies with night shifts providing employee duty-of-care.<br>• **Public Sector & NGOs:** SAPS Community Policing Forums (CPF), Department of Social Development, GBV crisis shelters. |
 | **3. Unique Value Proposition** | **"Phola gives every South African an autonomous digital bodyguard in their pocket."**<br>Combines real-time travel anomaly tracking, in-app turn-by-turn navigation to the nearest SAPS police station, zero-knowledge tamper-evident incident recording, and 1-tap SOS panic across all 11 official South African languages. |
 | **4. Solution** | • **SafeRide Trip Watchdog:** Real-time route tracking with automatic check-ins and driver anomaly detection.<br>• **In-App Turn-by-Turn Navigation:** Displays live route, distance, and ETA to the nearest police station or hospital without leaving the app.<br>• **Instant Emergency Panic:** 1-tap SOS alerting SAPS (10111), Emergency (112), GBV Command Centre (0800 428 428), and emergency contacts.<br>• **Zero-Knowledge Evidence Vault:** Client-side encrypted photos, audio, and notes that remain protected even if the phone is unlocked.<br>• **Stealth Quick-Exit & Decoy Mode:** 1-tap disguise switching to an innocent weather screen in milliseconds.<br>• **Biometric & PIN Lock:** Seamless Face ID on iOS, Fingerprint on Android, and salted PIN fallback. |
-| **5. Channels** | • **Direct Consumer:** Progressive Web App (`phola.co.za`) and Android APK / Google Play Store.<br>• **Institutional Integration:** University safety packages, campus orientation programs.<br>• **Advocacy & Community:** Partnerships with organizations like POWA (People Opposing Women Abuse), TEARS Foundation, and local CPFs.<br>• **Digital Word-of-Mouth:** Social awareness campaigns (#TravelWithPhola, #SafeRidesSA). |
+| **5. Channels** | • **Direct Consumer:** Progressive Web App (`phola-beta.vercel.app`) and Android APK / Google Play Store.<br>• **Institutional Integration:** University safety packages, campus orientation programs.<br>• **Advocacy & Community:** Partnerships with organizations like POWA (People Opposing Women Abuse), TEARS Foundation, and local CPFs.<br>• **Digital Word-of-Mouth:** Social awareness campaigns (#TravelWithPhola, #SafeRidesSA). |
 | **6. Revenue Streams** | • **Always-Free Core:** Emergency panic, in-app navigation, and basic reporting remain 100% free.<br>• **Phola Plus (B2C Freemium @ R39/month):** Real-time armed response dispatch integration (collaboration with private security networks like Fidelity/ADT) and automated family group monitoring.<br>• **Enterprise & University B2B (R15/user/month):** Campus safety portal, institutional heatmaps, and employee transit monitoring.<br>• **Government & CSI Grants:** Public safety grants supporting gender safety and digital justice initiatives. |
 | **7. Cost Structure** | • **Infrastructure:** Next.js application hosting (Vercel / Cloudflare Workers), Supabase PostgreSQL database.<br>• **Routing & Geolocation:** Mapbox / OSRM routing engine API calls and GPS tracking infrastructure.<br>• **Telephony & Messaging:** Twilio / Africa's Talking SMS and WhatsApp emergency dispatch API costs.<br>• **Security & Compliance:** Annual POPIA audits and penetration testing. |
 | **8. Key Metrics** | • Safe rides completed safely.<br>• Emergency dispatch latency (target: < 3 seconds from SOS tap to SMS delivery).<br>• User retention & active daily trip tracking sessions.<br>• In-app route navigation completions to police stations and trauma centers. |
@@ -111,7 +111,7 @@ flowchart LR
 - **Subtitle:** Autonomous Trip Monitoring, 1-Tap Emergency Response, and Zero-Knowledge Incident Vault
 - **Presenter:** Jacky Mpoka
 - **Official Repository:** `https://github.com/jackyphuti/Phola`
-- **Live Application:** `https://phola.co.za`
+- **Live Application:** `https://phola-beta.vercel.app`
 - **Judge Demo Account:** `demo@phola.co.za` | Password: `Phola2026!Safe`
 
 ### Slide 2: The Problem (South Africa's Reality)
@@ -171,7 +171,7 @@ flowchart LR
 
 ### Slide 9: Product Demo & Live Access
 - **Android APK File:** Available in root repository (`phola-debug.apk`, 3.64 MB).
-- **Web App / PWA:** `https://phola.co.za`
+- **Web App / PWA:** `https://phola-beta.vercel.app`
 - **GitHub Repository:** `https://github.com/jackyphuti/Phola`
 - **Demo Credentials:**
   - Email: `demo@phola.co.za`
@@ -209,7 +209,7 @@ flowchart LR
 | **0:28 - 0:44** | On the map, user taps **"Go to Nearest Police Station"**. In-app turn-by-turn banner appears with distance, ETA, and route. | *"Need immediate safe haven? With 1 tap, Phola activates native in-app navigation directly to the closest SAPS police station or trauma clinic—keeping you safe inside the app without needing external maps."* |
 | **0:44 - 0:58** | User demonstrates 1-Tap SOS button with emergency hotlines (10111, 112, 0800 428 428). | *"In critical danger, the 1-Tap Emergency Panic alerts 10111, 112, and the national GBV hotline with precise satellite telemetry."* |
 | **0:58 - 1:12** | User shows Encrypted Incident Diary, unlocks with Fingerprint/Face ID, then taps **Quick Exit** (instantly displays weather). | *"Evidence is protected by a Zero-Knowledge encrypted vault. If coerced, one tap on Quick Exit instantly masks Phola into an innocent weather screen."* |
-| **1:12 - 1:20** | Bottom nav showing all 11 official South African languages and closing screen with repo link and logo. | *"Built for every South African across all 11 official languages. Travel with peace of mind. Download Phola or visit phola.co.za today."* |
+| **1:12 - 1:20** | Bottom nav showing all 11 official South African languages and closing screen with repo link and logo. | *"Built for every South African across all 11 official languages. Travel with peace of mind. Download Phola or visit phola-beta.vercel.app today."* |
 
 ---
 
@@ -223,7 +223,7 @@ Judges can test the application using either the pre-configured demo account or 
 
 ### Recommended Judge Test Flow
 1. **Sign-In & Language Test:**
-   - Open [phola.co.za](https://phola.co.za) or the APK.
+   - Open [phola-beta.vercel.app](https://phola-beta.vercel.app) or the APK.
    - Tap the language pill in the header to switch between **English**, **isiZulu**, **isiXhosa**, or **Afrikaans**.
    - Log in using `demo@phola.co.za` / `Phola2026!Safe`.
 2. **In-App Police Navigation Test:**
