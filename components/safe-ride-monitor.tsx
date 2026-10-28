@@ -20,7 +20,11 @@ import {
   Volume2, 
   AlertOctagon, 
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  HeartPulse,
+  History,
+  RotateCcw,
+  Check
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,6 +43,8 @@ import {
   clearActiveSafeRide, 
   startSafeRideSession, 
   extendSafeRideSession, 
+  recordSafeRideCheckIn,
+  getRecentTrips,
   calculateRemainingSeconds, 
   formatCountdown, 
   launchRideApp, 
@@ -59,11 +65,15 @@ export function SafeRideMonitor() {
   const [session, setSession] = useState<SafeRideSession | null>(null)
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0)
   const [isMounted, setIsMounted] = useState(false)
+  const [recentTrips, setRecentTrips] = useState<SafeRideSession[]>([])
 
   // Form state
   const [selectedService, setSelectedService] = useState<RideServiceId>('uber')
   const [destination, setDestination] = useState('')
   const [durationMinutes, setDurationMinutes] = useState(25)
+  const [vehicleNumberPlate, setVehicleNumberPlate] = useState('')
+  const [driverName, setDriverName] = useState('')
+  const [vehicleModel, setVehicleModel] = useState('')
   const [tripLink, setTripLink] = useState('')
   const [notes, setNotes] = useState('')
   const [contactName, setContactName] = useState('')
@@ -73,11 +83,12 @@ export function SafeRideMonitor() {
   // Dialog / feedback
   const [showArrivalModal, setShowArrivalModal] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [checkInFeedback, setCheckInFeedback] = useState(false)
   const [isLaunching, setIsLaunching] = useState(false)
 
   const alertIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // 1. Initial Mount & Load Existing Session
+  // 1. Initial Mount & Load Existing Session + History
   useEffect(() => {
     setIsMounted(true)
     const existing = getActiveSafeRide()
@@ -85,6 +96,7 @@ export function SafeRideMonitor() {
       setSession(existing)
       setRemainingSeconds(calculateRemainingSeconds(existing))
     }
+    setRecentTrips(getRecentTrips())
 
     // Capture initial GPS
     if (navigator.geolocation) {
@@ -101,7 +113,6 @@ export function SafeRideMonitor() {
     if (!searchParams) return
     const sharedText = searchParams.get('shared_text') || searchParams.get('text') || searchParams.get('url') || ''
     if (sharedText) {
-      // Extract URL if present
       const urlMatch = sharedText.match(/https?:\/\/[^\s]+/)
       if (urlMatch) {
         const foundUrl = urlMatch[0]
@@ -193,11 +204,15 @@ export function SafeRideMonitor() {
       tripLink,
       startLocation: currentCoords || undefined,
       contactName: contactName || 'My Emergency Contact',
-      contactPhone: contactPhone || undefined
+      contactPhone: contactPhone || undefined,
+      vehicleNumberPlate: vehicleNumberPlate.trim() || undefined,
+      driverName: driverName.trim() || undefined,
+      vehicleModel: vehicleModel.trim() || undefined
     })
 
     setSession(newSession)
     setRemainingSeconds(calculateRemainingSeconds(newSession))
+    setRecentTrips(getRecentTrips())
     triggerSafetyVibration('warning')
 
     if (andLaunchApp) {
@@ -205,6 +220,24 @@ export function SafeRideMonitor() {
     }
 
     setIsLaunching(false)
+  }
+
+  const handleCheckIn = () => {
+    const updated = recordSafeRideCheckIn()
+    if (updated) {
+      setSession(updated)
+      setCheckInFeedback(true)
+      setTimeout(() => setCheckInFeedback(false), 2000)
+    }
+  }
+
+  const handleUseRecentTrip = (trip: SafeRideSession) => {
+    setSelectedService(trip.serviceId)
+    setDestination(trip.destination)
+    setDurationMinutes(trip.expectedDurationMinutes)
+    if (trip.vehicleNumberPlate) setVehicleNumberPlate(trip.vehicleNumberPlate)
+    if (trip.driverName) setDriverName(trip.driverName)
+    if (trip.vehicleModel) setVehicleModel(trip.vehicleModel)
   }
 
   const handleExtend = (mins: number) => {
@@ -220,6 +253,7 @@ export function SafeRideMonitor() {
     if (!session) return
     clearActiveSafeRide()
     setSession(null)
+    setRecentTrips(getRecentTrips())
     setShowArrivalModal(true)
     triggerSafetyVibration('warning')
   }
@@ -228,6 +262,7 @@ export function SafeRideMonitor() {
     if (window.confirm('Cancel this Safe Ride session? Phola watchdog countdown will stop.')) {
       clearActiveSafeRide()
       setSession(null)
+      setRecentTrips(getRecentTrips())
     }
   }
 
@@ -320,7 +355,7 @@ export function SafeRideMonitor() {
               </div>
             ) : (
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-emerald-950 shadow-xs">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -361,6 +396,20 @@ export function SafeRideMonitor() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Mid-Trip "I'm Okay — Log Check-In" Heartbeat Button */}
+            <Button
+              type="button"
+              onClick={handleCheckIn}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-5 text-sm rounded-2xl shadow-xs flex items-center justify-center gap-2 transition"
+            >
+              <HeartPulse className="h-5 w-5 animate-pulse text-white" />
+              <span>
+                {checkInFeedback
+                  ? 'Check-In Confirmed! ❤️'
+                  : `I'm Okay — Log Check-In (${session.checkInCount || 0} logged)`}
+              </span>
+            </Button>
 
             {/* Emergency & Safe Actions */}
             <div className="grid grid-cols-1 gap-2.5">
@@ -428,6 +477,22 @@ export function SafeRideMonitor() {
                   <span className="font-medium text-foreground">Destination:</span>
                   <span className="font-semibold text-foreground">{session.destination}</span>
                 </div>
+                {session.vehicleNumberPlate && (
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="font-medium text-foreground">Number Plate:</span>
+                    <span className="font-mono font-bold text-foreground bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {session.vehicleNumberPlate}
+                    </span>
+                  </div>
+                )}
+                {(session.driverName || session.vehicleModel) && (
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <span className="font-medium text-foreground">Driver / Model:</span>
+                    <span className="font-medium text-foreground">
+                      {session.driverName || 'Driver'} {session.vehicleModel && `(${session.vehicleModel})`}
+                    </span>
+                  </div>
+                )}
                 {session.contactName && (
                   <div className="flex justify-between items-center border-b pb-2">
                     <span className="font-medium text-foreground">Contact:</span>
@@ -476,7 +541,7 @@ export function SafeRideMonitor() {
                 <div>
                   <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">Safe Ride Protection</h1>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Launch Uber, Bolt, or inDrive with Phola’s active arrival countdown and emergency watchdog.
+                    Launch Uber, Bolt, or inDrive with vehicle number plate logging, heartbeat check-ins, and emergency WhatsApp dispatches.
                   </p>
                 </div>
               </div>
@@ -514,11 +579,11 @@ export function SafeRideMonitor() {
               </CardContent>
             </Card>
 
-            {/* Destination & Duration Form */}
+            {/* Destination, Plate, Driver & Duration Form */}
             <Card className="border-emerald-100 bg-white shadow-sm">
               <CardHeader className="pb-2 pt-4">
                 <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  2. Destination & Duration
+                  2. Destination & Vehicle Tracking
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pb-4">
@@ -531,6 +596,31 @@ export function SafeRideMonitor() {
                       value={destination}
                       onChange={(e) => setDestination(e.target.value)}
                       className="pl-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Vehicle Number Plate & Driver Name Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-foreground">
+                      Vehicle Plate <span className="text-emerald-700 font-semibold">(e.g. GP 884-219)</span>
+                    </label>
+                    <Input
+                      placeholder="e.g. GP 884-219 / ND 342-990"
+                      value={vehicleNumberPlate}
+                      onChange={(e) => setVehicleNumberPlate(e.target.value.toUpperCase())}
+                      className="mt-1 text-xs font-mono font-bold tracking-wide"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-foreground">Driver Name & Car Model</label>
+                    <Input
+                      placeholder="e.g. Sipho (Silver Corolla)"
+                      value={driverName}
+                      onChange={(e) => setDriverName(e.target.value)}
+                      className="mt-1 text-xs"
                     />
                   </div>
                 </div>
@@ -634,6 +724,54 @@ export function SafeRideMonitor() {
               </Button>
             </div>
 
+            {/* Recent Monitored Trips Log */}
+            {recentTrips.length > 0 && (
+              <Card className="border-emerald-100 bg-white shadow-sm mt-4">
+                <CardHeader className="pb-2 pt-4">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5 text-emerald-600" />
+                    Recent Monitored Trips
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 pb-4">
+                  {recentTrips.slice(0, 3).map((trip) => (
+                    <div
+                      key={trip.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-100 transition"
+                    >
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-foreground truncate">
+                            {trip.destination}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground bg-white px-1.5 py-0.5 rounded border">
+                            {trip.serviceName}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2">
+                          <span>{trip.expectedDurationMinutes}m trip</span>
+                          {trip.vehicleNumberPlate && (
+                            <span className="font-mono text-emerald-800 font-semibold">
+                              {trip.vehicleNumberPlate}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUseRecentTrip(trip)}
+                        className="text-[11px] h-7 px-2.5 rounded-lg border-emerald-200 text-emerald-800 hover:bg-emerald-100 gap-1"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Use Again
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
           </div>
         )}
 
@@ -665,7 +803,7 @@ export function SafeRideMonitor() {
                     }}
                   >
                     <Send className="mr-1.5 h-4 w-4" />
-                    Send "I'm Safe" text on WhatsApp
+                    Send &quot;I&apos;m Safe&quot; text on WhatsApp
                   </Button>
                 )}
                 <Button

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     if (!otpError) {
       // Email verified successfully - redirect to dedicated verified confirmation page
-      return NextResponse.redirect(new URL('/auth/verified', origin))
+      return NextResponse.redirect(new URL('/auth/verified?verified=true', origin))
     }
 
     return NextResponse.redirect(
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (isEmailVerification) {
-        return NextResponse.redirect(new URL('/auth/verified', origin))
+        return NextResponse.redirect(new URL('/auth/verified?verified=true', origin))
       }
 
       // For Google OAuth, go straight to dashboard (no email verification required!)
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     // If PKCE code verifier is missing (common when opening email links in external mail app/browser),
     // redirect to verified confirmation page instead of crashing out to error page
     if (codeError.message?.toLowerCase().includes('code verifier') || codeError.name === 'AuthPKCEGrantCodeExchangeError') {
-      return NextResponse.redirect(new URL('/auth/verified', origin))
+      return NextResponse.redirect(new URL('/auth/verified?verified=true', origin))
     }
 
     return NextResponse.redirect(

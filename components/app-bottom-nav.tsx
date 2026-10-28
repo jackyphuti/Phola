@@ -17,7 +17,8 @@ import {
   LogOut,
   Car,
   Siren,
-  Phone
+  Phone,
+  Lock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
@@ -39,7 +40,7 @@ const tabs = [
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const { signOut } = useAuth()
+  const { signOut, lock } = useAuth()
   const [isHidden, setIsHidden] = useState<boolean>(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -82,7 +83,7 @@ export function AppBottomNav() {
       {/* ========================================================================= */}
       {/* GOOGLE-STYLE TOP APP BAR (Pinned header, exactly like Gmail & Google Apps) */}
       {/* ========================================================================= */}
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95">
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center justify-between border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95">
         {/* Left: Hamburger Button + Logo + Title (Gmail / Google style) */}
         <div className="flex items-center gap-2 sm:gap-3">
           <button
@@ -113,6 +114,20 @@ export function AppBottomNav() {
               Phola
             </span>
           </Link>
+        </div>
+
+        {/* Right: Quick Biometric Lock Button */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => lock()}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 hover:bg-emerald-100/80 active:scale-95 transition-all shadow-2xs"
+            title="Lock Vault & App with Biometrics"
+            aria-label="Biometric Lock"
+          >
+            <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Lock App</span>
+          </button>
         </div>
       </header>
 

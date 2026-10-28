@@ -20,7 +20,10 @@ import {
   getCredentialId,
   clearCredentialId,
   getBiometricType,
-  getBiometricLabel
+  getBiometricLabel,
+  getPreferredBiometricMethod,
+  setPreferredBiometricMethod,
+  type PreferredBiometric
 } from '@/lib/biometric'
 import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/language-options'
@@ -76,6 +79,7 @@ export function SettingsPage() {
   const [cameraError, setCameraError] = useState('')
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [preferredBiometric, setPreferredBiometric] = useState<PreferredBiometric>(() => getPreferredBiometricMethod())
   const [isSaving, setIsSaving] = useState(false)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
   const [isEnablingBiometric, setIsEnablingBiometric] = useState(false)
@@ -1479,6 +1483,85 @@ export function SettingsPage() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Preferred Biometric Method Selector & Test Lock Screen */}
+            <div className="p-5 bg-muted/20 dark:bg-muted/10 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+                    Preferred Biometric Modality
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Choose which sensor interface opens by default on the lock screen.
+                  </p>
+                </div>
+                
+                {/* Modality Selector Pills */}
+                <div className="inline-flex items-center p-1 rounded-xl bg-muted/60 dark:bg-muted/30 border border-border/60 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreferredBiometric('auto')
+                      setPreferredBiometricMethod('auto')
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      preferredBiometric === 'auto'
+                        ? 'bg-background text-foreground shadow-2xs font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Auto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreferredBiometric('faceID')
+                      setPreferredBiometricMethod('faceID')
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      preferredBiometric === 'faceID'
+                        ? 'bg-background text-emerald-700 dark:text-emerald-300 shadow-2xs font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <ScanFace className="w-3 h-3" />
+                    <span>Face ID</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreferredBiometric('fingerprint')
+                      setPreferredBiometricMethod('fingerprint')
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      preferredBiometric === 'fingerprint'
+                        ? 'bg-background text-emerald-700 dark:text-emerald-300 shadow-2xs font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Fingerprint className="w-3 h-3" />
+                    <span>Fingerprint</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Test Lock Screen Trigger */}
+              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-border/40">
+                <div className="text-xs text-muted-foreground">
+                  Verify your Face ID, Fingerprint sensor pad, or PIN lock screen immediately.
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => lock()}
+                  className="rounded-full text-xs font-semibold h-8 px-4 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 self-start sm:self-auto shrink-0 gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  Test Lock Screen Now
+                </Button>
+              </div>
             </div>
 
             {/* PIN Lock Row */}

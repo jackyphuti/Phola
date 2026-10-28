@@ -45,6 +45,7 @@ export const RIDE_SERVICES: RideServiceOption[] = [
 ]
 
 export const SAFE_RIDE_STORAGE_KEY = 'phola_active_safe_ride'
+export const RECENT_TRIPS_STORAGE_KEY = 'phola_recent_monitored_trips_v1'
 
 export function getActiveSafeRide(): SafeRideSession | null {
   if (typeof window === 'undefined') return null
@@ -66,6 +67,7 @@ export function saveActiveSafeRide(session: SafeRideSession): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(SAFE_RIDE_STORAGE_KEY, JSON.stringify(session))
+    saveTripToHistory(session)
   } catch {}
 }
 
@@ -73,6 +75,26 @@ export function clearActiveSafeRide(): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.removeItem(SAFE_RIDE_STORAGE_KEY)
+  } catch {}
+}
+
+export function getRecentTrips(): SafeRideSession[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(RECENT_TRIPS_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveTripToHistory(session: SafeRideSession): void {
+  if (typeof window === 'undefined') return
+  try {
+    const list = getRecentTrips()
+    const filtered = list.filter(t => t.id !== session.id)
+    const updated = [session, ...filtered].slice(0, 10)
+    window.localStorage.setItem(RECENT_TRIPS_STORAGE_KEY, JSON.stringify(updated))
   } catch {}
 }
 
@@ -85,6 +107,9 @@ export function startSafeRideSession(params: {
   startLocation?: { lat: number; lng: number; address?: string }
   contactName?: string
   contactPhone?: string
+  vehicleNumberPlate?: string
+  driverName?: string
+  vehicleModel?: string
 }): SafeRideSession {
   const service = RIDE_SERVICES.find((s) => s.id === params.serviceId) || RIDE_SERVICES[3]
   const now = new Date()
@@ -104,11 +129,57 @@ export function startSafeRideSession(params: {
     startLocation: params.startLocation,
     contactName: params.contactName,
     contactPhone: params.contactPhone,
-    lastCheckedInAt: now.toISOString()
+    lastCheckedInAt: now.toISOString(),
+    vehicleNumberPlate: params.vehicleNumberPlate?.trim() || undefined,
+    driverName: params.driverName?.trim() || undefined,
+    vehicleModel: params.vehicleModel?.trim() || undefined,
+    checkInCount: 0,
+    checkInTimestamps: []
   }
 
   saveActiveSafeRide(session)
   return session
+}
+
+export function recordSafeRideCheckIn(): SafeRideSession | null {
+  const active = getActiveSafeRide()
+  if (!active) return null
+
+  const nowIso = new Date().toISOString()
+  const count = (active.checkInCount || 0) + 1
+  const timestamps = [...(active.checkInTimestamps || []), nowIso]
+
+  const updated: SafeRideSession = {
+    ...active,
+    checkInCount: count,
+    checkInTimestamps: timestamps,
+    lastCheckedInAt: nowIso
+  }
+
+  saveActiveSafeRide(updated)
+
+  // Reassuring audible chirp & haptic feedback
+  if (typeof window !== 'undefined') {
+    try {
+      if (navigator.vibrate) navigator.vibrate([30, 40])
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      if (AudioCtx) {
+        const ctx = new AudioCtx()
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime) // E5
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15) // A5
+        gain.gain.setValueAtTime(0.2, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start()
+        osc.stop(ctx.currentTime + 0.16)
+      }
+    } catch {}
+  }
+
+  return updated
 }
 
 export function extendSafeRideSession(additionalMinutes: number): SafeRideSession | null {
@@ -160,9 +231,7 @@ export function launchRideApp(serviceId: RideServiceId): void {
 
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
   if (isMobile) {
-    // Try launching the native app via deep link
     window.location.href = service.appScheme
-    // Fallback to web link if native app is not installed
     setTimeout(() => {
       if (document.hidden) return
       window.open(service.webUrl, '_blank')
@@ -241,17 +310,29 @@ export function generateWhatsAppDispatch(session: SafeRideSession): string {
   const service = session.serviceName
   const remainingMins = Math.max(1, Math.round(calculateRemainingSeconds(session) / 60))
 
-  let msg = `Phola Safe Ride Alert:\nI am taking a ${service} to ${destination}.\nExpected arrival: ~${remainingMins} mins.`
+  let msg = `🚨 *Phola Safe Ride Watchdog Alert:*\nI am in transit via *${service}* heading to *${destination}*.\nEstimated Arrival: ~${remainingMins} minutes.`
+
+  if (session.vehicleNumberPlate) {
+    msg += `\n🚗 *Vehicle Number Plate:* ${session.vehicleNumberPlate}`
+  }
+
+  if (session.driverName || session.vehicleModel) {
+    msg += `\n👤 *Driver / Car:* ${session.driverName || 'Verified Driver'}${session.vehicleModel ? ` (${session.vehicleModel})` : ''}`
+  }
 
   if (session.startLocation) {
-    msg += `\nPickup GPS: https://maps.google.com/?q=${session.startLocation.lat.toFixed(5)},${session.startLocation.lng.toFixed(5)}`
+    msg += `\n📍 *Pickup GPS:* https://maps.google.com/?q=${session.startLocation.lat.toFixed(5)},${session.startLocation.lng.toFixed(5)}`
   }
 
   if (session.tripLink) {
-    msg += `\nLive Trip Tracking Link: ${session.tripLink}`
+    msg += `\n🔗 *Live Ride Link:* ${session.tripLink}`
   }
 
-  msg += `\nPhola Watchdog is active. If I don't check in safely, this app will send an emergency dispatch.`
+  if (session.checkInCount && session.checkInCount > 0) {
+    msg += `\n⏱️ *Check-ins Logged:* ${session.checkInCount} safe heartbeats`
+  }
+
+  msg += `\n\n🛡️ *Protected by Phola Safe Ride Watchdog.* If I do not check in safely upon arrival, please call me or emergency services.`
   return msg
 }
 

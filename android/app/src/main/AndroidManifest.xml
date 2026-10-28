@@ -30,6 +30,23 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- Deep link for custom scheme: phola://auth/verified, phola://dashboard -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="phola" />
+            </intent-filter>
+
+            <!-- App Links for https://phola-beta.vercel.app/auth/* and https://phola-beta.vercel.app/dashboard -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="phola-beta.vercel.app" android:pathPrefix="/auth" />
+                <data android:scheme="https" android:host="phola-beta.vercel.app" android:pathPrefix="/dashboard" />
+            </intent-filter>
+
         </activity>
 
         <provider

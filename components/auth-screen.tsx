@@ -189,7 +189,7 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: getAuthCallbackUrl('/auth/verified'),
+          emailRedirectTo: getAuthCallbackUrl('/auth/verified?verified=true'),
           data: {
             display_name: fullName.trim(),
             full_name: fullName.trim(),

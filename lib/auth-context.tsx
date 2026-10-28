@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types'
 import { hasConfiguredPin } from '@/lib/pin'
 import { syncUserData } from '@/lib/user-sync'
+import { getCredentialId } from '@/lib/biometric'
 
 interface AuthContextType {
   user: User | null
@@ -290,17 +291,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.id])
 
   const lock = useCallback(() => {
-    const hasSecurity = hasConfiguredPin(profile) || Boolean(profile?.biometric_enabled)
-    if (!hasSecurity) {
-      // Never lock an account that has no PIN and no biometric set up
-      setIsLocked(false)
-      return
-    }
     if (user?.id && typeof window !== 'undefined') {
       window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
     }
     setIsLocked(true)
-  }, [user?.id, profile])
+  }, [user?.id])
 
   const signOut = async () => {
     if (typeof window !== 'undefined') {

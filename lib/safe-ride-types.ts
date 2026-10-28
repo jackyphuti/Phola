@@ -30,4 +30,9 @@ export interface SafeRideSession {
   contactName?: string
   contactPhone?: string
   lastCheckedInAt?: string
+  vehicleNumberPlate?: string
+  driverName?: string
+  vehicleModel?: string
+  checkInCount?: number
+  checkInTimestamps?: string[]
 }
