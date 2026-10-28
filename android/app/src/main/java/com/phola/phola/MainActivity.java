@@ -2,6 +2,8 @@ package com.phola.phola;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import java.net.URLEncoder;
 
@@ -9,7 +11,32 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        configureWebView();
         handleSendIntent(getIntent());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        configureWebView();
+    }
+
+    private void configureWebView() {
+        try {
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                WebView webView = this.bridge.getWebView();
+                webView.post(() -> {
+                    try {
+                        WebSettings settings = webView.getSettings();
+                        // Follow standard HTTP cache-control headers (no-cache/must-revalidate)
+                        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+                        // Clear transient disk & memory HTTP resource cache on startup
+                        // (passing true clears temporary web assets while preserving localStorage, cookies, and IndexedDB)
+                        webView.clearCache(true);
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override

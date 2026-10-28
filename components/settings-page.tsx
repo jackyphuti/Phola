@@ -56,14 +56,17 @@ import {
   Pencil,
   Globe,
   Lock,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react'
+import { clearAppCacheAndReload } from '@/components/cache-auto-cleaner'
 
 export function SettingsPage() {
   const router = useRouter()
   const { user, profile, signOut, lock, refreshProfile } = useAuth()
   const { t } = useTranslation()
   const [supabase] = useState(() => createClient())
+  const [isClearingCache, setIsClearingCache] = useState(false)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
@@ -1752,6 +1755,29 @@ export function SettingsPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <div>
+                <p className="text-xs font-semibold text-foreground">App Cache & Network Assets</p>
+                <p className="text-[11px] text-muted-foreground">
+                  If the app takes too long to open, re-sync network assets. Saved reports, PIN, and account remain safe.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isClearingCache}
+                className="rounded-full text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10 h-8 px-3 shrink-0 self-start sm:self-auto"
+                onClick={async () => {
+                  setIsClearingCache(true)
+                  await clearAppCacheAndReload(true)
+                }}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isClearingCache ? 'animate-spin' : ''}`} />
+                {isClearingCache ? 'Re-Syncing...' : 'Clear Cache & Re-Sync'}
+              </Button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/40">
               <div>
                 <p className="text-xs font-semibold text-red-600 dark:text-red-400">Permanently Erase All Data</p>
                 <p className="text-[11px] text-muted-foreground">Deletes all incident notes, emergency contacts, and cached records.</p>

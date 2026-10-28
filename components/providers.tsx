@@ -12,6 +12,7 @@ import { OfflineSyncManager } from '@/components/offline-sync-manager'
 import { HighRiskZoneMonitor } from '@/components/high-risk-zone-monitor'
 import { SafetyOnboardingModal } from '@/components/safety-onboarding-modal'
 import { AccountVerifiedModal } from '@/components/account-verified-modal'
+import { CacheAutoCleaner } from '@/components/cache-auto-cleaner'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -54,6 +55,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <I18nextProvider i18n={i18n}>
       <AuthProvider>
+        <CacheAutoCleaner />
         <OfflineSyncManager />
         <OfflineBanner />
         <HighRiskZoneMonitor />

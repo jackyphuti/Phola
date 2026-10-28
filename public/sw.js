@@ -1,8 +1,9 @@
 /**
  * Phola Service Worker - Web Push, Background Notifications & Network-First Caching
+ * Version: phola-cache-v6
  */
 
-const CACHE_NAME = 'phola-cache-v5'
+const CACHE_NAME = 'phola-cache-v6'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -18,6 +19,29 @@ self.addEventListener('activate', (event) => {
       )
     ).then(() => self.clients.claim())
   )
+})
+
+// Listen for direct cache clear commands from the client
+self.addEventListener('message', (event) => {
+  if (event.data) {
+    if (event.data.action === 'skipWaiting') {
+      self.skipWaiting()
+    }
+    if (event.data.type === 'CLEAR_CACHE') {
+      caches.keys()
+        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        .then(() => {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: true, timestamp: Date.now() })
+          }
+        })
+        .catch(() => {
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: false })
+          }
+        })
+    }
+  }
 })
 
 self.addEventListener('fetch', (event) => {
@@ -36,18 +60,55 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 2. Network-First for HTML pages and Next.js scripts (falls back to cache if offline)
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200) {
-          const copy = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
-        }
-        return response
+  // 2. DO NOT cache dynamic Next.js chunks in Service Worker.
+  // Next.js chunks are already content-hashed; letting the browser handle them directly
+  // prevents stale chunk mismatches (ChunkLoadError) when new deployments go live.
+  if (
+    url.pathname.startsWith('/_next/static/chunks/') ||
+    url.pathname.startsWith('/_next/data/')
+  ) {
+    return
+  }
+
+  // 3. For page navigations (HTML), use Network-First and avoid caching stale HTML
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cached = await caches.match(event.request)
+        if (cached) return cached
+        return (await caches.match('/')) || new Response('Offline', { status: 503 })
       })
-      .catch(() => caches.match(event.request))
-  )
+    )
+    return
+  }
+
+  // 4. For static images/icons/fonts, use Cache-First / Stale-While-Revalidate
+  if (
+    url.pathname.startsWith('/icons/') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.ico') ||
+    url.pathname.endsWith('.woff2')
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const copy = networkResponse.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
+            }
+            return networkResponse
+          })
+          .catch(() => cachedResponse)
+
+        return cachedResponse || fetchPromise
+      })
+    )
+    return
+  }
+
+  // Default: pass through to network
 })
 
 self.addEventListener('push', (event) => {
