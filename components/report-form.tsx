@@ -354,7 +354,18 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
       <header className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-40">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Back"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer.includes(window.location.host)) {
+                  router.back()
+                } else {
+                  router.push('/dashboard')
+                }
+              }}
+            >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-lg font-semibold text-foreground">{incidentId ? 'Update Report' : 'New Crime Report'}</h1>

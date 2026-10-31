@@ -33,8 +33,10 @@ import {
   Check,
   Zap,
   FileCheck,
-  Send
+  Send,
+  LogIn
 } from 'lucide-react'
+import { AppLoadingState } from '@/components/app-loading-state'
 
 const LOCAL_NOTES_PREFIX = 'phola_vault_local_notes_'
 
@@ -325,14 +327,27 @@ https://phola.co.za
   }, [incidents, filter, search])
 
   if (authLoading) {
+    return <AppLoadingState message="Decrypting Vault security credentials..." />
+  }
+
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
+        <h2 className="text-base font-bold text-foreground">Sign in to unlock Encrypted Vault</h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+          Your vault records are zero-knowledge encrypted on your device. Please sign in to authenticate.
+        </p>
+        <Button
+          onClick={() => router.push('/auth/login')}
+          className="mt-4 rounded-xl text-xs font-semibold"
+          size="sm"
+        >
+          <LogIn className="mr-1.5 h-3.5 w-3.5" />
+          Continue to Sign In
+        </Button>
       </div>
     )
   }
-
-  if (!user) return null
   if (isLocked) return <LockScreen />
 
   return (

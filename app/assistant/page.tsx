@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { LockScreen } from '@/components/lock-screen'
 import { AIAssistant } from '@/components/ai-assistant'
-import { Loader2 } from 'lucide-react'
+import { AppLoadingState } from '@/components/app-loading-state'
+import { Button } from '@/components/ui/button'
+import { LogIn } from 'lucide-react'
 
 export default function AssistantPage() {
   const router = useRouter()
@@ -18,15 +20,26 @@ export default function AssistantPage() {
   }, [user, isLoading, router])
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <AppLoadingState message="Connecting to AI Safety Assistant..." />
   }
 
   if (!user) {
-    return null
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
+        <h2 className="text-base font-bold text-foreground">Sign in to consult AI Safety Assistant</h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+          Get discreet legal rights guidance, emergency advice, and GBV support resources.
+        </p>
+        <Button
+          onClick={() => router.push('/auth/login')}
+          className="mt-4 rounded-xl text-xs font-semibold"
+          size="sm"
+        >
+          <LogIn className="mr-1.5 h-3.5 w-3.5" />
+          Continue to Sign In
+        </Button>
+      </div>
+    )
   }
 
   if (isLocked) {

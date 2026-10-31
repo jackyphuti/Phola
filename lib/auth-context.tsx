@@ -145,7 +145,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isMounted) {
             setUser(data.user)
             if (data.user) {
-              await fetchProfile(data.user.id)
+              // Wrap profile fetch with a quick 1.5s timeout so DB slowness doesn't hang the app
+              await Promise.race([
+                fetchProfile(data.user.id),
+                new Promise((resolve) => setTimeout(resolve, 1500)),
+              ])
               void syncUserData(data.user.id, supabase)
             } else {
               setIsLocked(false)
@@ -161,6 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(null)
             setIsLocked(false)
           }
+        } finally {
+          if (isMounted) {
+            setIsLoading(false)
+          }
         }
       })()
 
@@ -168,6 +176,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => {
           if (!didComplete) {
             console.warn('Supabase auth initialization reached soft timeout.')
+          }
+          if (isMounted) {
+            setIsLoading(false)
           }
           resolve()
         }, 2500)

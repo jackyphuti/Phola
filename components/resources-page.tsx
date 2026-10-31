@@ -157,7 +157,13 @@ export function ResourcesPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.back()}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer.includes(window.location.host)) {
+                  router.back()
+                } else {
+                  router.push('/dashboard')
+                }
+              }}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>

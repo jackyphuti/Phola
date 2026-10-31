@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw, X, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/auth-context'
 
 /**
  * Safely purge all temporary browser/WebView network asset caches and Service Worker caches
@@ -53,6 +54,7 @@ export async function clearAppCacheAndReload(forceReload = true): Promise<void> 
 }
 
 export function CacheAutoCleaner() {
+  const { isLoading } = useAuth()
   const [showWatchdogBanner, setShowWatchdogBanner] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
 
@@ -79,6 +81,7 @@ export function CacheAutoCleaner() {
 
         if (now - lastReload < 60000 && reloadCount >= 2) {
           console.error('[Phola Cache Watchdog] Maximum chunk recovery attempts reached.')
+          setShowWatchdogBanner(true)
           return
         }
 
@@ -108,29 +111,36 @@ export function CacheAutoCleaner() {
     }
   }, [])
 
-  // 2. Cold-Start Hang Watchdog (Triggers if the screen remains stuck for > 8 seconds)
+  // 2. Cold-Start Hang Watchdog (ONLY triggers if isLoading remains stuck for > 9 seconds AND not dismissed)
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    // Show manual re-sync banner if screen is hanging after 8 seconds
-    const hangTimeout = setTimeout(() => {
-      setShowWatchdogBanner(true)
-    }, 8000)
+    if (!isLoading) {
+      setShowWatchdogBanner(false)
+      return
+    }
 
-    // Optional 1-time automatic self-heal if hanging after 14 seconds
-    const autoHealTimeout = setTimeout(() => {
-      const hasAutoHealed = window.sessionStorage.getItem('phola_startup_auto_healed') === 'true'
-      if (!hasAutoHealed) {
-        window.sessionStorage.setItem('phola_startup_auto_healed', 'true')
-        void clearAppCacheAndReload(true)
+    const isDismissed = window.sessionStorage.getItem('phola_resync_banner_dismissed') === 'true'
+    if (isDismissed) return
+
+    // Show manual re-sync banner ONLY if screen is ACTUALLY hanging while loading after 9 seconds
+    const hangTimeout = setTimeout(() => {
+      if (isLoading) {
+        setShowWatchdogBanner(true)
       }
-    }, 14000)
+    }, 9000)
 
     return () => {
       clearTimeout(hangTimeout)
-      clearTimeout(autoHealTimeout)
     }
-  }, [])
+  }, [isLoading])
+
+  const handleDismiss = () => {
+    setShowWatchdogBanner(false)
+    try {
+      window.sessionStorage.setItem('phola_resync_banner_dismissed', 'true')
+    } catch {}
+  }
 
   const handleManualClean = async () => {
     setIsClearing(true)
@@ -142,7 +152,7 @@ export function CacheAutoCleaner() {
   return (
     <div
       role="alert"
-      className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md rounded-2xl border border-border/80 bg-background/95 p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-300"
+      className="fixed bottom-20 sm:bottom-6 left-4 right-4 z-40 mx-auto max-w-md rounded-2xl border border-border/80 bg-background/95 p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-300"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -171,7 +181,7 @@ export function CacheAutoCleaner() {
           </Button>
           <button
             type="button"
-            onClick={() => setShowWatchdogBanner(false)}
+            onClick={handleDismiss}
             aria-label="Dismiss loading banner"
             className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
           >

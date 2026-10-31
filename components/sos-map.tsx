@@ -65,6 +65,41 @@ mapboxgl.accessToken = MAPBOX_TOKEN
 // Default South Africa Map Center [lng, lat] (Mapbox uses [lng, lat])
 const DEFAULT_SA_CENTER: [number, number] = [28.0473, -26.2041]
 
+export const SA_CITIES = [
+  { name: 'Pretoria CBD (Tshwane)', lat: -25.7479, lng: 28.2293 },
+  { name: 'Johannesburg (Central)', lat: -26.2041, lng: 28.0473 },
+  { name: 'Soweto (Gauteng)', lat: -26.2485, lng: 27.8540 },
+  { name: 'Cape Town (Central)', lat: -33.9249, lng: 18.4241 },
+  { name: 'Durban (eThekwini)', lat: -29.8587, lng: 31.0218 },
+  { name: 'Gqeberha (Port Elizabeth)', lat: -33.9608, lng: 25.6022 },
+  { name: 'Bloemfontein (Mangaung)', lat: -29.0852, lng: 26.1596 },
+]
+
+const OSM_RASTER_STYLE: mapboxgl.Style = {
+  version: 8,
+  sources: {
+    'osm-tiles': {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      ],
+      tileSize: 256,
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    },
+  },
+  layers: [
+    {
+      id: 'osm-tiles-layer',
+      type: 'raster',
+      source: 'osm-tiles',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+}
+
 export interface SafePlace {
   id: string
   name: string
@@ -197,15 +232,37 @@ export function SOSMap() {
   const lastSpokenRef = useRef<string>('')
   const isFirstFixRef = useRef<boolean>(true)
   const autoRouteTriggeredRef = useRef<boolean>(false)
+  const isRasterFallbackRef = useRef<boolean>(false)
 
   // State
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [locationStatus, setLocationStatus] = useState<'loading' | 'active' | 'denied'>('loading')
+  const [selectedCityName, setSelectedCityName] = useState<string>('')
+  const [showAreaSelectorModal, setShowAreaSelectorModal] = useState(false)
   const [safePlaces, setSafePlaces] = useState<SafePlace[]>([])
   const [selectedPlace, setSelectedPlace] = useState<SafePlace | null>(null)
   const [route, setRoute] = useState<RouteInfo | null>(null)
   const [isLoadingRoute, setIsLoadingRoute] = useState(false)
   const [activeFilter, setActiveFilter] = useState<'all' | 'hospital' | 'police'>('all')
+
+  const handleBack = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer.includes(window.location.host)) {
+      router.back()
+    } else {
+      router.push('/dashboard')
+    }
+  }, [router])
+
+  const handleSelectArea = useCallback((city: { name: string; lat: number; lng: number }) => {
+    setCurrentLocation({ lat: city.lat, lng: city.lng })
+    setSelectedCityName(city.name)
+    setLocationStatus('active')
+    loadSafePlacesForLocation(city.lat, city.lng)
+    if (mapRef.current) {
+      mapRef.current.flyTo({ center: [city.lng, city.lat], zoom: 14 })
+    }
+    setShowAreaSelectorModal(false)
+  }, [loadSafePlacesForLocation])
 
   // In-App Navigation State
   const [isNavigating, setIsNavigating] = useState(false)
@@ -350,6 +407,18 @@ export function SOSMap() {
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-left')
 
+    map.on('error', (e) => {
+      if (!isRasterFallbackRef.current) {
+        isRasterFallbackRef.current = true
+        console.warn('[Phola Map] Vector style error, falling back to Carto/OSM raster style:', e)
+        try {
+          map.setStyle(OSM_RASTER_STYLE)
+        } catch (styleErr) {
+          console.error('[Phola Map] Error applying fallback raster style:', styleErr)
+        }
+      }
+    })
+
     map.on('load', () => {
       map.resize()
       ensureArrowImage(map)
@@ -393,9 +462,30 @@ export function SOSMap() {
       }
     }
 
+    // Fail-safe: If GPS takes longer than 3.5s, fall back to safe default area
+    const gpsTimeout = setTimeout(() => {
+      if (isMounted) {
+        setLocationStatus((prev) => {
+          if (prev === 'loading') {
+            const fallback = cached || { lat: -25.7479, lng: 28.2293 }
+            setCurrentLocation(fallback)
+            setSelectedCityName(cached ? 'Cached GPS' : 'Pretoria CBD (Tshwane)')
+            loadSafePlacesForLocation(fallback.lat, fallback.lng)
+            if (mapRef.current && isFirstFixRef.current) {
+              isFirstFixRef.current = false
+              mapRef.current.flyTo({ center: [fallback.lng, fallback.lat], zoom: 13 })
+            }
+            return 'denied'
+          }
+          return prev
+        })
+      }
+    }, 3500)
+
     // Fast initial one-shot lookup
     void getReliableLocation().then((coords) => {
       if (!isMounted) return
+      clearTimeout(gpsTimeout)
       if (coords && (coords.lat !== DEFAULT_SOUTH_AFRICA_LOCATION.lat || coords.lng !== DEFAULT_SOUTH_AFRICA_LOCATION.lng)) {
         setCurrentLocation(coords)
         setLocationStatus('active')
@@ -439,6 +529,7 @@ export function SOSMap() {
 
     return () => {
       isMounted = false
+      clearTimeout(gpsTimeout)
       cleanupWatch()
     }
   }, [loadSafePlacesForLocation])
@@ -1159,8 +1250,9 @@ export function SOSMap() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.back()}
+                onClick={handleBack}
                 className="rounded-full"
+                aria-label="Back to dashboard"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
@@ -1292,19 +1384,19 @@ export function SOSMap() {
           )}
 
           {/* ------------------------------------------------------------- */}
-          {/* STATUS BADGE (Standard View)                                  */}
+          {/* STATUS BADGE & MANUAL AREA SELECTOR                           */}
           {/* ------------------------------------------------------------- */}
           {!isNavigating && (
-            <div className="absolute top-3 left-3 z-10 pointer-events-none">
+            <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-1.5">
               {locationStatus === 'loading' ? (
-                <div className="flex items-center gap-2 rounded-full bg-white/90 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-md border border-slate-200">
+                <div className="flex items-center gap-2 rounded-full bg-white/95 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-md border border-slate-200">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                  <span>Finding your location... (South Africa default)</span>
+                  <span>Locating GPS...</span>
                 </div>
               ) : locationStatus === 'denied' ? (
-                <div className="flex items-center gap-2 rounded-full bg-amber-500/90 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-white shadow-md">
+                <div className="flex items-center gap-1.5 rounded-full bg-amber-500/95 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-white shadow-md">
                   <MapPin className="w-3.5 h-3.5" />
-                  <span>GPS permission unavailable (Viewing South Africa)</span>
+                  <span>{selectedCityName || 'South Africa Default'}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur-md px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-md border border-emerald-200">
@@ -1312,9 +1404,18 @@ export function SOSMap() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
                   </span>
-                  <span>Live GPS Active</span>
+                  <span>{selectedCityName ? selectedCityName : 'Live GPS Active'}</span>
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => setShowAreaSelectorModal(true)}
+                className="flex items-center gap-1 rounded-full bg-white/95 backdrop-blur-md px-2.5 py-1.5 text-xs font-semibold text-primary shadow-md border border-emerald-200 hover:bg-emerald-50 active:scale-95 transition"
+              >
+                <Compass className="w-3.5 h-3.5 text-primary" />
+                <span>Change Area</span>
+              </button>
             </div>
           )}
 
@@ -2085,6 +2186,46 @@ export function SOSMap() {
           </Card>
         </div>
       )}
+      {/* 7. MANUAL AREA SELECTOR MODAL */}
+      <Dialog open={showAreaSelectorModal} onOpenChange={setShowAreaSelectorModal}>
+        <DialogContent className="max-w-sm rounded-3xl border-emerald-100 p-5 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <Compass className="h-4 w-4 text-primary" />
+              Select South Africa Area
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Choose your city or region to view nearby verified SAPS stations and emergency medical facilities.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+            {SA_CITIES.map((city) => (
+              <button
+                key={city.name}
+                type="button"
+                onClick={() => handleSelectArea(city)}
+                className="w-full flex items-center justify-between rounded-xl p-3 text-left text-xs font-semibold hover:bg-emerald-50 active:bg-emerald-100 transition border border-transparent hover:border-emerald-200"
+              >
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <span className="text-foreground">{city.name}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground uppercase">Select</span>
+              </button>
+            ))}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAreaSelectorModal(false)}
+            className="w-full mt-2 rounded-xl text-xs"
+          >
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

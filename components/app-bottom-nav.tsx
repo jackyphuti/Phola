@@ -17,13 +17,10 @@ import {
   LogOut,
   Car,
   Siren,
-  Phone,
   Lock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
-
-const SIDE_NAV_STORAGE_KEY = 'phola_side_tabs_hidden'
 
 const tabs = [
   { label: 'Home', href: '/dashboard', icon: Home },
@@ -31,7 +28,7 @@ const tabs = [
   { label: 'Safety Hub & Hotlines', href: '/safety', icon: Shield },
   { label: 'Emergency SOS Map', href: '/sos', icon: Siren },
   { label: 'Nearby Services Radar', href: '/nearby', icon: MapPin },
-  { label: 'My Reports Vault', href: '/notes', icon: FileText },
+  { label: 'Report GBV (VAULT)', href: '/reports', icon: FileText },
   { label: 'Mzansi News', href: '/news', icon: Newspaper },
   { label: 'AI Safety Assistant', href: '/assistant', icon: Sparkles },
   { label: 'Profile & Settings', href: '/settings', icon: User },
@@ -45,29 +42,32 @@ export function AppBottomNav() {
   const [isMounted, setIsMounted] = useState(false)
 
   const handleSignOut = async () => {
-    toggleHide(true)
+    setIsHidden(true)
     await signOut()
     router.replace('/auth/login')
   }
 
   useEffect(() => {
     setIsMounted(true)
-    const stored = window.localStorage.getItem(SIDE_NAV_STORAGE_KEY)
-    if (stored !== null) {
-      setIsHidden(stored === 'true')
-    }
+    // Always start with drawer closed
+    setIsHidden(true)
   }, [])
 
+  // Auto-close drawer whenever pathname changes
   useEffect(() => {
     setIsHidden(true)
   }, [pathname])
 
-  const toggleHide = (hidden: boolean) => {
-    setIsHidden(hidden)
-    try {
-      window.localStorage.setItem(SIDE_NAV_STORAGE_KEY, String(hidden))
-    } catch {}
-  }
+  // Close drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsHidden(true)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Do not render on public auth pages or root landing
   if (pathname && (pathname === '/' || pathname.startsWith('/auth/'))) {
@@ -81,14 +81,14 @@ export function AppBottomNav() {
   return (
     <>
       {/* ========================================================================= */}
-      {/* GOOGLE-STYLE TOP APP BAR (Pinned header, exactly like Gmail & Google Apps) */}
+      {/* GOOGLE-STYLE TOP APP BAR (Pinned header, perfectly vertically centered)    */}
       {/* ========================================================================= */}
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center justify-between border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95">
-        {/* Left: Hamburger Button + Logo + Title (Gmail / Google style) */}
-        <div className="flex items-center gap-2 sm:gap-3">
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center justify-between border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95 safe-top">
+        {/* Left: Hamburger Button + Logo + Title */}
+        <div className="flex items-center gap-2 sm:gap-3 my-auto">
           <button
             type="button"
-            onClick={() => toggleHide(!isHidden)}
+            onClick={() => setIsHidden(!isHidden)}
             className="flex h-10 w-10 items-center justify-center rounded-full text-slate-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors dark:text-foreground dark:hover:bg-muted"
             title="Main menu"
             aria-label="Open navigation menu"
@@ -116,46 +116,46 @@ export function AppBottomNav() {
           </Link>
         </div>
 
-        {/* Right: Quick Biometric Lock Button */}
-        <div className="flex items-center gap-2">
+        {/* Right: Quick Biometric Lock Button (Centered with explicit height, never clipped) */}
+        <div className="flex items-center gap-2 shrink-0 my-auto">
           <button
             type="button"
             onClick={() => lock()}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 hover:bg-emerald-100/80 active:scale-95 transition-all shadow-2xs"
+            className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 hover:bg-emerald-100/80 active:scale-95 transition-all shadow-2xs"
             title="Lock Vault & App with Biometrics"
             aria-label="Biometric Lock"
           >
-            <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span className="hidden sm:inline">Lock App</span>
           </button>
         </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* DRAWER BACKDROP                                                           */}
+      {/* DRAWER BACKDROP (z-50)                                                    */}
       {/* ========================================================================= */}
       {!isHidden && (
         <div
-          className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] transition-opacity duration-200"
-          onClick={() => toggleHide(true)}
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs transition-opacity duration-200"
+          onClick={() => setIsHidden(true)}
           aria-hidden="true"
         />
       )}
 
       {/* ========================================================================= */}
-      {/* SIDE NAVIGATION DRAWER (Gmail / Google style)                              */}
+      {/* SIDE NAVIGATION DRAWER (z-50, always sits above offline banner z-30)       */}
       {/* ========================================================================= */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 z-50 flex flex-col w-72 bg-white/98 dark:bg-card/98 border-r border-emerald-100 dark:border-border backdrop-blur-xl shadow-2xl transition-transform duration-250 ease-out safe-top safe-bottom ${
+        className={`fixed left-0 top-0 bottom-0 z-50 flex flex-col w-72 bg-white dark:bg-card border-r border-emerald-100 dark:border-border shadow-2xl transition-transform duration-250 ease-out safe-top safe-bottom ${
           isHidden ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
-        {/* Drawer Header (Exact same alignment as top bar) */}
-        <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-emerald-100/80 dark:border-border">
+        {/* Drawer Header */}
+        <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-emerald-100/80 dark:border-border shrink-0">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => toggleHide(true)}
+              onClick={() => setIsHidden(true)}
               className="flex h-10 w-10 items-center justify-center rounded-full text-slate-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
               title="Close menu"
               aria-label="Close navigation menu"
@@ -178,7 +178,7 @@ export function AppBottomNav() {
 
           <button
             type="button"
-            onClick={() => toggleHide(true)}
+            onClick={() => setIsHidden(true)}
             className="rounded-full p-2 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
             title="Close menu"
           >
@@ -186,10 +186,14 @@ export function AppBottomNav() {
           </button>
         </div>
 
-        {/* Tab Items List */}
+        {/* Tab Items List - Auto-closes drawer on item click */}
         <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
           {tabs.map((tab) => {
-            const isActive = pathname === tab.href || pathname?.startsWith(`${tab.href}/`) || (tab.href === '/safety' && pathname === '/safe-ride')
+            const isActive =
+              pathname === tab.href ||
+              pathname?.startsWith(`${tab.href}/`) ||
+              (tab.href === '/reports' && pathname === '/notes') ||
+              (tab.href === '/safety' && pathname === '/safe-ride')
             const Icon = tab.icon
 
             return (
@@ -197,12 +201,12 @@ export function AppBottomNav() {
                 key={tab.href}
                 type="button"
                 onClick={() => {
+                  setIsHidden(true)
                   router.push(tab.href)
-                  toggleHide(true)
                 }}
                 className={`w-full flex items-center justify-between rounded-2xl px-3.5 py-3 text-sm font-semibold transition-all ${
                   isActive
-                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/80 shadow-2xs'
+                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/80 shadow-2xs dark:bg-emerald-950/40 dark:text-emerald-100'
                     : 'text-slate-600 dark:text-muted-foreground hover:bg-emerald-50/60 hover:text-foreground'
                 }`}
               >
@@ -219,7 +223,7 @@ export function AppBottomNav() {
         </nav>
 
         {/* Drawer Footer Actions */}
-        <div className="p-3 border-t border-emerald-100/80 dark:border-border space-y-2">
+        <div className="p-3 border-t border-emerald-100/80 dark:border-border space-y-2 shrink-0">
           <Button
             type="button"
             variant="outline"

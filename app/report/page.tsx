@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { LockScreen } from '@/components/lock-screen'
 import { ReportForm } from '@/components/report-form'
-import { Loader2 } from 'lucide-react'
+import { AppLoadingState } from '@/components/app-loading-state'
+import { Button } from '@/components/ui/button'
+import { LogIn } from 'lucide-react'
 
 export default function ReportPage() {
   const router = useRouter()
@@ -18,15 +20,26 @@ export default function ReportPage() {
   }, [user, isLoading, router])
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <AppLoadingState message="Loading encrypted report form..." />
   }
 
   if (!user) {
-    return null
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
+        <h2 className="text-base font-bold text-foreground">Sign in to submit or view reports</h2>
+        <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+          Your reports are protected with zero-knowledge encryption. Please sign in to continue.
+        </p>
+        <Button
+          onClick={() => router.push('/auth/login')}
+          className="mt-4 rounded-xl text-xs font-semibold"
+          size="sm"
+        >
+          <LogIn className="mr-1.5 h-3.5 w-3.5" />
+          Continue to Sign In
+        </Button>
+      </div>
+    )
   }
 
   if (isLocked) {
