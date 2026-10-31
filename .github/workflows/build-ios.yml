@@ -64,8 +64,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
           cd build/derivedData/Build/Products/Release-iphonesimulator
-          zip -r ../../../../Phola-iOS-Simulator.zip App.app
-          cd ../../../..
+          zip -r -X "$GITHUB_WORKSPACE/Phola-iOS-Simulator.zip" App.app
+          cd "$GITHUB_WORKSPACE"
 
       - name: Build Unsigned IPA for Device / Sideloading
         if: ${{ github.event_name == 'push' || github.event.inputs.build_type == 'unsigned_ipa' || github.event.inputs.build_type == 'both' }}
