@@ -37,8 +37,35 @@ function purgeStaleSupabaseStorage() {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient())
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i)
+        if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+          const raw = window.localStorage.getItem(key)
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            return parsed?.user || parsed?.currentSession?.user || null
+          }
+        }
+      }
+    } catch {}
+    return null
+  })
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i)
+        if (key && key.startsWith('phola_profile_')) {
+          const raw = window.localStorage.getItem(key)
+          if (raw) return JSON.parse(raw) as Profile
+        }
+      }
+    } catch {}
+    return null
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [isLocked, setIsLocked] = useState(false)
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -98,96 +125,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
-    let didComplete = false
 
     const getUser = async () => {
-      // 1. Instant Synchronous Session Check (0ms local storage lookup)
       try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData?.session?.user && isMounted) {
-          const sessionUser = sessionData.session.user
-          setUser(sessionUser)
-          if (typeof window !== 'undefined') {
-            const cached = window.localStorage.getItem(`phola_profile_${sessionUser.id}`)
-            if (cached) {
-              try {
-                setProfile(JSON.parse(cached))
-              } catch {}
-            }
-          }
-          setIsLoading(false)
-          void syncUserData(sessionUser.id, supabase)
-        }
-      } catch {}
-
-      const sessionInit = (async () => {
+        // Fast local session recovery via Supabase client with a 1.5s timeout
         try {
-          const { data, error } = await supabase.auth.getUser()
-          didComplete = true
-          if (error) {
-            const errorMsg = error.message?.toLowerCase() || ''
-            if (
-              errorMsg.includes('invalid refresh token') ||
-              errorMsg.includes('refresh_token_not_found') ||
-              errorMsg.includes('jwt expired')
-            ) {
-              purgeStaleSupabaseStorage()
-              await supabase.auth.signOut().catch(() => {})
+          const sessionPromise = supabase.auth.getSession()
+          const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+            setTimeout(() => resolve({ data: { session: null } }), 1500)
+          )
+          const { data: sessionData } = await Promise.race([sessionPromise, timeoutPromise])
+          if (sessionData?.session?.user && isMounted) {
+            const sessionUser = sessionData.session.user
+            setUser(sessionUser)
+            if (typeof window !== 'undefined') {
+              const cached = window.localStorage.getItem(`phola_profile_${sessionUser.id}`)
+              if (cached) {
+                try {
+                  setProfile(JSON.parse(cached))
+                } catch {}
+              }
             }
-            if (isMounted) {
-              setUser(null)
-              setProfile(null)
-              setIsLocked(false)
-            }
-            return
+            // Once we have a local session, release initial loading gate immediately
+            setIsLoading(false)
+            void syncUserData(sessionUser.id, supabase)
           }
+        } catch (sessionErr) {
+          console.warn('[AuthProvider] getSession error or timeout:', sessionErr)
+        }
 
-          if (isMounted) {
-            setUser(data.user)
-            if (data.user) {
-              // Wrap profile fetch with a quick 1.5s timeout so DB slowness doesn't hang the app
+        // Full server-verified auth check with a hard 3.5s timeout
+        const serverAuthCheck = async () => {
+          try {
+            const { data, error } = await supabase.auth.getUser()
+            if (error) {
+              const errorMsg = error.message?.toLowerCase() || ''
+              if (
+                errorMsg.includes('invalid refresh token') ||
+                errorMsg.includes('refresh_token_not_found')
+              ) {
+                purgeStaleSupabaseStorage()
+                await supabase.auth.signOut().catch(() => {})
+                if (isMounted) {
+                  setUser(null)
+                  setProfile(null)
+                  setIsLocked(false)
+                }
+              }
+              return
+            }
+
+            if (isMounted && data?.user) {
+              setUser(data.user)
+              // Non-blocking profile hydration with 1.5s timeout
               await Promise.race([
                 fetchProfile(data.user.id),
                 new Promise((resolve) => setTimeout(resolve, 1500)),
               ])
               void syncUserData(data.user.id, supabase)
-            } else {
-              setIsLocked(false)
+            }
+          } catch (authErr: any) {
+            console.warn('[AuthProvider] getUser error:', authErr)
+            const errorMsg = authErr?.message?.toLowerCase() || ''
+            if (
+              errorMsg.includes('invalid refresh token') ||
+              errorMsg.includes('refresh_token_not_found')
+            ) {
+              purgeStaleSupabaseStorage()
+              await supabase.auth.signOut().catch(() => {})
+              if (isMounted) {
+                setUser(null)
+                setProfile(null)
+                setIsLocked(false)
+              }
             }
           }
-        } catch (error: any) {
-          didComplete = true
-          console.error('Failed to initialize Supabase auth session', error)
-          purgeStaleSupabaseStorage()
-          await supabase.auth.signOut().catch(() => {})
-          if (isMounted) {
-            setUser(null)
-            setProfile(null)
-            setIsLocked(false)
-          }
-        } finally {
-          if (isMounted) {
-            setIsLoading(false)
-          }
         }
-      })()
 
-      const timeoutFallback = new Promise<void>((resolve) =>
-        setTimeout(() => {
-          if (!didComplete) {
-            console.warn('Supabase auth initialization reached soft timeout.')
-          }
-          if (isMounted) {
-            setIsLoading(false)
-          }
-          resolve()
-        }, 2500)
-      )
-
-      await Promise.race([sessionInit, timeoutFallback])
-
-      if (isMounted) {
-        setIsLoading(false)
+        // Hard guarantee: finish within 3500ms maximum
+        await Promise.race([
+          serverAuthCheck(),
+          new Promise<void>((resolve) => setTimeout(resolve, 3500)),
+        ])
+      } catch (err) {
+        console.error('[AuthProvider] Auth hydration failed:', err)
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 

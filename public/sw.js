@@ -1,9 +1,9 @@
 /**
  * Phola Service Worker - Web Push, Background Notifications & Network-First Caching
- * Version: phola-cache-v6
+ * Version: phola-cache-v7
  */
 
-const CACHE_NAME = 'phola-cache-v6'
+const CACHE_NAME = 'phola-cache-v7'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -70,13 +70,27 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // 3. For page navigations (HTML), use Network-First and avoid caching stale HTML
+  // 3. For page navigations (HTML), use Network-First with a 3-second network race
+  // This guarantees the browser tab NEVER hangs indefinitely on a stalled TCP/cellular connection.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(async () => {
+      Promise.race([
+        fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {})
+          }
+          return networkResponse
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Navigation network timeout')), 3000)
+        ),
+      ]).catch(async () => {
         const cached = await caches.match(event.request)
         if (cached) return cached
-        return (await caches.match('/')) || new Response('Offline', { status: 503 })
+        const rootCached = await caches.match('/')
+        if (rootCached) return rootCached
+        return new Response('Offline', { status: 503 })
       })
     )
     return

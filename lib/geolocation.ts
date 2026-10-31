@@ -57,9 +57,18 @@ export function getReliableLocation(): Promise<{ lat: number; lng: number }> {
 
     let resolved = false
 
+    // Guarantee that this promise resolves in 4000ms max under all network/device conditions
+    const hardTimeoutTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true
+        resolve(cached || DEFAULT_SOUTH_AFRICA_LOCATION)
+      }
+    }, 4000)
+
     const handleSuccess = (pos: GeolocationPosition) => {
       if (!resolved) {
         resolved = true
+        clearTimeout(hardTimeoutTimer)
         const coords = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
@@ -69,23 +78,24 @@ export function getReliableLocation(): Promise<{ lat: number; lng: number }> {
       }
     }
 
-    // 1. Try GPS with high accuracy (10s timeout)
+    // 1. Try GPS with high accuracy (3.5s timeout)
     navigator.geolocation.getCurrentPosition(
       handleSuccess,
       () => {
-        // 2. Fast fallback to coarse Network/Cell location (5s timeout)
+        // 2. Fast fallback to coarse Network/Cell location (2s timeout)
         navigator.geolocation.getCurrentPosition(
           handleSuccess,
           () => {
             if (!resolved) {
               resolved = true
+              clearTimeout(hardTimeoutTimer)
               resolve(cached || DEFAULT_SOUTH_AFRICA_LOCATION)
             }
           },
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+          { enableHighAccuracy: false, timeout: 2000, maximumAge: 300000 }
         )
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 }
     )
   })
 }

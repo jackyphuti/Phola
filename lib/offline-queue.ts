@@ -26,6 +26,21 @@ export type QueuedIncident = {
     is_draft: boolean
   }
   queuedAt: string
+  retryCount?: number
+  lastError?: string
+}
+
+const DEAD_LETTER_KEY = 'phola-failed-incidents'
+
+function saveDeadLetterIncident(item: QueuedIncident) {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = window.localStorage.getItem(DEAD_LETTER_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    list.push(item)
+    // Keep max 10 failed items for review
+    window.localStorage.setItem(DEAD_LETTER_KEY, JSON.stringify(list.slice(-10)))
+  } catch {}
 }
 
 let cachedCount = 0
@@ -89,7 +104,7 @@ export async function readQueue(): Promise<QueuedIncident[]> {
       const request = store.getAll()
 
       request.onsuccess = () => {
-        const items = (request.result as QueuedIncident[]) || []
+        let items = (request.result as QueuedIncident[]) || []
         // Migrate legacy localStorage items if present
         const legacyItems = readLocalStorageQueue()
         if (legacyItems.length > 0) {
@@ -100,8 +115,10 @@ export async function readQueue(): Promise<QueuedIncident[]> {
             // ignore
           }
         }
-        cachedCount = items.length
-        resolve(items)
+        // Filter out dead-lettered items (retries >= 3)
+        const activeItems = items.filter((item) => (item.retryCount || 0) < 3)
+        cachedCount = activeItems.length
+        resolve(activeItems)
       }
 
       request.onerror = () => {
@@ -198,7 +215,27 @@ export async function syncQueuedIncidentSubmissions(): Promise<number> {
 
     const { error } = await operation
     if (error) {
-      remaining.push(entry)
+      console.warn('[OfflineQueue] Incident sync failed:', error.message, error)
+      const attempts = (entry.retryCount || 0) + 1
+      const isPermanent =
+        error.code === '42501' || // RLS permission denied
+        error.code === '23503' || // Foreign key not found
+        error.code === '22P02' || // Invalid input syntax
+        attempts >= 3
+
+      if (isPermanent) {
+        saveDeadLetterIncident({
+          ...entry,
+          retryCount: attempts,
+          lastError: error.message,
+        })
+      } else {
+        remaining.push({
+          ...entry,
+          retryCount: attempts,
+          lastError: error.message,
+        })
+      }
       continue
     }
 

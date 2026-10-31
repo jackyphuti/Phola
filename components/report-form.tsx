@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { CRIME_TYPE_LABELS, DYNAMIC_FIELDS_BY_TYPE, type CrimeType, type DynamicFieldConfig } from '@/lib/crime-report'
 import { SEVERITY_OPTIONS } from '@/lib/types'
 import { getNearestSAPSStation } from '@/lib/saps-stations'
+import { getCachedLocation } from '@/lib/geolocation'
 import { queueIncidentSubmission } from '@/lib/offline-queue'
 import { triggerIncidentPushEvent } from '@/lib/push-notifications'
 import { safeExit } from '@/lib/safe-exit'
@@ -107,6 +108,18 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
   }, [formData.crime_type])
 
   useEffect(() => {
+    // 1. Immediately hydrate with cached location if present (0ms)
+    const cached = getCachedLocation()
+    if (cached) {
+      setLocationCoords(cached)
+      const station = getNearestSAPSStation(cached.lat, cached.lng)
+      if (station) {
+        setNearestStation({ name: station.name, code: station.code })
+      }
+      if (!formData.location) {
+        setFormData((prev: ReportFormState) => ({ ...prev, location: `${cached.lat.toFixed(5)}, ${cached.lng.toFixed(5)}` }))
+      }
+    }
     if (!navigator.geolocation) return
 
     setIsGettingLocation(true)
@@ -129,7 +142,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         setIsGettingLocation(false)
       },
       () => setIsGettingLocation(false),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     )
   }, [])
 

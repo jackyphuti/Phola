@@ -103,7 +103,7 @@ export function SafeRideMonitor() {
       navigator.geolocation.getCurrentPosition(
         (pos) => setCurrentCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
         () => {},
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
       )
     }
   }, [])
