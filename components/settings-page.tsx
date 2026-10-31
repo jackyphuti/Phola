@@ -1653,9 +1653,11 @@ export function SettingsPage() {
             </div>
 
             {/* Passkeys & Hardware Security Keys */}
-            <div className="border-t border-border/60">
-              <PasskeySettings userId={user.id} email={user.email || ''} />
-            </div>
+            {user && (
+              <div className="border-t border-border/60">
+                <PasskeySettings userId={user.id} email={user.email || ''} />
+              </div>
+            )}
           </div>
         </section>
 

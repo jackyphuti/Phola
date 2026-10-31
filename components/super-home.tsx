@@ -213,7 +213,7 @@ export function SuperHome({ name }: { name: string }) {
         shop: (shopRes.status === 'fulfilled' && shopRes.value?.results?.[0]) || (fallbackShop ? {
           name: fallbackShop.name,
           distanceKm: fallbackShop.distanceKm,
-          address: `${fallbackShop.city}, South Africa`,
+          address: fallbackShop.address || 'Safe Retail Hub',
         } : undefined),
         clinic: (clinicRes.status === 'fulfilled' && clinicRes.value?.results?.[0]) || (fallbackClinic ? {
           name: fallbackClinic.name,

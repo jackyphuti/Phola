@@ -257,6 +257,39 @@ export function SOSMap() {
     }
   }, [router])
 
+  const loadSafePlacesForLocation = useCallback((lat: number, lng: number) => {
+    try {
+      const saps = getNearbySAPSStations(lat, lng, 20).map((station) => ({
+        id: station.code || `saps-${station.name}`,
+        name: station.name,
+        address: `${station.province}, South Africa`,
+        distance: station.distanceKm,
+        distanceText: formatDistance(station.distanceKm),
+        duration: estimateDuration(station.distanceKm),
+        location: { lat: station.lat, lng: station.lng },
+        type: 'police' as const,
+        phone: station.phone || '10111',
+      }))
+
+      const hospitals = getNearbyHospitals(lat, lng, 15).map((hosp) => ({
+        id: hosp.id || `hosp-${hosp.name}`,
+        name: hosp.name,
+        address: `${hosp.province}, South Africa`,
+        distance: hosp.distanceKm,
+        distanceText: formatDistance(hosp.distanceKm),
+        duration: estimateDuration(hosp.distanceKm),
+        location: { lat: hosp.lat, lng: hosp.lng },
+        type: 'hospital' as const,
+        phone: hosp.phone || '112',
+      }))
+
+      const combined = [...saps, ...hospitals].sort((a, b) => a.distance - b.distance)
+      setSafePlaces(combined)
+    } catch (e) {
+      console.warn('Failed to compute nearby safe places:', e)
+    }
+  }, [])
+
   const handleSelectArea = useCallback((city: { name: string; lat: number; lng: number }) => {
     setCurrentLocation({ lat: city.lat, lng: city.lng })
     setSelectedCityName(city.name)
@@ -338,38 +371,7 @@ export function SOSMap() {
   }, [user?.id, supabase])
 
   // 2. Fetch Safe Places (SAPS Stations & Hospitals)
-  const loadSafePlacesForLocation = useCallback((lat: number, lng: number) => {
-    try {
-      const saps = getNearbySAPSStations(lat, lng, 20).map((station) => ({
-        id: station.code || `saps-${station.name}`,
-        name: station.name,
-        address: `${station.province}, South Africa`,
-        distance: station.distanceKm,
-        distanceText: formatDistance(station.distanceKm),
-        duration: estimateDuration(station.distanceKm),
-        location: { lat: station.lat, lng: station.lng },
-        type: 'police' as const,
-        phone: station.phone || '10111',
-      }))
 
-      const hospitals = getNearbyHospitals(lat, lng, 15).map((hosp) => ({
-        id: hosp.id || `hosp-${hosp.name}`,
-        name: hosp.name,
-        address: `${hosp.province}, South Africa`,
-        distance: hosp.distanceKm,
-        distanceText: formatDistance(hosp.distanceKm),
-        duration: estimateDuration(hosp.distanceKm),
-        location: { lat: hosp.lat, lng: hosp.lng },
-        type: 'hospital' as const,
-        phone: hosp.phone || '112',
-      }))
-
-      const combined = [...saps, ...hospitals].sort((a, b) => a.distance - b.distance)
-      setSafePlaces(combined)
-    } catch (e) {
-      console.warn('Failed to compute nearby safe places:', e)
-    }
-  }, [])
 
   // 3. Initialize Mapbox GL Map
   useEffect(() => {
