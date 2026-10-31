@@ -91,7 +91,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Phola-iOS-Simulator
-          path: Phola-iOS-Simulator.zip
+          path: build/derivedData/Build/Products/Release-iphonesimulator/App.app
           if-no-files-found: ignore
 
       - name: Upload Unsigned IPA Artifact
