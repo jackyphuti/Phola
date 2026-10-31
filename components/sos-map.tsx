@@ -48,7 +48,11 @@ import {
   WifiOff,
   Compass,
   ListOrdered,
-  Send
+  Send,
+  Mail,
+  MessageSquare,
+  Copy,
+  Check
 } from 'lucide-react'
 import { generateOfflineSteps, calculateBearing, getCompassCardinal, getShortCompassCardinal } from '@/lib/offline-navigation'
 import { getSOSCallPreference } from '@/lib/user-sync'
@@ -291,6 +295,11 @@ export function SOSMap() {
   // E-Hailing Modal State
   const [showEHailingModal, setShowEHailingModal] = useState(false)
   const [eHailingTargetPlace, setEHailingTargetPlace] = useState<SafePlace | null>(null)
+
+  // Share GPS Modal State
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [recipientEmail, setRecipientEmail] = useState('')
+  const [copiedLink, setCopiedLink] = useState(false)
 
   // Emergency Panel State
   const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
@@ -1174,24 +1183,64 @@ export function SOSMap() {
     setShowEHailingModal(false)
   }
 
-  // Emergency Share Location
-  const shareLocation = async () => {
+  // Emergency Share Location Modal Handlers
+  const shareLocation = () => {
     if (!currentLocation) return
+    setShowShareModal(true)
+  }
 
-    const message = `EMERGENCY! I need immediate help. My GPS coordinates: https://www.openstreetmap.org/?mlat=${currentLocation.lat}&mlon=${currentLocation.lng}#map=16/${currentLocation.lat}/${currentLocation.lng}`
+  const getEmergencySharePayload = () => {
+    if (!currentLocation) return { text: '', url: '', lat: '', lng: '' }
+    const lat = currentLocation.lat.toFixed(5)
+    const lng = currentLocation.lng.toFixed(5)
+    const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`
+    const text = `EMERGENCY ALERT: I need immediate assistance! My current live GPS location is (${lat}, ${lng}). Open in Google Maps: ${mapUrl}`
+    return { text, url: mapUrl, lat, lng }
+  }
 
-    if (navigator.share) {
+  const handleSendEmail = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    const { text } = getEmergencySharePayload()
+    const subject = encodeURIComponent('EMERGENCY: My Live GPS Location')
+    const body = encodeURIComponent(`${text}\n\nSent from Phola Emergency Network.`)
+    const target = recipientEmail.trim() ? encodeURIComponent(recipientEmail.trim()) : ''
+    window.location.href = `mailto:${target}?subject=${subject}&body=${body}`
+  }
+
+  const handleSendWhatsApp = () => {
+    const { text } = getEmergencySharePayload()
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
+    window.open(whatsappUrl, '_blank')
+  }
+
+  const handleSendSMS = () => {
+    const { text } = getEmergencySharePayload()
+    window.location.href = `sms:?body=${encodeURIComponent(text)}`
+  }
+
+  const handleNativeShare = async () => {
+    const { text, url } = getEmergencySharePayload()
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Emergency - My GPS Location',
-          text: message,
+          title: 'Emergency - My Live GPS Location',
+          text,
+          url,
         })
       } catch {
         // User cancelled
       }
-    } else {
-      navigator.clipboard.writeText(message)
-      alert('Emergency location copied to clipboard!')
+    }
+  }
+
+  const handleCopyLocation = async () => {
+    const { text } = getEmergencySharePayload()
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(text)
+        setCopiedLink(true)
+        setTimeout(() => setCopiedLink(false), 2500)
+      } catch {}
     }
   }
 
@@ -1520,33 +1569,22 @@ export function SOSMap() {
           )}
 
           {/* ------------------------------------------------------------- */}
-          {/* HIGHLIGHTED ROUTE & GUIDANCE HUD CARD (Before Starting Nav)   */}
+          {/* SELECTED DESTINATION & ROUTE CARD (Clean Preview)             */}
           {/* ------------------------------------------------------------- */}
           {!isNavigating && selectedPlace && (
-            <Card className="absolute bottom-3 left-3 right-3 z-10 border-2 border-emerald-500/50 bg-white/98 text-slate-900 backdrop-blur-md shadow-2xl rounded-2xl overflow-hidden animate-in slide-in-from-bottom-3 duration-300">
-              {/* Header Ribbon */}
-              <div className="bg-emerald-50/90 border-b border-emerald-100 px-3.5 py-1.5 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                  </span>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900">
-                    Highlighted Route Active • Follow Green Path & Chevrons
-                  </span>
-                </div>
+            <Card className="absolute bottom-3 left-3 right-3 z-10 border border-slate-200/90 bg-white/98 text-slate-900 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden animate-in slide-in-from-bottom-3 duration-250">
+              <CardContent className="p-3.5 sm:p-4 space-y-2.5 relative">
+                {/* Dismiss Button */}
                 <button
                   onClick={clearRoute}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
-                  title="Clear Route"
+                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                  aria-label="Clear destination"
+                  title="Clear destination"
                 >
-                  <X className="w-3.5 h-3.5" />
-                  <span>Clear</span>
+                  <X className="w-4 h-4" />
                 </button>
-              </div>
 
-              <CardContent className="p-3 sm:p-4 space-y-2.5">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-3 pr-8">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
@@ -2224,6 +2262,133 @@ export function SOSMap() {
           >
             Close
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* 8. SHARE GPS LOCATION MODAL */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-md rounded-3xl border border-border/80 bg-background/95 p-5 shadow-2xl backdrop-blur-md">
+          <DialogHeader className="text-left space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary shrink-0">
+                <Share2 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
+                  Share Your Live GPS Location
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Send your coordinates directly to trusted contacts, family, or emergency services.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {currentLocation && (
+            <div className="space-y-4 pt-2">
+              {/* Coordinates Pill */}
+              <div className="rounded-2xl bg-muted/70 border border-border/70 p-3 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="w-4 h-4 text-primary shrink-0" />
+                  <span className="font-mono font-semibold truncate text-foreground text-xs sm:text-sm">
+                    {currentLocation.lat.toFixed(5)}, {currentLocation.lng.toFixed(5)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyLocation}
+                  className="flex items-center gap-1.5 font-bold text-primary hover:text-primary/80 shrink-0 text-xs px-2.5 py-1.5 rounded-lg hover:bg-primary/10 transition-colors"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700 dark:text-emerald-400">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Coordinates</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 1. Send via Email with Input */}
+              <form onSubmit={handleSendEmail} className="space-y-2 rounded-2xl bg-slate-50/80 dark:bg-muted/40 p-3.5 border border-border/60">
+                <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-primary" />
+                  <span>Send to Email:</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    placeholder="Enter recipient email (e.g. mom@gmail.com)"
+                    className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="rounded-xl px-3.5 text-xs font-bold h-9 shrink-0 bg-primary hover:bg-primary/90 text-white shadow-xs"
+                  >
+                    <Send className="w-3.5 h-3.5 mr-1" />
+                    Send
+                  </Button>
+                </div>
+              </form>
+
+              {/* 2. Direct Messaging Channels */}
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-bold text-foreground">Or send instantly via messaging:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {/* WhatsApp */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSendWhatsApp}
+                    className="h-11 justify-center rounded-2xl border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-950 dark:text-emerald-300 font-bold text-xs shadow-2xs"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2 text-emerald-600 shrink-0" />
+                    <span>WhatsApp</span>
+                  </Button>
+
+                  {/* SMS Message */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSendSMS}
+                    className="h-11 justify-center rounded-2xl border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-950 dark:text-sky-300 font-bold text-xs shadow-2xs"
+                  >
+                    <Phone className="w-4 h-4 mr-2 text-sky-600 shrink-0" />
+                    <span>SMS / Text</span>
+                  </Button>
+                </div>
+
+                {/* Native OS Share Sheet */}
+                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleNativeShare}
+                    className="w-full h-10 rounded-2xl text-xs font-bold mt-1 shadow-2xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+                    More Apps (Device Share Sheet)
+                  </Button>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowShareModal(false)}
+                className="w-full rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground mt-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

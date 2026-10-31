@@ -6,7 +6,6 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
     "build:web": "next build",
-    "build:pages": "npx @opennextjs/cloudflare build",
     "cap:init": "npx cap init Phola com.phola.phola --web-dir=public",
     "cap:add:android": "npx cap add android",
     "cap:open:android": "npx cap open android",
@@ -17,10 +16,7 @@
     "build:apk": "node scripts/build-apk.js",
     "start": "next start",
     "import:gbv": "node scripts/import-gbv-media.js",
-    "lint": "eslint .",
-    "build:worker": "npx @opennextjs/cloudflare build",
-    "preview": "npx @opennextjs/cloudflare preview",
-    "deploy": "npx @opennextjs/cloudflare build && npx wrangler deploy"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@capacitor/android": "^5.7.8",
@@ -92,7 +88,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.19.11",
     "@tailwindcss/postcss": "^4.2.0",
     "@types/mapbox-gl": "^3.5.0",
     "@types/node": "^22",
@@ -103,7 +98,6 @@
     "semver": "^7.8.5",
     "tailwindcss": "^4.2.0",
     "tw-animate-css": "1.3.3",
-    "typescript": "5.7.3",
-    "wrangler": "^3.114.0"
+    "typescript": "5.7.3"
   }
 }
