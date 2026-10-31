@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, X, AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 
 /**
@@ -39,26 +37,32 @@ export async function clearAppCacheAndReload(forceReload = true): Promise<void> 
       // Ignore storage errors
     }
 
-    // 4. Force reload with cache-busting query parameter
+    // 4. Force reload with cache-busting query parameter if requested
     if (forceReload) {
       const url = new URL(window.location.href)
       url.searchParams.set('_sync', Date.now().toString())
       window.location.replace(url.toString())
     }
   } catch (err) {
-    console.error('[Phola Cache Cleaner] Error purging cache:', err)
+    console.error('[Phola Cache Service] Error purging cache:', err)
     if (forceReload) {
       window.location.reload()
     }
   }
 }
 
+/**
+ * Headless background cache maintenance service.
+ * Performs silent self-healing in the background without rendering any UI popups or toasts:
+ * 1. Automatically catches ChunkLoadErrors / outdated deployment bundles and purges stale caches.
+ * 2. If initial load hangs past 8 seconds, quietly flushes stale Service Worker caches without UI disruption.
+ * 3. Never renders anything on the DOM (returns null).
+ */
 export function CacheAutoCleaner() {
   const { isLoading } = useAuth()
-  const [showWatchdogBanner, setShowWatchdogBanner] = useState(false)
-  const [isClearing, setIsClearing] = useState(false)
+  const didSilentPurgeRef = useRef(false)
 
-  // 1. ChunkLoadError / Dynamic Script Failure Auto-Healer
+  // 1. Silent ChunkLoadError / Dynamic Script Failure Auto-Healer
   useEffect(() => {
     if (typeof window === 'undefined') return
 
@@ -72,23 +76,22 @@ export function CacheAutoCleaner() {
         msg.includes('Importing a module script failed')
 
       if (isChunkError) {
-        console.warn('[Phola Cache Watchdog] Chunk load error detected:', msg)
+        console.warn('[Phola Cache Service] Background healing chunk mismatch:', msg)
 
-        // Prevent infinite reload loops (limit to 2 auto-reloads per 60 seconds)
+        // Throttle auto-reloads (max 2 attempts per 60 seconds)
         const lastReload = parseInt(window.sessionStorage.getItem('phola_chunk_reload_ts') || '0', 10)
         const reloadCount = parseInt(window.sessionStorage.getItem('phola_chunk_reload_count') || '0', 10)
         const now = Date.now()
 
         if (now - lastReload < 60000 && reloadCount >= 2) {
-          console.error('[Phola Cache Watchdog] Maximum chunk recovery attempts reached.')
-          setShowWatchdogBanner(true)
+          console.error('[Phola Cache Service] Maximum auto-recovery attempts reached.')
           return
         }
 
         window.sessionStorage.setItem('phola_chunk_reload_ts', now.toString())
         window.sessionStorage.setItem('phola_chunk_reload_count', (reloadCount + 1).toString())
 
-        // Immediately purge outdated cached chunks and reload fresh
+        // Silently clear stale chunk cache and reload with fresh bundle
         void clearAppCacheAndReload(true)
       }
     }
@@ -111,84 +114,38 @@ export function CacheAutoCleaner() {
     }
   }, [])
 
-  // 2. Cold-Start Hang Watchdog (ONLY triggers if isLoading remains stuck for > 9 seconds AND not dismissed)
+  // 2. Silent Cold-Start Hang Watchdog (Background only - NO UI)
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     if (!isLoading) {
-      setShowWatchdogBanner(false)
+      didSilentPurgeRef.current = false
       return
     }
 
-    const isDismissed = window.sessionStorage.getItem('phola_resync_banner_dismissed') === 'true'
-    if (isDismissed) return
-
-    // Show manual re-sync banner ONLY if screen is ACTUALLY hanging while loading after 9 seconds
+    // If loading remains stuck past 8 seconds, quietly refresh background caches
     const hangTimeout = setTimeout(() => {
-      if (isLoading) {
-        setShowWatchdogBanner(true)
+      if (isLoading && !didSilentPurgeRef.current) {
+        didSilentPurgeRef.current = true
+        console.warn('[Phola Cache Service] Cold start delayed; executing silent background cache sync.')
+        // Purge caches silently without forcing a hard page reload
+        void clearAppCacheAndReload(false).then(() => {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then((registrations) => {
+              for (const reg of registrations) {
+                void reg.update()
+              }
+            }).catch(() => {})
+          }
+        })
       }
-    }, 9000)
+    }, 8000)
 
     return () => {
       clearTimeout(hangTimeout)
     }
   }, [isLoading])
 
-  const handleDismiss = () => {
-    setShowWatchdogBanner(false)
-    try {
-      window.sessionStorage.setItem('phola_resync_banner_dismissed', 'true')
-    } catch {}
-  }
-
-  const handleManualClean = async () => {
-    setIsClearing(true)
-    await clearAppCacheAndReload(true)
-  }
-
-  if (!showWatchdogBanner) return null
-
-  return (
-    <div
-      role="alert"
-      className="fixed bottom-20 sm:bottom-6 left-4 right-4 z-40 mx-auto max-w-md rounded-2xl border border-border/80 bg-background/95 p-3.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-300"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <RefreshCw className={`h-4 w-4 ${isClearing ? 'animate-spin' : ''}`} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-foreground truncate">
-              Taking longer than usual to load?
-            </p>
-            <p className="text-[11px] text-muted-foreground truncate">
-              Re-sync fresh assets without losing your data.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button
-            size="sm"
-            variant="default"
-            disabled={isClearing}
-            onClick={handleManualClean}
-            className="h-8 rounded-lg px-2.5 text-xs font-semibold shadow-xs"
-          >
-            {isClearing ? 'Re-syncing...' : 'Re-Sync'}
-          </Button>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            aria-label="Dismiss loading banner"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  // Headless background worker: render nothing to the UI
+  return null
 }
