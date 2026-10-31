@@ -30,16 +30,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Install Node dependencies
         run: pnpm install --no-frozen-lockfile
@@ -54,7 +51,7 @@ jobs:
           cd ../..
 
       - name: Build for iOS Simulator
-        if: ${{ github.event.inputs.build_type == 'simulator' || github.event.inputs.build_type == 'both' || github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_type == 'simulator' || github.event.inputs.build_type == 'both' }}
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
@@ -71,7 +68,7 @@ jobs:
           cd ../../../..
 
       - name: Build Unsigned IPA for Device / Sideloading
-        if: ${{ github.event.inputs.build_type == 'unsigned_ipa' || github.event.inputs.build_type == 'both' || github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_type == 'unsigned_ipa' || github.event.inputs.build_type == 'both' }}
         run: |
           xcodebuild -workspace ios/App/App.xcworkspace \
             -scheme App \
