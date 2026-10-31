@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { verifyPin, hasConfiguredPin } from '@/lib/pin'
+import { authenticateWithPasskey } from '@/lib/passkey'
 import { safeExit } from '@/lib/safe-exit'
 import { 
   Fingerprint, 
@@ -109,6 +110,28 @@ export function LockScreen() {
       setIsLoading(false)
     }
   }, [unlock, bioLabel, hasPin])
+
+  const handlePasskeyAuth = async () => {
+    setIsLoading(true)
+    setError('')
+    try {
+      const success = await authenticateWithPasskey()
+      if (success) {
+        setScanSuccess(true)
+        playBiometricSuccessChime()
+        triggerHapticFeedback([40, 60])
+        setTimeout(() => {
+          unlock()
+        }, 360)
+      } else {
+        setError('Passkey verification was cancelled or failed.')
+      }
+    } catch {
+      setError('Passkey verification error.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Check biometric availability and auto-trigger on mount
   useEffect(() => {
@@ -352,18 +375,32 @@ export function LockScreen() {
               )}
             </Button>
 
-            {/* Fallback to PIN Code */}
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setShowPinInput(true)
-                setError('')
-              }}
-              className="w-full text-muted-foreground hover:text-foreground text-xs font-medium rounded-xl h-10 border border-border/50 hover:bg-muted/50"
-            >
-              <KeyRound className="w-3.5 h-3.5 mr-2" />
-              Use Security PIN Code Instead
-            </Button>
+            {/* Alternative Unlock Options */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  setShowPinInput(true)
+                  setError('')
+                }}
+                className="w-full text-muted-foreground hover:text-foreground text-xs font-semibold rounded-xl h-10 border border-border/50 hover:bg-muted/50"
+              >
+                <KeyRound className="w-3.5 h-3.5 mr-1 text-primary" />
+                Use PIN Code
+              </Button>
+
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => void handlePasskeyAuth()}
+                disabled={isLoading || isSigningOut}
+                className="w-full text-muted-foreground hover:text-foreground text-xs font-semibold rounded-xl h-10 border border-border/50 hover:bg-muted/50"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 mr-1 text-primary" />
+                Use Passkey
+              </Button>
+            </div>
           </div>
         )}
 

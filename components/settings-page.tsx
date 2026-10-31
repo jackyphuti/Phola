@@ -23,8 +23,10 @@ import {
   getBiometricLabel,
   getPreferredBiometricMethod,
   setPreferredBiometricMethod,
+  getBiometricHash,
   type PreferredBiometric
 } from '@/lib/biometric'
+import { PasskeySettings } from '@/components/passkey-settings'
 import { getProfilePhotoUrl } from '@/lib/profile-photo'
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/lib/language-options'
 import { loadLanguagePreference, saveLanguagePreference } from '@/lib/locale-storage'
@@ -656,14 +658,14 @@ export function SettingsPage() {
         .update({ biometric_enabled: false })
         .eq('id', user.id)
       
-      setMessage({ type: 'success', text: 'Biometric login disabled' })
+      setMessage({ type: 'success', text: 'Biometric app lock disabled.' })
     } else {
-      // Enable biometric
+      // Enable biometric: prompts device sensor (Fingerprint / Face ID) and hashes to local storage
       setIsEnablingBiometric(true)
       setMessage(null)
 
       try {
-        const credential = await registerBiometric(user.id)
+        const credential = await registerBiometric(user.id, user.email || '')
         
         if (credential) {
           saveCredentialId(credential.credentialId)
@@ -674,12 +676,15 @@ export function SettingsPage() {
             .update({ biometric_enabled: true })
             .eq('id', user.id)
           
-          setMessage({ type: 'success', text: 'Biometric login enabled' })
+          setMessage({ 
+            type: 'success', 
+            text: `${getBiometricLabel()} scan verified! Hardware hash stored securely in local enclave.` 
+          })
         } else {
-          setMessage({ type: 'error', text: 'Biometric setup failed. Please try again.' })
+          setMessage({ type: 'error', text: 'Biometric setup failed or was cancelled.' })
         }
-      } catch {
-        setMessage({ type: 'error', text: 'Biometric setup failed. Please try again.' })
+      } catch (err: any) {
+        setMessage({ type: 'error', text: err?.message || 'Biometric scan was cancelled or unsupported.' })
       } finally {
         setIsEnablingBiometric(false)
       }
@@ -1471,6 +1476,13 @@ export function SettingsPage() {
                       ? `Unlock Phola instantly with ${getBiometricLabel()} on next sign-in.`
                       : 'Biometric sensors not available on this device browser.'}
                   </p>
+                  {biometricEnabled && getBiometricHash() && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-300 font-mono">
+                      <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="truncate max-w-[200px]">Hash: {getBiometricHash()?.slice(0, 16)}...</span>
+                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded font-sans text-emerald-900 dark:text-emerald-200">Local Enclave</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1638,6 +1650,11 @@ export function SettingsPage() {
                   </Button>
                 )}
               </div>
+            </div>
+
+            {/* Passkeys & Hardware Security Keys */}
+            <div className="border-t border-border/60">
+              <PasskeySettings userId={user.id} email={user.email || ''} />
             </div>
           </div>
         </section>

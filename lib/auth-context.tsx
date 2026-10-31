@@ -98,7 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch {}
         }
 
-        const hasSecurity = hasConfiguredPin(p) || Boolean(p.biometric_enabled)
+        const hasSecurity =
+          hasConfiguredPin(p) ||
+          Boolean(p.biometric_enabled) ||
+          (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-biometric-credential-id')))
         if (hasSecurity) {
           const isSessionUnlocked =
             typeof window !== 'undefined' &&
@@ -227,7 +230,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void syncUserData(session.user.id, supabase)
           const p = await fetchProfile(session.user.id)
           if (event === 'SIGNED_IN') {
-            const hasSecurity = hasConfiguredPin(p) || Boolean(p?.biometric_enabled)
+            const hasSecurity =
+              hasConfiguredPin(p) ||
+              Boolean(p?.biometric_enabled) ||
+              (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-biometric-credential-id')))
             if (hasSecurity) {
               // User has configured a PIN or biometrics: require unlock on sign-in
               if (typeof window !== 'undefined') {
@@ -270,7 +276,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const hasSecurity = hasConfiguredPin(profile) || Boolean(profile?.biometric_enabled)
+    const hasSecurity =
+      hasConfiguredPin(profile) ||
+      Boolean(profile?.biometric_enabled) ||
+      (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-biometric-credential-id')))
     if (!hasSecurity) {
       // User has not configured PIN or biometric lock - never lock
       setIsLocked(false)

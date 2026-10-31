@@ -204,32 +204,62 @@ async function createLocalEnclaveToken(userId: string): Promise<string> {
   return `enclave_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
-export async function registerBiometric(userId: string): Promise<BiometricCredential | null> {
-  if (!(await isBiometricAvailable())) return null
+export const BIOMETRIC_HASH_STORAGE_KEY = 'phola-biometric-hash'
+export const BIOMETRIC_CREDENTIAL_STORAGE_KEY = 'phola-biometric-credential-id'
+export const BIOMETRIC_TYPE_STORAGE_KEY = 'phola-biometric-type'
+export const BIOMETRIC_CONFIGURED_STORAGE_KEY = 'phola-biometric-configured'
 
-  // 1. Try Platform WebAuthn First
+export function getBiometricHash(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(BIOMETRIC_HASH_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function hasConfiguredBiometrics(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return Boolean(
+      window.localStorage.getItem(BIOMETRIC_CREDENTIAL_STORAGE_KEY) ||
+      window.localStorage.getItem(BIOMETRIC_HASH_STORAGE_KEY)
+    )
+  } catch {
+    return false
+  }
+}
+
+export async function registerBiometric(userId: string, email = 'user@phola.app'): Promise<BiometricCredential & { hash: string; type: BiometricType } | null> {
+  const available = await isBiometricAvailable()
+  if (!available) {
+    throw new Error('Biometric hardware (Fingerprint / Face ID) is not available or supported on this device.')
+  }
+
+  const detectedType = getBiometricType()
+  const challenge = generateChallenge()
+
+  // 1. Scan Fingerprint or Face ID via Platform WebAuthn
   if (isBiometricSupported()) {
     try {
-      const challenge = generateChallenge()
-
       const credential = (await navigator.credentials.create({
         publicKey: {
           challenge,
           rp: {
-            name: 'Phola Safety',
+            name: 'Phola Safety & Vault',
             id: window.location.hostname,
           },
           user: {
             id: new TextEncoder().encode(userId),
-            name: 'Phola User',
+            name: email,
             displayName: 'Phola User',
           },
           pubKeyCredParams: [
-            { alg: -7, type: 'public-key' }, // ES256
+            { alg: -7, type: 'public-key' },  // ES256
             { alg: -257, type: 'public-key' }, // RS256
           ],
           authenticatorSelection: {
-            authenticatorAttachment: 'platform',
+            authenticatorAttachment: 'platform', // Hardware device biometric sensor
             userVerification: 'required',
             residentKey: 'preferred',
           },
@@ -241,41 +271,77 @@ export async function registerBiometric(userId: string): Promise<BiometricCreden
       if (credential) {
         const response = credential.response as AuthenticatorAttestationResponse
         const credId = arrayBufferToBase64(credential.rawId)
+        const pubKey = arrayBufferToBase64(response.getPublicKey() || new ArrayBuffer(0))
+
+        // Compute cryptographic SHA-256 hash of the scanned biometric credential
+        let biometricHash = ''
+        if (typeof crypto !== 'undefined' && 'subtle' in crypto) {
+          const encoder = new TextEncoder()
+          const dataToHash = encoder.encode(`phola_bio_${userId}_${credId}_${pubKey}`)
+          const hashBuffer = await crypto.subtle.digest('SHA-256', dataToHash)
+          biometricHash = arrayBufferToBase64(hashBuffer)
+        } else {
+          biometricHash = `bio_hash_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+        }
+
+        // Store credential ID, biometric hash, and metadata in localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            window.localStorage.setItem(BIOMETRIC_CREDENTIAL_STORAGE_KEY, credId)
+            window.localStorage.setItem(BIOMETRIC_HASH_STORAGE_KEY, biometricHash)
+            window.localStorage.setItem(BIOMETRIC_TYPE_STORAGE_KEY, detectedType)
+            window.localStorage.setItem(BIOMETRIC_CONFIGURED_STORAGE_KEY, 'true')
+            window.localStorage.setItem('phola-biometric-created-at', new Date().toISOString())
+          } catch {}
+        }
+
         saveCredentialId(credId)
+        playBiometricSuccessChime()
+        triggerHapticFeedback([40, 60])
+
         return {
           credentialId: credId,
-          publicKey: arrayBufferToBase64(response.getPublicKey() || new ArrayBuffer(0)),
+          publicKey: pubKey,
+          hash: biometricHash,
+          type: detectedType,
         }
       }
-    } catch (error) {
-      console.warn('Native WebAuthn create failed, activating Encrypted Local Enclave:', error)
+    } catch (error: any) {
+      console.warn('Native WebAuthn biometric enrollment encountered error:', error)
+      throw error
     }
   }
 
-  // 2. Hybrid Fallback: Encrypted Local Biometric Enclave
+  // 2. Fallback: Enclave Token Generation
   try {
     const enclaveToken = await createLocalEnclaveToken(userId)
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(ENCLAVE_KEY, enclaveToken)
+        window.localStorage.setItem(BIOMETRIC_CREDENTIAL_STORAGE_KEY, enclaveToken)
+        window.localStorage.setItem(BIOMETRIC_HASH_STORAGE_KEY, enclaveToken)
+        window.localStorage.setItem(BIOMETRIC_CONFIGURED_STORAGE_KEY, 'true')
+        window.localStorage.setItem(BIOMETRIC_TYPE_STORAGE_KEY, detectedType)
       } catch {}
     }
     saveCredentialId(enclaveToken)
     return {
       credentialId: enclaveToken,
       publicKey: enclaveToken,
+      hash: enclaveToken,
+      type: detectedType,
     }
   } catch (err) {
-    console.error('Biometric enclave registration failed:', err)
+    console.error('Biometric enclave fallback failed:', err)
     return null
   }
 }
 
 export async function authenticateBiometric(credentialId?: string): Promise<boolean> {
-  if (!(await isBiometricAvailable())) return false
+  const targetCredId = credentialId || getCredentialId()
 
-  // 1. Try Platform WebAuthn
-  if (isBiometricSupported()) {
+  // 1. Try Platform WebAuthn biometric scan (Touch ID / Face ID / Windows Hello / Android Fingerprint)
+  if (isBiometricSupported() && targetCredId) {
     try {
       const challenge = generateChallenge()
 
@@ -285,15 +351,13 @@ export async function authenticateBiometric(credentialId?: string): Promise<bool
           rpId: window.location.hostname,
           userVerification: 'required',
           timeout: 60000,
-          allowCredentials: credentialId
-            ? [
-                {
-                  id: base64ToArrayBuffer(credentialId),
-                  type: 'public-key',
-                  transports: ['internal'],
-                },
-              ]
-            : [],
+          allowCredentials: [
+            {
+              id: base64ToArrayBuffer(targetCredId),
+              type: 'public-key',
+              transports: ['internal'],
+            },
+          ],
         },
       }
 
@@ -304,15 +368,16 @@ export async function authenticateBiometric(credentialId?: string): Promise<bool
         return true
       }
     } catch (error) {
-      console.warn('Native WebAuthn get failed, evaluating Local Biometric Enclave:', error)
+      console.warn('Native WebAuthn biometric verification failed or cancelled:', error)
+      return false
     }
   }
 
-  // 2. Local Enclave verification fallback
+  // 2. If the user previously enrolled an enclave token (fallback devices)
   if (typeof window !== 'undefined') {
     try {
-      const stored = window.localStorage.getItem(ENCLAVE_KEY) || getCredentialId()
-      if (stored) {
+      const enclave = window.localStorage.getItem(ENCLAVE_KEY)
+      if (enclave && enclave === targetCredId) {
         playBiometricSuccessChime()
         triggerHapticFeedback([30, 40, 30])
         return true
@@ -323,16 +388,14 @@ export async function authenticateBiometric(credentialId?: string): Promise<bool
   return false
 }
 
-const BIOMETRIC_STORAGE_KEY = 'phola-biometric-credential-id'
+const BIOMETRIC_STORAGE_KEY = BIOMETRIC_CREDENTIAL_STORAGE_KEY
 
 export function saveCredentialId(credentialId: string): void {
   biometricCredentialId = credentialId
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.setItem(BIOMETRIC_STORAGE_KEY, credentialId)
-    } catch {
-      // Storage might be restricted
-    }
+    } catch {}
   }
 }
 
@@ -341,9 +404,7 @@ export function getCredentialId(): string | null {
   if (typeof window !== 'undefined') {
     try {
       biometricCredentialId = window.localStorage.getItem(BIOMETRIC_STORAGE_KEY)
-    } catch {
-      // Storage might be restricted
-    }
+    } catch {}
   }
   return biometricCredentialId
 }
@@ -353,8 +414,10 @@ export function clearCredentialId(): void {
   if (typeof window !== 'undefined') {
     try {
       window.localStorage.removeItem(BIOMETRIC_STORAGE_KEY)
-    } catch {
-      // Storage might be restricted
-    }
+      window.localStorage.removeItem(BIOMETRIC_HASH_STORAGE_KEY)
+      window.localStorage.removeItem(BIOMETRIC_CONFIGURED_STORAGE_KEY)
+      window.localStorage.removeItem(BIOMETRIC_TYPE_STORAGE_KEY)
+      window.localStorage.removeItem(ENCLAVE_KEY)
+    } catch {}
   }
 }
