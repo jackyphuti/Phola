@@ -612,3 +612,84 @@
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
 }
 
+/* ========================================================================= */
+/* MUTUAL LIVE GUARDIAN BUDDY MARKER */
+/* ========================================================================= */
+.phola-buddy-location-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.buddy-beacon-ring {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: rgba(16, 185, 129, 0.25);
+  border: 2px solid rgba(16, 185, 129, 0.7);
+  animation: user-radar-pulse 2s infinite ease-out;
+  pointer-events: none;
+}
+
+.buddy-beacon-core {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  color: #ffffff;
+}
+
+.buddy-avatar-letter {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.buddy-name-pill {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #064E3B;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.buddy-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #34D399;
+  animation: pulse 1.5s infinite;
+}
+
+.buddy-dist-tag {
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 0.5px 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+}
+

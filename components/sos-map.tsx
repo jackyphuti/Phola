@@ -52,8 +52,16 @@ import {
   Mail,
   MessageSquare,
   Copy,
-  Check
+  Check,
+  Users,
+  UserPlus
 } from 'lucide-react'
+import { GuardianCircleModal } from '@/components/guardian-circle-modal'
+import {
+  fetchLocationShares,
+  broadcastLiveLocation,
+  type LocationBuddy
+} from '@/lib/location-sharing'
 import { generateOfflineSteps, calculateBearing, getCompassCardinal, getShortCompassCardinal } from '@/lib/offline-navigation'
 import { getSOSCallPreference } from '@/lib/user-sync'
 import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
@@ -333,6 +341,12 @@ export function SOSMap() {
   const [showShareModal, setShowShareModal] = useState(false)
   const [recipientEmail, setRecipientEmail] = useState('')
   const [copiedLink, setCopiedLink] = useState(false)
+
+  // Mutual Guardian Circle (Live Location Sharing) State
+  const [showGuardianModal, setShowGuardianModal] = useState(false)
+  const [activeBuddies, setActiveBuddies] = useState<LocationBuddy[]>([])
+  const [incomingRequestsCount, setIncomingRequestsCount] = useState<number>(0)
+  const buddyMarkersRef = useRef<mapboxgl.Marker[]>([])
 
   // Emergency Panel State
   const [showEmergencyPanel, setShowEmergencyPanel] = useState(false)
@@ -625,6 +639,38 @@ export function SOSMap() {
       placesMarkersRef.current.push(marker)
     })
   }, [safePlaces, activeFilter])
+
+  // 6b. Periodically sync Mutual Guardian Buddies & incoming requests
+  useEffect(() => {
+    let isMounted = true
+
+    const syncBuddies = async () => {
+      try {
+        const data = await fetchLocationShares()
+        if (isMounted) {
+          setActiveBuddies(data.active || [])
+          setIncomingRequestsCount(data.incoming?.length || 0)
+        }
+      } catch (err) {
+        console.warn('[Phola Map] Buddy sync error:', err)
+      }
+    }
+
+    void syncBuddies()
+    const timer = setInterval(syncBuddies, 8000)
+
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
+  }, [])
+
+  // Broadcast user's own live coordinates to buddies
+  useEffect(() => {
+    if (currentLocation) {
+      void broadcastLiveLocation(currentLocation)
+    }
+  }, [currentLocation])
 
   // Voice Guidance speech helper
   const speakInstruction = useCallback((text: string) => {
@@ -937,6 +983,108 @@ export function SOSMap() {
       void getRoute(nearest)
     }
   }, [currentLocation, safePlaces, route, getRoute])
+
+  // Update Mutual Guardian Buddy Markers on Mapbox
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    // Clean up old buddy markers
+    buddyMarkersRef.current.forEach((m) => m.remove())
+    buddyMarkersRef.current = []
+
+    activeBuddies.forEach((buddy) => {
+      if (typeof buddy.buddyLat !== 'number' || typeof buddy.buddyLng !== 'number') return
+
+      const el = document.createElement('div')
+      el.className = 'phola-buddy-location-marker'
+      el.title = `${buddy.buddyName} (${buddy.buddyEmail})`
+
+      const distKm = currentLocation
+        ? calculateDistanceKm(currentLocation.lat, currentLocation.lng, buddy.buddyLat, buddy.buddyLng)
+        : 0
+
+      el.innerHTML = `
+        <div class="buddy-beacon-ring"></div>
+        <div class="buddy-beacon-core">
+          <span class="buddy-avatar-letter">${buddy.buddyName ? buddy.buddyName[0].toUpperCase() : 'B'}</span>
+        </div>
+        <div class="buddy-name-pill">
+          <span class="buddy-live-dot"></span>
+          <span class="buddy-name-text">${buddy.buddyName}</span>
+          ${currentLocation ? `<span class="buddy-dist-tag">${formatDistance(distKm)}</span>` : ''}
+        </div>
+      `
+
+      const popupHtml = `
+        <div style="min-width: 190px; font-family: inherit;">
+          <div style="font-weight: 700; font-size: 13px; color: #064E3B;">🟢 ${buddy.buddyName}</div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 1px;">${buddy.buddyEmail}</div>
+          <div style="display: flex; gap: 8px; font-size: 11px; color: #047857; font-weight: 600; margin-top: 5px;">
+            <span>📍 ${formatDistance(distKm)} away</span>
+            <span>⏱️ Live GPS</span>
+          </div>
+        </div>
+      `
+
+      const popup = new mapboxgl.Popup({ offset: 20 }).setHTML(popupHtml)
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([buddy.buddyLng, buddy.buddyLat])
+        .setPopup(popup)
+        .addTo(map)
+
+      el.addEventListener('click', () => {
+        const buddySafePlace: SafePlace = {
+          id: `buddy-${buddy.shareId}`,
+          name: `${buddy.buddyName} (Live)`,
+          address: `Mutual Location Buddy (${buddy.buddyEmail})`,
+          distance: distKm,
+          distanceText: formatDistance(distKm),
+          duration: estimateDuration(distKm),
+          location: { lat: buddy.buddyLat!, lng: buddy.buddyLng! },
+          type: 'police',
+          phone: undefined,
+        }
+        setSelectedPlace(buddySafePlace)
+        void getRoute(buddySafePlace)
+      })
+
+      buddyMarkersRef.current.push(marker)
+    })
+  }, [activeBuddies, currentLocation, getRoute])
+
+  const handleFocusBuddy = useCallback((buddy: LocationBuddy) => {
+    if (typeof buddy.buddyLat !== 'number' || typeof buddy.buddyLng !== 'number') return
+    const distKm = currentLocation
+      ? calculateDistanceKm(currentLocation.lat, currentLocation.lng, buddy.buddyLat, buddy.buddyLng)
+      : 0
+
+    const buddySafePlace: SafePlace = {
+      id: `buddy-${buddy.shareId}`,
+      name: `${buddy.buddyName} (Live)`,
+      address: `Mutual Location Buddy (${buddy.buddyEmail})`,
+      distance: distKm,
+      distanceText: formatDistance(distKm),
+      duration: estimateDuration(distKm),
+      location: { lat: buddy.buddyLat, lng: buddy.buddyLng },
+      type: 'police',
+      phone: undefined,
+    }
+    setSelectedPlace(buddySafePlace)
+    void getRoute(buddySafePlace)
+
+    const map = mapRef.current
+    if (map && currentLocation) {
+      const bounds = new mapboxgl.LngLatBounds()
+      bounds.extend([currentLocation.lng, currentLocation.lat])
+      bounds.extend([buddy.buddyLng, buddy.buddyLat])
+      map.fitBounds(bounds, {
+        padding: { top: 90, bottom: 220, left: 55, right: 55 },
+        duration: 900,
+        maxZoom: 16.5,
+      })
+    }
+  }, [currentLocation, getRoute])
 
   // 8. Start Real In-App Turn-by-Turn Navigation
   const startInAppNavigation = async (place: SafePlace) => {
@@ -1307,13 +1455,32 @@ export function SOSMap() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGuardianModal(true)}
+                className="border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-bold h-9 px-2.5 sm:px-3 flex items-center gap-1.5 shadow-2xs relative"
+                title="Mutual Live Location Sharing (Guardian Circle)"
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="hidden sm:inline">Guardian Circle</span>
+                <span className="sm:hidden">Buddies</span>
+                {incomingRequestsCount > 0 ? (
+                  <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-extrabold animate-pulse">
+                    {incomingRequestsCount}
+                  </span>
+                ) : activeBuddies.length > 0 ? (
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                ) : null}
+              </Button>
+
               <Button
                 variant="outline"
                 size="sm"
                 onClick={shareLocation}
                 disabled={!currentLocation}
-                className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-semibold"
+                className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-semibold h-9"
               >
                 <Share2 className="w-3.5 h-3.5 mr-1 text-primary" />
                 Share GPS
@@ -2386,6 +2553,14 @@ export function SOSMap() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 9. MUTUAL GUARDIAN CIRCLE (FIND MY) MODAL */}
+      <GuardianCircleModal
+        isOpen={showGuardianModal}
+        onClose={() => setShowGuardianModal(false)}
+        currentLocation={currentLocation}
+        onFocusBuddy={handleFocusBuddy}
+      />
     </div>
   )
 }
