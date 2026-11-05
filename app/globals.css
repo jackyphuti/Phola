@@ -693,3 +693,28 @@
   font-weight: 600;
 }
 
+/* Distress state for buddy marker */
+.phola-buddy-location-marker.buddy-in-distress .buddy-beacon-ring {
+  background-color: rgba(220, 38, 38, 0.45);
+  border: 2px solid rgba(220, 38, 38, 0.95);
+  animation: user-radar-pulse 0.9s infinite ease-out;
+}
+
+.phola-buddy-location-marker.buddy-in-distress .buddy-beacon-core {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.9);
+}
+
+.phola-buddy-location-marker.buddy-in-distress .buddy-name-pill {
+  background-color: #991b1b;
+  border-color: #fca5a5;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.5);
+}
+
+.phola-buddy-location-marker.buddy-in-distress .buddy-live-dot {
+  background-color: #fee2e2;
+  animation: pulse 0.5s infinite;
+}
+
+

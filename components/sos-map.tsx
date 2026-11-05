@@ -54,12 +54,15 @@ import {
   Copy,
   Check,
   Users,
-  UserPlus
+  UserPlus,
+  BellRing
 } from 'lucide-react'
 import { GuardianCircleModal } from '@/components/guardian-circle-modal'
 import {
   fetchLocationShares,
   broadcastLiveLocation,
+  pingUnsafeBuddies,
+  resolveDistressPing,
   type LocationBuddy
 } from '@/lib/location-sharing'
 import { generateOfflineSteps, calculateBearing, getCompassCardinal, getShortCompassCardinal } from '@/lib/offline-navigation'
@@ -346,6 +349,8 @@ export function SOSMap() {
   const [showGuardianModal, setShowGuardianModal] = useState(false)
   const [activeBuddies, setActiveBuddies] = useState<LocationBuddy[]>([])
   const [incomingRequestsCount, setIncomingRequestsCount] = useState<number>(0)
+  const [isPingingUnsafe, setIsPingingUnsafe] = useState(false)
+  const [myDistressActive, setMyDistressActive] = useState(false)
   const buddyMarkersRef = useRef<mapboxgl.Marker[]>([])
 
   // Emergency Panel State
@@ -650,6 +655,9 @@ export function SOSMap() {
         if (isMounted) {
           setActiveBuddies(data.active || [])
           setIncomingRequestsCount(data.incoming?.length || 0)
+          if (typeof data.myActiveDistress === 'boolean') {
+            setMyDistressActive(data.myActiveDistress)
+          }
         }
       } catch (err) {
         console.warn('[Phola Map] Buddy sync error:', err)
@@ -997,8 +1005,10 @@ export function SOSMap() {
       if (typeof buddy.buddyLat !== 'number' || typeof buddy.buddyLng !== 'number') return
 
       const el = document.createElement('div')
-      el.className = 'phola-buddy-location-marker'
-      el.title = `${buddy.buddyName} (${buddy.buddyEmail})`
+      el.className = buddy.buddyDistress
+        ? 'phola-buddy-location-marker buddy-in-distress'
+        : 'phola-buddy-location-marker'
+      el.title = `${buddy.buddyName} (${buddy.buddyEmail})${buddy.buddyDistress ? ' - UNSAFE / DISTRESS ACTIVE' : ''}`
 
       const distKm = currentLocation
         ? calculateDistanceKm(currentLocation.lat, currentLocation.lng, buddy.buddyLat, buddy.buddyLng)
@@ -1007,16 +1017,28 @@ export function SOSMap() {
       el.innerHTML = `
         <div class="buddy-beacon-ring"></div>
         <div class="buddy-beacon-core">
-          <span class="buddy-avatar-letter">${buddy.buddyName ? buddy.buddyName[0].toUpperCase() : 'B'}</span>
+          <span class="buddy-avatar-letter">${buddy.buddyDistress ? '!' : (buddy.buddyName ? buddy.buddyName[0].toUpperCase() : 'B')}</span>
         </div>
         <div class="buddy-name-pill">
           <span class="buddy-live-dot"></span>
-          <span class="buddy-name-text">${buddy.buddyName}</span>
+          <span class="buddy-name-text">${buddy.buddyDistress ? '🚨 UNSAFE: ' : ''}${buddy.buddyName}</span>
           ${currentLocation ? `<span class="buddy-dist-tag">${formatDistance(distKm)}</span>` : ''}
         </div>
       `
 
-      const popupHtml = `
+      const popupHtml = buddy.buddyDistress
+        ? `
+        <div style="min-width: 210px; font-family: inherit;">
+          <div style="font-weight: 800; font-size: 13px; color: #b91c1c;">🚨 ${buddy.buddyName} (UNSAFE)</div>
+          <div style="font-size: 11px; color: #7f1d1d; margin-top: 3px; font-style: italic;">&quot;${buddy.buddyDistressMessage || 'I feel unsafe right now!'}&quot;</div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${buddy.buddyEmail}</div>
+          <div style="display: flex; gap: 8px; font-size: 11px; color: #dc2626; font-weight: 700; margin-top: 5px;">
+            <span>📍 ${formatDistance(distKm)} away</span>
+            <span>🚨 DISTRESS RINGING</span>
+          </div>
+        </div>
+      `
+        : `
         <div style="min-width: 190px; font-family: inherit;">
           <div style="font-weight: 700; font-size: 13px; color: #064E3B;">🟢 ${buddy.buddyName}</div>
           <div style="font-size: 11px; color: #64748b; margin-top: 1px;">${buddy.buddyEmail}</div>
@@ -1085,6 +1107,37 @@ export function SOSMap() {
       })
     }
   }, [currentLocation, getRoute])
+
+  // Auto-focus buddy if launched from incoming distress alarm modal
+  useEffect(() => {
+    if (typeof window === 'undefined' || activeBuddies.length === 0) return
+    const params = new URLSearchParams(window.location.search)
+    const targetBuddyId = params.get('focusBuddy')
+    if (targetBuddyId) {
+      const match = activeBuddies.find((b) => b.shareId === targetBuddyId)
+      if (match) {
+        handleFocusBuddy(match)
+      }
+    }
+  }, [activeBuddies, handleFocusBuddy])
+
+  const handleToggleUnsafePing = async () => {
+    if (myDistressActive) {
+      setIsPingingUnsafe(true)
+      await resolveDistressPing()
+      setMyDistressActive(false)
+      setIsPingingUnsafe(false)
+    } else {
+      setIsPingingUnsafe(true)
+      await pingUnsafeBuddies({
+        lat: currentLocation?.lat,
+        lng: currentLocation?.lng,
+        message: 'I feel unsafe right now! Please check my live location and contact me.',
+      })
+      setMyDistressActive(true)
+      setIsPingingUnsafe(false)
+    }
+  }
 
   // 8. Start Real In-App Turn-by-Turn Navigation
   const startInAppNavigation = async (place: SafePlace) => {
@@ -1456,6 +1509,27 @@ export function SOSMap() {
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2">
+              <Button
+                variant={myDistressActive ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={handleToggleUnsafePing}
+                disabled={isPingingUnsafe}
+                className={
+                  myDistressActive
+                    ? 'bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black h-9 px-2.5 sm:px-3 shadow-md animate-pulse border-red-500 flex items-center gap-1.5'
+                    : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100 rounded-xl text-xs font-bold h-9 px-2.5 sm:px-3 flex items-center gap-1.5 shadow-2xs'
+                }
+                title={myDistressActive ? 'I am safe now (cancel distress alarm)' : 'Ring guardian phones: I feel unsafe'}
+              >
+                <BellRing className={`w-3.5 h-3.5 ${myDistressActive ? 'animate-bounce text-white' : 'text-red-600'}`} />
+                <span className="hidden sm:inline">
+                  {myDistressActive ? 'Distress Active' : 'Feel Unsafe'}
+                </span>
+                <span className="sm:hidden">
+                  {myDistressActive ? 'Active' : 'Unsafe'}
+                </span>
+              </Button>
+
               <Button
                 variant="outline"
                 size="sm"

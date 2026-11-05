@@ -13,6 +13,7 @@ import { HighRiskZoneMonitor } from '@/components/high-risk-zone-monitor'
 import { SafetyOnboardingModal } from '@/components/safety-onboarding-modal'
 import { AccountVerifiedModal } from '@/components/account-verified-modal'
 import { CacheAutoCleaner } from '@/components/cache-auto-cleaner'
+import { GuardianDistressAlarmModal } from '@/components/guardian-distress-alarm-modal'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -63,6 +64,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <Suspense fallback={null}>
           <AccountVerifiedModal />
         </Suspense>
+        <GuardianDistressAlarmModal />
         {children}
       </AuthProvider>
     </I18nextProvider>

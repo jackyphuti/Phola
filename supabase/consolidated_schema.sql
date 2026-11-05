@@ -401,6 +401,12 @@ CREATE TABLE IF NOT EXISTS public.location_shares (
   receiver_lat double precision,
   receiver_lng double precision,
   receiver_updated_at timestamptz,
+  sender_distress boolean default false,
+  sender_distress_message text,
+  sender_distress_at timestamptz,
+  receiver_distress boolean default false,
+  receiver_distress_message text,
+  receiver_distress_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

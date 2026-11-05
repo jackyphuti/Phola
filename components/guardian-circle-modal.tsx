@@ -15,7 +15,9 @@ import {
   ShieldCheck,
   Radio,
   Send,
-  AlertCircle
+  AlertCircle,
+  BellRing,
+  AlertTriangle
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -26,6 +28,8 @@ import {
   sendLocationShareInvite,
   respondToLocationShare,
   stopLocationShare,
+  pingUnsafeBuddies,
+  resolveDistressPing,
   type LocationBuddy,
   type LocationSharesState
 } from '@/lib/location-sharing'
@@ -78,6 +82,9 @@ export function GuardianCircleModal({
 }: GuardianCircleModalProps) {
   const [emailInput, setEmailInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPinging, setIsPinging] = useState(false)
+  const [distressNote, setDistressNote] = useState('')
+  const [showNoteInput, setShowNoteInput] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [shares, setShares] = useState<LocationSharesState>({
@@ -146,6 +153,38 @@ export function GuardianCircleModal({
     }
   }
 
+  const handlePingUnsafe = async () => {
+    setIsPinging(true)
+    setMessage(null)
+    const res = await pingUnsafeBuddies({
+      lat: currentLocation?.lat,
+      lng: currentLocation?.lng,
+      message: distressNote.trim() || undefined,
+    })
+    if (res.success) {
+      setMessage({ type: 'success', text: res.message })
+      setDistressNote('')
+      setShowNoteInput(false)
+      await loadData()
+    } else {
+      setMessage({ type: 'error', text: res.message })
+    }
+    setIsPinging(false)
+  }
+
+  const handleResolvePing = async () => {
+    setIsPinging(true)
+    setMessage(null)
+    const res = await resolveDistressPing()
+    if (res.success) {
+      setMessage({ type: 'success', text: res.message })
+      await loadData()
+    } else {
+      setMessage({ type: 'error', text: res.message })
+    }
+    setIsPinging(false)
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md w-full rounded-3xl border border-emerald-200/80 bg-white dark:bg-card p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -185,6 +224,85 @@ export function GuardianCircleModal({
             <span>{message.text}</span>
           </div>
         )}
+
+        {/* 0. GUARDIAN DISTRESS PING (FEEL UNSAFE TRIGGER) */}
+        <div className={`p-4 rounded-3xl border-2 transition-all ${
+          shares.myActiveDistress
+            ? 'bg-red-50 dark:bg-red-950/40 border-red-500 shadow-lg'
+            : 'bg-gradient-to-br from-red-500/10 via-rose-500/5 to-transparent border-red-200 dark:border-red-900/60'
+        } space-y-3`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-red-600 text-white shadow-xs">
+                <BellRing className={`w-4 h-4 ${shares.myActiveDistress ? 'animate-bounce' : ''}`} />
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-red-700 dark:text-red-400">
+                  {shares.myActiveDistress ? 'Distress Ping Active' : 'Feel Unsafe? Ping Circle'}
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  {shares.myActiveDistress
+                    ? 'Ringing your connected guardians now'
+                    : 'Instantly sounds a loud alarm on all connected guardian devices'}
+                </p>
+              </div>
+            </div>
+            {shares.myActiveDistress && (
+              <Badge className="bg-red-600 text-white text-[10px] font-extrabold animate-pulse">
+                RINGING
+              </Badge>
+            )}
+          </div>
+
+          {shares.myActiveDistress ? (
+            <Button
+              onClick={handleResolvePing}
+              disabled={isPinging}
+              className="w-full rounded-2xl bg-white hover:bg-zinc-100 text-red-700 font-extrabold text-xs h-11 border border-red-300 shadow-xs flex items-center justify-center gap-2"
+            >
+              {isPinging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 text-emerald-600" />}
+              <span>I Am Safe Now (Cancel Alarm)</span>
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              {showNoteInput && (
+                <Input
+                  type="text"
+                  value={distressNote}
+                  onChange={(e) => setDistressNote(e.target.value)}
+                  placeholder="Optional note: e.g. Being followed, stranger at door..."
+                  maxLength={120}
+                  className="rounded-xl text-xs h-9 bg-white dark:bg-card border-red-200"
+                />
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handlePingUnsafe}
+                  disabled={isPinging}
+                  className="flex-1 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs h-11 shadow-md shadow-red-500/25 flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
+                >
+                  {isPinging ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Ping Guardians (Ring Phones)</span>
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowNoteInput(!showNoteInput)}
+                  className="rounded-xl text-[11px] text-red-700 dark:text-red-300 h-11 px-2.5 hover:bg-red-100/50"
+                  title="Add custom distress note"
+                >
+                  {showNoteInput ? 'Cancel Note' : '+ Note'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 1. INCOMING REQUESTS (MUST ACCEPT / DECLINE) */}
         {shares.incoming.length > 0 && (

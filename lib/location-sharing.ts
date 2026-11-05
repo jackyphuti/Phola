@@ -13,6 +13,10 @@ export interface LocationBuddy {
   buddyUpdatedAt: string | null
   myLat?: number | null
   myLng?: number | null
+  buddyDistress?: boolean
+  buddyDistressMessage?: string | null
+  buddyDistressAt?: string | null
+  myDistress?: boolean
   status: 'accepted'
   updatedAt: string
 }
@@ -35,6 +39,8 @@ export interface LocationSharesState {
   active: LocationBuddy[]
   incoming: IncomingShareInvite[]
   outgoing: OutgoingShareInvite[]
+  activeDistressPings?: LocationBuddy[]
+  myActiveDistress?: boolean
 }
 
 const LOCAL_STORAGE_KEY = 'phola_cached_location_buddies'
@@ -190,6 +196,71 @@ export async function stopLocationShare(shareId: string): Promise<{ success: boo
     saveCachedBuddies(cached)
 
     return { success: true, message: 'Location sharing stopped.' }
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Network error' }
+  }
+}
+
+/**
+ * Send an emergency distress ping to all accepted guardians.
+ * Triggers their devices to audibly ring and display your live GPS location.
+ */
+export async function pingUnsafeBuddies(params?: {
+  lat?: number
+  lng?: number
+  message?: string
+}): Promise<{ success: boolean; totalNotified?: number; message: string }> {
+  try {
+    const res = await fetch('/api/location-share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'ping_unsafe',
+        message: params?.message || 'I feel unsafe right now! Please check my live location and contact me.',
+        lat: params?.lat,
+        lng: params?.lng,
+      }),
+      credentials: 'include',
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      return { success: false, message: data.error || 'Failed to send distress ping' }
+    }
+
+    return {
+      success: true,
+      totalNotified: data.totalNotified,
+      message: data.message || 'Distress ping sent! Ringing guardian devices.',
+    }
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Network error sending distress ping' }
+  }
+}
+
+/**
+ * Clear the distress ping after user is safe again.
+ */
+export async function resolveDistressPing(): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch('/api/location-share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'resolve_ping',
+      }),
+      credentials: 'include',
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      return { success: false, message: data.error || 'Failed to clear distress status' }
+    }
+
+    return {
+      success: true,
+      message: data.message || 'Distress status cleared. Your guardians know you are safe.',
+    }
   } catch (err: any) {
     return { success: false, message: err?.message || 'Network error' }
   }

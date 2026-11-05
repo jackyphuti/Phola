@@ -26,6 +26,17 @@ const stopSchema = z.object({
   shareId: z.string().trim().uuid(),
 })
 
+const pingUnsafeSchema = z.object({
+  action: z.literal('ping_unsafe'),
+  message: z.string().trim().max(300).optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+})
+
+const resolvePingSchema = z.object({
+  action: z.literal('resolve_ping'),
+})
+
 // GET /api/location-share: Fetch user's active, incoming, and outgoing shares
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +69,11 @@ export async function GET(request: NextRequest) {
       const isReceiver = s.receiver_id === userId || s.receiver_email.toLowerCase() === userEmail
 
       if (s.status === 'accepted') {
+        const isBuddyDistress = Boolean(isSender ? s.receiver_distress : s.sender_distress)
+        const buddyDistressMsg = isSender ? s.receiver_distress_message : s.sender_distress_message
+        const buddyDistressAt = isSender ? s.receiver_distress_at : s.sender_distress_at
+        const isMyDistress = Boolean(isSender ? s.sender_distress : s.receiver_distress)
+
         // Mutual buddy view
         activeList.push({
           shareId: s.id,
@@ -69,6 +85,10 @@ export async function GET(request: NextRequest) {
           buddyUpdatedAt: isSender ? s.receiver_updated_at : s.sender_updated_at,
           myLat: isSender ? s.sender_lat : s.receiver_lat,
           myLng: isSender ? s.sender_lng : s.receiver_lng,
+          buddyDistress: isBuddyDistress,
+          buddyDistressMessage: buddyDistressMsg,
+          buddyDistressAt: buddyDistressAt,
+          myDistress: isMyDistress,
           status: 'accepted',
           updatedAt: s.updated_at,
         })
@@ -91,10 +111,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const activeDistressPings = activeList.filter((b) => b.buddyDistress)
+    const myActiveDistress = activeList.some((b) => b.myDistress)
+
     return NextResponse.json({
       active: activeList,
       incoming: incomingList,
       outgoing: outgoingList,
+      activeDistressPings,
+      myActiveDistress,
     })
   } catch (err: any) {
     console.error('[location-share GET] unexpected error:', err)
@@ -266,6 +291,107 @@ export async function POST(request: NextRequest) {
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
 
       return NextResponse.json({ success: true, message: 'Location sharing stopped.' })
+    }
+
+    // 5. ACTION: PING UNSAFE (TRIGGER AUDIBLE DISTRESS ALARM ON ALL BUDDY DEVICES)
+    if (body.action === 'ping_unsafe') {
+      const parsed = pingUnsafeSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json({ error: 'Invalid ping parameters' }, { status: 400 })
+      }
+
+      const distressMessage = parsed.data.message || 'I feel unsafe right now! Please check my live location and contact me immediately.'
+      const now = new Date().toISOString()
+
+      const senderUpdatePayload: Record<string, any> = {
+        sender_distress: true,
+        sender_distress_message: distressMessage,
+        sender_distress_at: now,
+        updated_at: now,
+      }
+      if (typeof parsed.data.lat === 'number' && typeof parsed.data.lng === 'number') {
+        senderUpdatePayload.sender_lat = parsed.data.lat
+        senderUpdatePayload.sender_lng = parsed.data.lng
+        senderUpdatePayload.sender_updated_at = now
+      }
+
+      const receiverUpdatePayload: Record<string, any> = {
+        receiver_distress: true,
+        receiver_distress_message: distressMessage,
+        receiver_distress_at: now,
+        updated_at: now,
+      }
+      if (typeof parsed.data.lat === 'number' && typeof parsed.data.lng === 'number') {
+        receiverUpdatePayload.receiver_lat = parsed.data.lat
+        receiverUpdatePayload.receiver_lng = parsed.data.lng
+        receiverUpdatePayload.receiver_updated_at = now
+      }
+
+      // Update as sender
+      const { data: updatedSender, error: err1 } = await supabase
+        .from('location_shares')
+        .update(senderUpdatePayload)
+        .eq('sender_id', userId)
+        .eq('status', 'accepted')
+        .select('id')
+
+      if (err1) {
+        console.warn('[location-share ping_unsafe] sender update error:', err1.message)
+      }
+
+      // Update as receiver
+      const { data: updatedReceiver, error: err2 } = await supabase
+        .from('location_shares')
+        .update(receiverUpdatePayload)
+        .or(`receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .eq('status', 'accepted')
+        .select('id')
+
+      if (err2) {
+        console.warn('[location-share ping_unsafe] receiver update error:', err2.message)
+      }
+
+      const totalNotified = (updatedSender?.length || 0) + (updatedReceiver?.length || 0)
+
+      return NextResponse.json({
+        success: true,
+        totalNotified,
+        message: totalNotified > 0
+          ? `Emergency distress ping sent! Ringing ${totalNotified} guardian device(s) now.`
+          : 'Distress ping activated. Invite and connect with guardians in your circle to ring their devices in real-time.',
+        timestamp: now,
+      })
+    }
+
+    // 6. ACTION: RESOLVE PING (I AM SAFE NOW)
+    if (body.action === 'resolve_ping') {
+      const now = new Date().toISOString()
+
+      await supabase
+        .from('location_shares')
+        .update({
+          sender_distress: false,
+          sender_distress_message: null,
+          updated_at: now,
+        })
+        .eq('sender_id', userId)
+        .eq('status', 'accepted')
+
+      await supabase
+        .from('location_shares')
+        .update({
+          receiver_distress: false,
+          receiver_distress_message: null,
+          updated_at: now,
+        })
+        .or(`receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .eq('status', 'accepted')
+
+      return NextResponse.json({
+        success: true,
+        message: 'Distress ping cleared. Your Guardian Circle has been notified that you are safe.',
+        timestamp: now,
+      })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
