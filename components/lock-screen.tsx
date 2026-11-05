@@ -180,8 +180,9 @@ export function LockScreen() {
         return
       }
 
-      if (hasPin && profile?.pin_hash && user?.id) {
-        const isValid = await verifyPin(pin, user.id, profile.pin_hash)
+      const activeUserId = user?.id || 'local_user'
+      if (hasPin) {
+        const isValid = await verifyPin(pin, activeUserId, profile?.pin_hash)
         if (isValid) {
           playBiometricSuccessChime()
           triggerHapticFeedback([40, 60])
