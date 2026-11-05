@@ -350,6 +350,111 @@
   border-radius: 50%;
 }
 
+/* ========================================================================= */
+/* HIGH-VISIBILITY "YOU / ME" USER LOCATION BEACON & RADAR */
+/* ========================================================================= */
+.phola-user-location-marker {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.user-beacon-ring {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background-color: rgba(37, 99, 235, 0.22);
+  border: 2px solid rgba(37, 99, 235, 0.7);
+  animation: user-radar-pulse 2s infinite ease-out;
+  pointer-events: none;
+}
+
+.user-beacon-core {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.user-beacon-center {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ffffff;
+}
+
+.user-me-pill {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #0D6E6E;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+  border: 1.5px solid #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.user-me-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #34D399;
+  animation: pulse 1.5s infinite;
+}
+
+.phola-user-nav-marker {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.user-heading-cone {
+  transition: transform 0.2s ease-out;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes user-radar-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.95;
+  }
+  75% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
 .saps-station-marker {
   width: 32px;
   height: 32px;

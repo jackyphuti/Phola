@@ -386,7 +386,7 @@ export function SOSMap() {
       const cached = getCachedLocation()
       const initialCenter: [number, number] = cached
         ? [cached.lng, cached.lat]
-        : [-25.7479, 28.2293]
+        : [28.2293, -25.7479]
 
       map = new mapboxgl.Map({
         container: mapContainerRef.current,
@@ -530,35 +530,53 @@ export function SOSMap() {
     }
   }, [loadSafePlacesForLocation])
 
-  // 5. Update User Marker (Normal vs Active Navigation Puck)
+  // 5. Update User Marker (High-Visibility Navigation Beacon with "YOU" label)
   useEffect(() => {
     const map = mapRef.current
     if (!map || !currentLocation) return
 
+    const renderMarkerContent = (el: HTMLElement) => {
+      if (isNavigating) {
+        el.className = 'phola-user-nav-marker'
+        el.innerHTML = `
+          <div class="user-heading-cone" style="transform: rotate(${userBearing}deg)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="#2563EB" stroke="#ffffff" stroke-width="2.5">
+              <polygon points="12 2 19 21 12 17 5 21 12 2"/>
+            </svg>
+          </div>
+          <div class="user-me-pill">
+            <span class="user-me-dot"></span>
+            <span class="user-me-text">YOU</span>
+          </div>
+        `
+      } else {
+        el.className = 'phola-user-location-marker'
+        el.innerHTML = `
+          <div class="user-beacon-ring"></div>
+          <div class="user-beacon-core">
+            <div class="user-beacon-center"></div>
+          </div>
+          <div class="user-me-pill">
+            <span class="user-me-dot"></span>
+            <span class="user-me-text">YOU</span>
+          </div>
+        `
+      }
+    }
+
     if (!userMarkerRef.current) {
       const el = document.createElement('div')
-      el.className = isNavigating ? 'nav-user-puck' : 'pulse-emergency-marker'
-      el.title = 'Your Emergency Location'
+      el.title = 'You are here'
+      renderMarkerContent(el)
 
-      if (isNavigating) {
-        el.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="transform: rotate(${userBearing}deg);"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>`
-      }
-
-      const marker = new mapboxgl.Marker({ element: el })
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([currentLocation.lng, currentLocation.lat])
         .addTo(map)
 
       userMarkerRef.current = marker
     } else {
       userMarkerRef.current.setLngLat([currentLocation.lng, currentLocation.lat])
-      const el = userMarkerRef.current.getElement()
-      el.className = isNavigating ? 'nav-user-puck' : 'pulse-emergency-marker'
-
-      if (isNavigating) {
-        el.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="transform: rotate(${userBearing}deg);"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>`
-      } else {
-        el.innerHTML = ''
-      }
+      renderMarkerContent(userMarkerRef.current.getElement())
     }
   }, [currentLocation, isNavigating, userBearing])
 
@@ -760,151 +778,142 @@ export function SOSMap() {
       const map = mapRef.current
       if (map) {
         const renderLayers = () => {
-          const geojsonSource = map.getSource('route-source') as mapboxgl.GeoJSONSource
-          if (geojsonSource) {
-            geojsonSource.setData({
-              type: 'Feature',
+          try {
+            const geojsonSource = map.getSource('route-source') as mapboxgl.GeoJSONSource
+            const routeDataGeoJSON = {
+              type: 'Feature' as const,
               properties: {},
               geometry: {
-                type: 'LineString',
+                type: 'LineString' as const,
                 coordinates: coords,
               },
-            })
-          } else {
-            map.addSource('route-source', {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                  type: 'LineString',
-                  coordinates: coords,
-                },
-              },
-            })
-          }
+            }
 
-          // 1. Route Glow (High-Visibility Emerald Pulse)
-          if (!map.getLayer('route-glow')) {
-            map.addLayer({
-              id: 'route-glow',
-              type: 'line',
-              source: 'route-source',
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round',
-              },
-              paint: {
-                'line-color': '#10B981',
-                'line-width': 16,
-                'line-opacity': 0.45,
-                'line-blur': 3,
-              },
-            })
-          }
+            if (geojsonSource) {
+              geojsonSource.setData(routeDataGeoJSON)
+            } else {
+              map.addSource('route-source', {
+                type: 'geojson',
+                data: routeDataGeoJSON,
+              })
+            }
 
-          // 2. Route Casing (Crisp Contrast White)
-          if (!map.getLayer('route-casing')) {
-            map.addLayer({
-              id: 'route-casing',
-              type: 'line',
-              source: 'route-source',
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round',
-              },
-              paint: {
-                'line-color': '#ffffff',
-                'line-width': 9.5,
-                'line-opacity': 0.95,
-              },
-            })
-          }
-
-          // 3. Core Route Line (Safety Emerald)
-          if (!map.getLayer('route-layer')) {
-            map.addLayer({
-              id: 'route-layer',
-              type: 'line',
-              source: 'route-source',
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round',
-              },
-              paint: {
-                'line-color': '#0D6E6E',
-                'line-width': 5.5,
-                'line-opacity': 1.0,
-              },
-            })
-          }
-
-          // 4. Directional Forward-Facing Chevrons along Route
-          const addArrowSymbols = () => {
-            if (!map.getLayer('route-arrows') && map.hasImage('route-arrow-icon')) {
+            // 1. Route Glow (High-Visibility Emerald Pulse)
+            if (!map.getLayer('route-glow')) {
               map.addLayer({
-                id: 'route-arrows',
-                type: 'symbol',
+                id: 'route-glow',
+                type: 'line',
                 source: 'route-source',
                 layout: {
-                  'symbol-placement': 'line',
-                  'symbol-spacing': 55,
-                  'icon-image': 'route-arrow-icon',
-                  'icon-size': 0.65,
-                  'icon-allow-overlap': true,
-                  'icon-ignore-placement': true,
-                  'icon-rotation-alignment': 'map',
+                  'line-join': 'round',
+                  'line-cap': 'round',
+                },
+                paint: {
+                  'line-color': '#10B981',
+                  'line-width': 16,
+                  'line-opacity': 0.5,
+                  'line-blur': 3,
                 },
               })
             }
+
+            // 2. Route Casing (Crisp Contrast White)
+            if (!map.getLayer('route-casing')) {
+              map.addLayer({
+                id: 'route-casing',
+                type: 'line',
+                source: 'route-source',
+                layout: {
+                  'line-join': 'round',
+                  'line-cap': 'round',
+                },
+                paint: {
+                  'line-color': '#ffffff',
+                  'line-width': 9.5,
+                  'line-opacity': 0.95,
+                },
+              })
+            }
+
+            // 3. Core Route Line (Safety Emerald)
+            if (!map.getLayer('route-layer')) {
+              map.addLayer({
+                id: 'route-layer',
+                type: 'line',
+                source: 'route-source',
+                layout: {
+                  'line-join': 'round',
+                  'line-cap': 'round',
+                },
+                paint: {
+                  'line-color': '#047857',
+                  'line-width': 5.5,
+                  'line-opacity': 1.0,
+                },
+              })
+            }
+          } catch (layerErr) {
+            console.warn('[Phola Map] Vector layer error:', layerErr)
           }
 
-          if (map.hasImage('route-arrow-icon')) {
-            addArrowSymbols()
-          } else {
-            ensureArrowImage(map, addArrowSymbols)
+          // 4. Place High-Visibility Destination Pin Flag
+          try {
+            if (destinationMarkerRef.current) {
+              destinationMarkerRef.current.remove()
+              destinationMarkerRef.current = null
+            }
+
+            const destEl = document.createElement('div')
+            destEl.className = 'destination-route-marker'
+            destEl.innerHTML = `
+              <div class="destination-flag-pill">
+                <span class="destination-icon">${place.type === 'hospital' ? '🏥' : '🛡️'}</span>
+                <span class="destination-name">${place.name}</span>
+                <span class="eta-tag">${computedRoute.duration}</span>
+              </div>
+              <div class="destination-pin-pointer"></div>
+            `
+            const destMarker = new mapboxgl.Marker({ element: destEl, anchor: 'bottom' })
+              .setLngLat([place.location.lng, place.location.lat])
+              .addTo(map)
+
+            destinationMarkerRef.current = destMarker
+          } catch (markerErr) {
+            console.warn('[Phola Map] Destination flag error:', markerErr)
           }
 
-          // 5. Place High-Visibility Destination Pin Flag
-          if (destinationMarkerRef.current) {
-            destinationMarkerRef.current.remove()
-            destinationMarkerRef.current = null
-          }
+          // 5. Smoothly Frame Bounds (Includes both "YOU" beacon and safe haven)
+          if (!isNavigating && coords.length > 0) {
+            try {
+              const bounds = new mapboxgl.LngLatBounds()
+              coords.forEach((coord) => bounds.extend(coord as [number, number]))
+              bounds.extend([currentLocation.lng, currentLocation.lat])
+              bounds.extend([place.location.lng, place.location.lat])
 
-          const destEl = document.createElement('div')
-          destEl.className = 'destination-route-marker'
-          destEl.innerHTML = `
-            <div class="destination-flag-pill">
-              <span class="destination-icon">${place.type === 'hospital' ? '🏥' : '🛡️'}</span>
-              <span class="destination-name">${place.name}</span>
-              <span class="eta-tag">${computedRoute.duration}</span>
-            </div>
-            <div class="destination-pin-pointer"></div>
-          `
-          const destMarker = new mapboxgl.Marker({ element: destEl, anchor: 'bottom' })
-            .setLngLat([place.location.lng, place.location.lat])
-            .addTo(map)
-
-          destinationMarkerRef.current = destMarker
-
-          // 6. Smoothly Frame Bounds
-          if (!isNavigating) {
-            const bounds = coords.reduce(
-              (b, c) => b.extend(c as [number, number]),
-              new mapboxgl.LngLatBounds([currentLocation.lng, currentLocation.lat], [place.location.lng, place.location.lat])
-            )
-            map.fitBounds(bounds, {
-              padding: { top: 85, bottom: 200, left: 45, right: 45 },
-              duration: 800,
-              maxZoom: 16.5,
-            })
+              map.fitBounds(bounds, {
+                padding: { top: 90, bottom: 230, left: 55, right: 55 },
+                duration: 900,
+                maxZoom: 16.5,
+              })
+            } catch (boundsErr) {
+              console.warn('[Phola Map] fitBounds error:', boundsErr)
+            }
           }
         }
 
-        if (!map.isStyleLoaded()) {
-          map.once('style.load', renderLayers)
+        const executeRender = () => {
+          try {
+            renderLayers()
+          } catch (e) {
+            console.warn('[Phola Map] executeRender error:', e)
+          }
+        }
+
+        if (map.isStyleLoaded() || map.loaded()) {
+          executeRender()
         } else {
-          renderLayers()
+          map.once('load', executeRender)
+          map.once('idle', executeRender)
         }
       }
 
@@ -920,15 +929,14 @@ export function SOSMap() {
 
   // Auto-highlight route to nearest safe haven on initial load
   useEffect(() => {
-    if (autoRouteTriggeredRef.current) return
-    if (!currentLocation || safePlaces.length === 0 || route || selectedPlace) return
+    if (!currentLocation || safePlaces.length === 0 || route) return
 
     const nearest = safePlaces.find((p) => p.type === 'police') || safePlaces[0]
-    if (nearest) {
+    if (nearest && !autoRouteTriggeredRef.current) {
       autoRouteTriggeredRef.current = true
       void getRoute(nearest)
     }
-  }, [currentLocation, safePlaces, route, selectedPlace, getRoute])
+  }, [currentLocation, safePlaces, route, getRoute])
 
   // 8. Start Real In-App Turn-by-Turn Navigation
   const startInAppNavigation = async (place: SafePlace) => {
