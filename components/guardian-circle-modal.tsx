@@ -33,6 +33,7 @@ import {
   type LocationBuddy,
   type LocationSharesState
 } from '@/lib/location-sharing'
+import { subscribeForProductionPush } from '@/lib/push-notifications'
 
 interface GuardianCircleModalProps {
   isOpen: boolean
@@ -108,6 +109,7 @@ export function GuardianCircleModal({
     if (isOpen) {
       setIsLoading(true)
       void loadData()
+      void subscribeForProductionPush().catch(() => {})
       const timer = setInterval(() => {
         void loadData()
       }, 7000)

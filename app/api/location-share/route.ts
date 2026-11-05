@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/server-auth'
+import { sendWebPushBatch } from '@/lib/server-web-push'
 import { z } from 'zod'
 
 const inviteSchema = z.object({
@@ -353,11 +354,54 @@ export async function POST(request: NextRequest) {
 
       const totalNotified = (updatedSender?.length || 0) + (updatedReceiver?.length || 0)
 
+      // 5b. DISPATCH MOBILE/WEB PUSH NOTIFICATIONS TO ALL GUARDIANS (Rings them even if outside the app)
+      const myDisplayName = user.user_metadata?.full_name || userEmail.split('@')[0] || 'Your Guardian'
+      try {
+        const { data: acceptedShares } = await supabase
+          .from('location_shares')
+          .select('id, sender_id, receiver_id, sender_name, receiver_name, sender_email, receiver_email')
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+          .eq('status', 'accepted')
+
+        const buddyUserIds: string[] = []
+        for (const s of acceptedShares || []) {
+          if (s.sender_id === userId && s.receiver_id) {
+            buddyUserIds.push(s.receiver_id)
+          } else if (s.receiver_id === userId && s.sender_id) {
+            buddyUserIds.push(s.sender_id)
+          } else if (s.receiver_email?.toLowerCase() === userEmail && s.sender_id) {
+            buddyUserIds.push(s.sender_id)
+          }
+        }
+
+        if (buddyUserIds.length > 0) {
+          const { data: subscriptions } = await supabase
+            .from('push_subscriptions')
+            .select('id, endpoint, p256dh, auth, content_encoding')
+            .in('user_id', buddyUserIds)
+            .eq('is_active', true)
+
+          if (subscriptions && subscriptions.length > 0) {
+            await sendWebPushBatch(subscriptions, {
+              title: `🚨 EMERGENCY: ${myDisplayName} Feels Unsafe!`,
+              body: `Distress Alert: "${distressMessage}". Tap to open live GPS tracking on map.`,
+              href: `/sos`,
+              eventType: 'sos',
+              distress: true,
+              senderName: myDisplayName,
+              sentAt: now,
+            })
+          }
+        }
+      } catch (pushErr) {
+        console.warn('[location-share ping_unsafe] WebPush dispatch error:', pushErr)
+      }
+
       return NextResponse.json({
         success: true,
         totalNotified,
         message: totalNotified > 0
-          ? `Emergency distress ping sent! Ringing ${totalNotified} guardian device(s) now.`
+          ? `Emergency distress ping sent! Ringing ${totalNotified} guardian device(s) and sending push notifications.`
           : 'Distress ping activated. Invite and connect with guardians in your circle to ring their devices in real-time.',
         timestamp: now,
       })

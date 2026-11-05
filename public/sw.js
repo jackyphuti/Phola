@@ -130,6 +130,7 @@ self.addEventListener('push', (event) => {
     title: 'Phola Alert',
     body: 'You have a new update.',
     href: '/dashboard',
+    distress: false,
   }
 
   if (event.data) {
@@ -139,6 +140,7 @@ self.addEventListener('push', (event) => {
         title: parsed?.title || payload.title,
         body: parsed?.body || payload.body,
         href: parsed?.href || payload.href,
+        distress: Boolean(parsed?.distress || parsed?.eventType === 'sos'),
       }
     } catch {
       const text = event.data.text()
@@ -148,22 +150,47 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const isDistress =
+    payload.distress ||
+    payload.title.includes('EMERGENCY') ||
+    payload.title.includes('Unsafe')
+
+  const notificationOptions = {
+    body: payload.body,
+    icon: '/icon-light-32x32.png',
+    badge: '/icon-light-32x32.png',
+    vibrate: isDistress ? [600, 250, 600, 250, 1000, 400, 1000] : [250, 150, 250],
+    tag: isDistress ? 'phola-emergency-distress' : 'phola-update',
+    renotify: true,
+    requireInteraction: isDistress, // Stays persistent on lockscreen & heads-up
+    data: {
+      href: payload.href || (isDistress ? '/sos' : '/dashboard'),
+      distress: isDistress,
+    },
+    actions: isDistress
+      ? [
+          { action: 'track', title: '📍 Track Live on Map' },
+          { action: 'saps', title: '🚔 Call SAPS (10111)' },
+        ]
+      : [],
+  }
+
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: '/icon-light-32x32.png',
-      badge: '/icon-light-32x32.png',
-      data: {
-        href: payload.href,
-      },
-    })
+    self.registration.showNotification(payload.title, notificationOptions)
   )
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const href = event.notification?.data?.href || '/dashboard'
+  if (event.action === 'saps') {
+    event.waitUntil(
+      self.clients.openWindow('tel:10111')
+    )
+    return
+  }
+
+  const href = event.notification?.data?.href || '/sos'
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

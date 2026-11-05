@@ -11,6 +11,7 @@ import { getNearbySAPSStations, getNearbyHospitals } from '@/lib/saps-stations'
 import { getReliableLocation, getCachedLocation, watchReliableLocation, DEFAULT_SOUTH_AFRICA_LOCATION } from '@/lib/geolocation'
 import { launchEHailingWithDestination, RideServiceId } from '@/lib/safe-ride-service'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
@@ -55,7 +56,9 @@ import {
   Check,
   Users,
   UserPlus,
-  BellRing
+  BellRing,
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react'
 import { GuardianCircleModal } from '@/components/guardian-circle-modal'
 import {
@@ -65,6 +68,7 @@ import {
   resolveDistressPing,
   type LocationBuddy
 } from '@/lib/location-sharing'
+import { evaluateLocationSafety, type LocationSafetyReport } from '@/lib/high-risk-zones'
 import { generateOfflineSteps, calculateBearing, getCompassCardinal, getShortCompassCardinal } from '@/lib/offline-navigation'
 import { getSOSCallPreference } from '@/lib/user-sync'
 import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
@@ -1569,6 +1573,73 @@ export function SOSMap() {
       {/* ========================================================================= */}
       <div className={`flex-1 flex flex-col ${isNavigating ? 'p-0 w-full h-screen fixed inset-0 z-[150] bg-background' : 'p-3 sm:p-4 max-w-5xl mx-auto w-full gap-3'}`}>
         
+        {/* LIVE LOCATION REALISTIC RISK & SAFETY STATUS BAR */}
+        {!isNavigating && currentLocation && (() => {
+          const safetyReport = evaluateLocationSafety(currentLocation.lat, currentLocation.lng)
+          return (
+            <div
+              className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 shadow-2xs transition-all ${
+                safetyReport.level === 'high'
+                  ? 'bg-red-50/95 dark:bg-red-950/40 border-red-300 text-red-900 dark:text-red-200'
+                  : safetyReport.level === 'moderate'
+                  ? 'bg-amber-50/95 dark:bg-amber-950/40 border-amber-300 text-amber-950 dark:text-amber-200'
+                  : 'bg-emerald-50/95 dark:bg-emerald-950/40 border-emerald-300 text-emerald-950 dark:text-emerald-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`p-1.5 rounded-xl text-white shrink-0 shadow-xs ${
+                    safetyReport.level === 'high'
+                      ? 'bg-red-600 animate-pulse'
+                      : safetyReport.level === 'moderate'
+                      ? 'bg-amber-600'
+                      : 'bg-emerald-600'
+                  }`}
+                >
+                  {safetyReport.level === 'high' ? (
+                    <AlertTriangle className="w-4 h-4" />
+                  ) : safetyReport.level === 'moderate' ? (
+                    <AlertCircle className="w-4 h-4" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`font-black uppercase tracking-wider text-[10px] px-2 py-0.5 rounded-md ${
+                        safetyReport.level === 'high'
+                          ? 'bg-red-200/90 text-red-900 font-extrabold'
+                          : safetyReport.level === 'moderate'
+                          ? 'bg-amber-200/90 text-amber-950 font-extrabold'
+                          : 'bg-emerald-200/90 text-emerald-900 font-extrabold'
+                      }`}
+                    >
+                      {safetyReport.badgeText}
+                    </span>
+                    <span className="font-bold text-xs truncate">{safetyReport.zoneName}</span>
+                  </div>
+                  <p className="text-[11px] opacity-90 truncate mt-0.5">{safetyReport.advice}</p>
+                </div>
+              </div>
+              {safetyReport.riskFactors && safetyReport.riskFactors.length > 0 && (
+                <Badge
+                  variant="outline"
+                  className={`hidden md:inline-flex text-[10px] shrink-0 ${
+                    safetyReport.level === 'high'
+                      ? 'border-red-300 text-red-800'
+                      : safetyReport.level === 'moderate'
+                      ? 'border-amber-300 text-amber-900'
+                      : 'border-emerald-300 text-emerald-800'
+                  }`}
+                >
+                  {safetyReport.riskFactors[0]}
+                </Badge>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Map Canvas Box */}
         <div className={`overflow-hidden relative ${
           isNavigating 

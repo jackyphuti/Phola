@@ -54,8 +54,10 @@ import { getSOSCallPreference } from '@/lib/user-sync'
 import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 import { getNearbySAPSStations, getNearbyHospitals, getNearbyMalls } from '@/lib/saps-stations'
 import { getCachedLocation } from '@/lib/geolocation'
+import { evaluateLocationSafety } from '@/lib/high-risk-zones'
 
 const SA_RADAR_AREAS = [
+  { name: 'Hatfield (Tshwane)', lat: -25.7505, lng: 28.2385 },
   { name: 'Pretoria CBD (Tshwane)', lat: -25.7479, lng: 28.2293 },
   { name: 'Johannesburg (Central)', lat: -26.2041, lng: 28.0473 },
   { name: 'Soweto (Gauteng)', lat: -26.2485, lng: 27.8540 },
@@ -775,6 +777,38 @@ export function SuperHome({ name }: { name: string }) {
               </Link>
             </div>
           </div>
+
+          {/* Active Area Real-Time Safety Assessment Micro-bar */}
+          {(() => {
+            const safety = evaluateLocationSafety(location.lat, location.lng)
+            return (
+              <div
+                className={`p-2.5 rounded-2xl border text-xs flex items-center justify-between gap-2 shadow-2xs transition-all ${
+                  safety.level === 'high'
+                    ? 'bg-red-50/90 border-red-200 text-red-900'
+                    : safety.level === 'moderate'
+                    ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+                    : 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`font-black uppercase tracking-wider text-[10px] px-2 py-0.5 rounded-md text-white ${
+                      safety.level === 'high'
+                        ? 'bg-red-600'
+                        : safety.level === 'moderate'
+                        ? 'bg-amber-600'
+                        : 'bg-emerald-600'
+                    }`}
+                  >
+                    {safety.badgeText}
+                  </span>
+                  <span className="font-bold text-xs truncate">{safety.zoneName}</span>
+                </div>
+                <span className="text-[11px] opacity-85 truncate hidden sm:inline">{safety.advice}</span>
+              </div>
+            )
+          })()}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             
