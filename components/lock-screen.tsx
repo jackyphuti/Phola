@@ -69,6 +69,13 @@ export function LockScreen() {
   useEffect(() => {
     if (hasPin && !hasBiometric) {
       setShowPinInput(true)
+    } else if (typeof window !== 'undefined') {
+      const preferred = window.localStorage.getItem('phola_preferred_lock_method')
+      if (preferred === 'pin' && hasPin) {
+        setShowPinInput(true)
+      } else if (preferred === 'biometrics' && hasBiometric) {
+        setShowPinInput(false)
+      }
     }
   }, [hasPin, hasBiometric])
 

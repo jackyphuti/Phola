@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { LanguageSelector } from '@/components/language-selector'
+import { hasConfiguredPin } from '@/lib/pin'
 
 const tabs = [
   { label: 'Home', href: '/dashboard', icon: Home },
@@ -40,13 +41,28 @@ const tabs = [
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const { signOut, lock } = useAuth()
+  const { signOut, lock, profile } = useAuth()
   const [isHidden, setIsHidden] = useState<boolean>(true)
   const [isMounted, setIsMounted] = useState(false)
+  const [showSetupLockModal, setShowSetupLockModal] = useState(false)
 
   // Global Stealth Weather Decoy State
   const [isDecoyActive, setIsDecoyActive] = useState(false)
   const [decoyTapCount, setDecoyTapCount] = useState(0)
+
+  const handleLockClick = () => {
+    if (typeof window === 'undefined') return
+    const hasPin = hasConfiguredPin(profile) || Boolean(profile?.pin_hash) || Boolean(window.localStorage.getItem('phola_user_pin'))
+    const hasBio = Boolean(profile?.biometric_enabled) || Boolean(window.localStorage.getItem('phola-biometric-configured') === 'true') || Boolean(window.localStorage.getItem('phola-biometric-credential-id'))
+    const hasPasskey = Boolean(window.localStorage.getItem('phola-local-passkeys'))
+
+    if (!hasPin && !hasBio && !hasPasskey) {
+      setShowSetupLockModal(true)
+      return
+    }
+
+    lock()
+  }
 
   const handleDecoyTap = () => {
     const next = decoyTapCount + 1
@@ -214,7 +230,7 @@ export function AppBottomNav() {
           {/* Quick Biometric Lock Button */}
           <button
             type="button"
-            onClick={() => lock()}
+            onClick={handleLockClick}
             className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 hover:bg-emerald-100/80 active:scale-95 transition-all shadow-2xs"
             title="Lock Vault & App with Biometrics"
             aria-label="Biometric Lock"
@@ -403,6 +419,42 @@ export function AppBottomNav() {
           <span className="text-[10px] mt-0.5">Vault</span>
         </Link>
       </nav>
+      {/* ========================================================================= */}
+      {/* SET UP LOCK SCREEN PROMPT MODAL (If no PIN, Biometrics or Passkey is set) */}
+      {/* ========================================================================= */}
+      {showSetupLockModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="max-w-sm w-full rounded-3xl border border-emerald-200 bg-white dark:bg-card p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
+              <Lock className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Set Up Lock Screen First</h3>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                You haven&apos;t set up an App Lock method yet. Please configure your Security PIN, Device Biometrics (Fingerprint / Face ID), or a Passkey in Settings.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => {
+                  setShowSetupLockModal(false)
+                  router.push('/settings')
+                }}
+                className="w-full rounded-xl bg-primary hover:bg-primary/95 text-white font-bold text-xs h-10 shadow-xs"
+              >
+                Set Up in Settings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowSetupLockModal(false)}
+                className="w-full rounded-xl text-xs h-9 border-slate-200"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

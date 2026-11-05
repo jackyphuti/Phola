@@ -113,18 +113,36 @@ export function SettingsPage() {
   // SOS Call Target Preference ('police' | 'contact')
   const [sosTarget, setSosTarget] = useState<SOSCallTarget>('police')
 
+  // Preferred Lock Mode ('auto' | 'biometrics' | 'pin' | 'passkey')
+  const [preferredLockMode, setPreferredLockMode] = useState<string>('auto')
+
   // Language preference state
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('en')
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false)
 
   useEffect(() => {
     setSosTarget(getSOSCallPreference())
+    if (typeof window !== 'undefined') {
+      const savedMode = window.localStorage.getItem('phola_preferred_lock_method') || 'auto'
+      setPreferredLockMode(savedMode)
+    }
     void loadLanguagePreference().then((lang) => {
       if (lang) {
         setCurrentLanguage(lang)
       }
     })
   }, [])
+
+  const handleSetPreferredLockMode = (mode: string) => {
+    setPreferredLockMode(mode)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('phola_preferred_lock_method', mode)
+    }
+    setMessage({
+      type: 'success',
+      text: `App lock mode updated to: ${mode === 'biometrics' ? 'Biometrics' : mode === 'pin' ? 'PIN Lock' : mode === 'passkey' ? 'Passkey' : 'Auto'}`,
+    })
+  }
 
   const handleSOSTargetChange = async (target: SOSCallTarget) => {
     setSosTarget(target)
@@ -1658,6 +1676,42 @@ export function SettingsPage() {
                 <PasskeySettings userId={user.id} email={user.email || ''} />
               </div>
             )}
+
+            {/* Preferred Lock Method Selector */}
+            <div className="p-5 space-y-3 bg-slate-50/50 dark:bg-muted/20 border-t border-border/60">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-foreground">Preferred App Lock Screen</p>
+                  <p className="text-xs text-muted-foreground">Select your primary authentication mode when locking Phola.</p>
+                </div>
+                <Badge variant="outline" className="border-emerald-200 text-emerald-800 text-[10px] font-bold">
+                  {preferredLockMode === 'biometrics' ? 'Biometrics' : preferredLockMode === 'pin' ? 'PIN Lock' : preferredLockMode === 'passkey' ? 'Passkey' : 'Auto'}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                {[
+                  { id: 'auto', label: 'Auto (Recommended)', desc: 'Biometrics with PIN fallback' },
+                  { id: 'biometrics', label: 'Biometrics', desc: 'Face ID / Fingerprint' },
+                  { id: 'pin', label: 'PIN Code', desc: '4-6 Digit Security PIN' },
+                  { id: 'passkey', label: 'Passkey', desc: 'FIDO2 / Hardware Key' },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleSetPreferredLockMode(option.id)}
+                    className={`flex flex-col items-start p-3 rounded-2xl border text-left transition-all ${
+                      preferredLockMode === option.id
+                        ? 'border-primary bg-emerald-50/80 dark:bg-emerald-950/40 shadow-2xs ring-1 ring-primary'
+                        : 'border-border bg-white dark:bg-card hover:border-border/90'
+                    }`}
+                  >
+                    <span className="text-xs font-bold text-foreground">{option.label}</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{option.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
