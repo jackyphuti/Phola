@@ -250,7 +250,7 @@ export function SOSMap() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'hospital' | 'police'>('all')
 
   const handleBack = useCallback(() => {
-    if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer.includes(window.location.host)) {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back()
     } else {
       router.push('/dashboard')
@@ -377,83 +377,67 @@ export function SOSMap() {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return
 
-    const mapStyle: string | mapboxgl.Style = MAPBOX_TOKEN
-      ? 'mapbox://styles/mapbox/streets-v12'
-      : {
-          version: 8,
-          sources: {
-            'osm-tiles': {
-              type: 'raster',
-              tiles: [
-                'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-              ],
-              tileSize: 256,
-              attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            },
-          },
-          layers: [
-            {
-              id: 'osm-tiles-layer',
-              type: 'raster',
-              source: 'osm-tiles',
-              minzoom: 0,
-              maxzoom: 19,
-            },
-          ],
+    let map: mapboxgl.Map | null = null
+    try {
+      const mapStyle: string | mapboxgl.Style = MAPBOX_TOKEN
+        ? 'mapbox://styles/mapbox/streets-v12'
+        : OSM_RASTER_STYLE
+
+      const cached = getCachedLocation()
+      const initialCenter: [number, number] = cached
+        ? [cached.lng, cached.lat]
+        : [-25.7479, 28.2293]
+
+      map = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: mapStyle,
+        center: initialCenter,
+        zoom: cached ? 14 : 12,
+        attributionControl: true,
+      })
+
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-left')
+
+      map.on('error', (e) => {
+        if (!isRasterFallbackRef.current) {
+          isRasterFallbackRef.current = true
+          console.warn('[Phola Map] Vector style error, falling back to Carto/OSM raster style:', e)
+          try {
+            map?.setStyle(OSM_RASTER_STYLE)
+          } catch (styleErr) {
+            console.error('[Phola Map] Error applying fallback raster style:', styleErr)
+          }
         }
+      })
 
-    const cached = getCachedLocation()
-    const initialCenter: [number, number] = cached
-      ? [cached.lng, cached.lat]
-      : DEFAULT_SA_CENTER
+      map.on('load', () => {
+        map?.resize()
+        if (map) ensureArrowImage(map)
+      })
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: mapStyle,
-      center: initialCenter,
-      zoom: cached ? 14 : 6,
-      attributionControl: true,
-    })
-
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-left')
-
-    map.on('error', (e) => {
-      if (!isRasterFallbackRef.current) {
-        isRasterFallbackRef.current = true
-        console.warn('[Phola Map] Vector style error, falling back to Carto/OSM raster style:', e)
-        try {
-          map.setStyle(OSM_RASTER_STYLE)
-        } catch (styleErr) {
-          console.error('[Phola Map] Error applying fallback raster style:', styleErr)
+      map.on('dragstart', () => {
+        if (isNavigating) {
+          setIsFollowingUser(false)
         }
-      }
-    })
+      })
 
-    map.on('load', () => {
-      map.resize()
-      ensureArrowImage(map)
-    })
-
-    // When user manually pans during navigation, disable auto-following
-    map.on('dragstart', () => {
-      if (isNavigating) {
-        setIsFollowingUser(false)
-      }
-    })
-
-    mapRef.current = map
+      mapRef.current = map
+    } catch (mapErr) {
+      console.warn('[Phola Map] Failed to initialize map instance:', mapErr)
+    }
 
     const resizeObserver = new ResizeObserver(() => {
-      map.resize()
+      mapRef.current?.resize()
     })
-    resizeObserver.observe(mapContainerRef.current)
+    if (mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current)
+    }
 
     return () => {
       resizeObserver.disconnect()
       destinationMarkerRef.current?.remove()
       destinationMarkerRef.current = null
-      map.remove()
+      mapRef.current?.remove()
       mapRef.current = null
     }
   }, [isNavigating])
@@ -473,12 +457,13 @@ export function SOSMap() {
       }
     }
 
-    // Fail-safe: If GPS takes longer than 3.5s, fall back to safe default area
+    // Fail-safe: If GPS takes longer than 2.5s, fall back to safe default area (Pretoria CBD)
+    const PRETORIA_FALLBACK = { lat: -25.7479, lng: 28.2293 }
     const gpsTimeout = setTimeout(() => {
       if (isMounted) {
         setLocationStatus((prev) => {
           if (prev === 'loading') {
-            const fallback = cached || { lat: -25.7479, lng: 28.2293 }
+            const fallback = cached || PRETORIA_FALLBACK
             setCurrentLocation(fallback)
             setSelectedCityName(cached ? 'Cached GPS' : 'Pretoria CBD (Tshwane)')
             loadSafePlacesForLocation(fallback.lat, fallback.lng)
@@ -486,12 +471,12 @@ export function SOSMap() {
               isFirstFixRef.current = false
               mapRef.current.flyTo({ center: [fallback.lng, fallback.lat], zoom: 13 })
             }
-            return 'denied'
+            return 'active'
           }
           return prev
         })
       }
-    }, 3500)
+    }, 2500)
 
     // Fast initial one-shot lookup
     void getReliableLocation().then((coords) => {

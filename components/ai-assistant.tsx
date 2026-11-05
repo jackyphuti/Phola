@@ -326,8 +326,8 @@ export function AIAssistant() {
             <div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
-                  <Sparkles className="mr-1 h-3 w-3 text-primary" />
-                  Gemini 3.8 Flash AI
+                  <ShieldCheck className="mr-1 h-3 w-3 text-primary" />
+                  PHOLA SAFETY ADVISOR
                 </Badge>
               </div>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
@@ -501,6 +501,26 @@ export function AIAssistant() {
             </div>
 
             {error && <p className="text-xs text-destructive font-medium">{error}</p>}
+
+            {/* Immediate Pulsing Typing Indicator */}
+            {isLoading && (
+              <div className="space-y-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/60 p-4 animate-in fade-in duration-150">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs">
+                    <Sparkles className="h-4 w-4 animate-spin text-white" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-emerald-950">Phola Safety Advisor</p>
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-800">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-bounce" />
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-bounce [animation-delay:0.2s]" />
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-bounce [animation-delay:0.4s]" />
+                      <span className="ml-2 font-medium">Assessing South African safety protocol & response...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* AI Advisor Response Display */}
             {response && (

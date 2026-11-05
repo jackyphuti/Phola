@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { 
   Search, 
   ShieldAlert, 
@@ -28,7 +29,8 @@ import {
   AlertTriangle,
   Flame,
   Globe2,
-  Compass
+  Compass,
+  X
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -405,15 +407,15 @@ export function SuperHome({ name }: { name: string }) {
             {/* Emergency Action Dual Console */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-1">
               
-              {/* Box 1: Press & Hold SOS with Circular Radial Progress */}
+              {/* Box 1: Press & Hold SOS with High-Urgency Crimson Styling & Progress Fill */}
               <div 
                 role="button"
                 tabIndex={0}
                 aria-label="Hold SOS panic button for 1.3 seconds"
                 className={`relative overflow-hidden rounded-2xl border p-4 transition-all select-none cursor-pointer ${
                   isSOSHolding 
-                    ? 'border-red-500 bg-red-50/90 shadow-lg scale-[0.99] ring-2 ring-red-400' 
-                    : 'border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-white hover:border-emerald-300 shadow-2xs'
+                    ? 'border-red-600 bg-red-600 text-white shadow-xl scale-[0.98] ring-4 ring-red-400/50' 
+                    : 'border-red-500/80 bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-red-600/25 hover:shadow-lg hover:shadow-red-600/35 active:scale-[0.98]'
                 }`}
                 onPointerDown={startSOSHold}
                 onPointerUp={cancelSOSHold}
@@ -421,24 +423,24 @@ export function SuperHome({ name }: { name: string }) {
                 onPointerCancel={cancelSOSHold}
                 onContextMenu={(e) => e.preventDefault()}
               >
-                {/* Hold Progress Bar */}
+                {/* Hold Linear Fill Bar */}
                 {isSOSHolding && (
                   <div 
-                    className="absolute bottom-0 left-0 top-0 bg-red-500/20 transition-all duration-75"
+                    className="absolute bottom-0 left-0 top-0 bg-red-950/40 transition-none"
                     style={{ width: `${holdProgress}%` }}
                   />
                 )}
 
-                <div className="relative flex items-center justify-between gap-3">
+                <div className="relative z-10 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    {/* Radial Progress Ring around Shield */}
+                    {/* Radial Progress Ring */}
                     <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
                       <svg className="absolute inset-0 h-12 w-12 -rotate-90" viewBox="0 0 44 44">
                         <circle
                           cx="22"
                           cy="22"
                           r="18"
-                          className="stroke-slate-200 dark:stroke-slate-700"
+                          className="stroke-red-900/60"
                           strokeWidth="3.5"
                           fill="transparent"
                         />
@@ -446,7 +448,7 @@ export function SuperHome({ name }: { name: string }) {
                           cx="22"
                           cy="22"
                           r="18"
-                          stroke={isSOSHolding ? '#dc2626' : '#0D6E6E'}
+                          stroke="#ffffff"
                           strokeWidth="3.5"
                           strokeDasharray={113.1}
                           strokeDashoffset={113.1 - (holdProgress / 100) * 113.1}
@@ -456,27 +458,28 @@ export function SuperHome({ name }: { name: string }) {
                         />
                       </svg>
 
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-xs transition-colors ${isSOSHolding ? 'bg-red-600 animate-pulse' : 'bg-primary'}`}>
-                        <Shield className="h-5 w-5" />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs shadow-xs">
+                        <Shield className={`h-5 w-5 text-white ${isSOSHolding ? 'animate-bounce' : ''}`} />
                       </div>
                     </div>
 
                     <div>
-                      <p className="text-sm font-bold text-foreground">
-                        {isSOSHolding ? 'Dispatching Emergency Alert...' : 'Emergency SOS'}
+                      <p className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        {isSOSHolding ? 'TRANSMITTING SOS ALERT...' : 'EMERGENCY SOS'}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-red-100/90 font-medium">
                         {isSOSHolding 
-                          ? `Keep holding: ${Math.max(0, 1.3 - (holdProgress / 100) * 1.3).toFixed(1)}s` 
-                          : 'Hold for 1.3s to alert trusted circle'}
+                          ? `HOLDING... ${Math.max(0, 1.3 - (holdProgress / 100) * 1.3).toFixed(1)}s` 
+                          : 'Press & hold 1.3s to alert trusted circle'}
                       </p>
                     </div>
                   </div>
 
-                  <span className={`text-xs font-mono font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 transition-colors ${
-                    isSOSHolding ? 'bg-red-600 text-white animate-pulse' : 'bg-emerald-100/70 text-emerald-900'
+                  <span className={`text-xs font-mono font-bold uppercase tracking-wider rounded-xl px-3 py-1.5 transition-colors ${
+                    isSOSHolding ? 'bg-white text-red-700 animate-pulse shadow-sm' : 'bg-red-800/80 text-white border border-red-400/40'
                   }`}>
-                    {isSOSHolding ? `${Math.round(holdProgress)}%` : 'Hold SOS'}
+                    {isSOSHolding ? `${Math.round(holdProgress)}%` : 'HOLD SOS'}
                   </span>
                 </div>
               </div>
@@ -537,24 +540,25 @@ export function SuperHome({ name }: { name: string }) {
               placeholder="Search services, report crime, taxi ranks, clinics..."
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
-            {search ? (
+            {search && (
               <button 
                 type="button" 
                 onClick={() => setSearch('')}
-                className="text-xs text-muted-foreground hover:text-foreground font-medium px-1"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-slate-100 transition"
+                title="Clear input"
+                aria-label="Clear search input"
               >
-                Clear
+                <X className="h-3.5 w-3.5" />
               </button>
-            ) : (
-              <Button
-                type="submit"
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-xs text-primary font-semibold hover:bg-emerald-50"
-              >
-                Search
-              </Button>
             )}
+            <Button
+              type="submit"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2.5 text-xs text-primary font-semibold hover:bg-emerald-50 rounded-lg shrink-0"
+            >
+              Search
+            </Button>
           </form>
 
           {/* Quick Suggestion Pills when focused and empty */}
@@ -629,15 +633,15 @@ export function SuperHome({ name }: { name: string }) {
             {/* 1. Safe Ride Watchdog */}
             <div 
               onClick={() => router.push('/safe-ride')}
-              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+              className="group flex flex-col justify-between rounded-2xl border border-amber-200/90 bg-gradient-to-b from-white to-amber-50/20 p-4 shadow-2xs hover:border-amber-400 hover:shadow-md hover:shadow-amber-500/10 cursor-pointer transition-all"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                     <Car className="h-5 w-5" />
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
-                    Uber / Bolt
+                  <Badge variant="secondary" className="bg-amber-50 text-amber-900 border border-amber-200/80 text-[10px] font-bold uppercase tracking-wider">
+                    Watchdog
                   </Badge>
                 </div>
                 <p className="text-sm font-bold text-foreground">Safe Ride Watchdog</p>
@@ -645,47 +649,49 @@ export function SuperHome({ name }: { name: string }) {
                   Arrival countdown and emergency check-in for your trips.
                 </p>
               </div>
-              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
-                Open Watchdog <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              <div className="mt-3.5 pt-2.5 border-t border-amber-100/80 flex items-center justify-between text-xs font-semibold text-amber-700">
+                <span className="text-[11px] font-medium text-amber-800/80">Active GPS Tracking</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
               </div>
             </div>
 
             {/* 2. Report GBV Incident (VAULT) */}
             <div 
               onClick={() => router.push('/reports')}
-              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+              className="group flex flex-col justify-between rounded-2xl border border-indigo-200/90 bg-gradient-to-b from-white to-indigo-50/20 p-4 shadow-2xs hover:border-indigo-400 hover:shadow-md hover:shadow-indigo-500/10 cursor-pointer transition-all"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                     <ShieldAlert className="h-5 w-5" />
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
+                  <Badge variant="secondary" className="bg-indigo-50 text-indigo-900 border border-indigo-200/80 text-[10px] font-bold uppercase tracking-wider">
                     Vault
                   </Badge>
                 </div>
                 <p className="text-sm font-bold text-foreground">Report GBV (VAULT)</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Confidential encrypted vault with police auto-linking.
+                  Confidential encrypted vault with police docket generator.
                 </p>
               </div>
-              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
-                Open Vault <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              <div className="mt-3.5 pt-2.5 border-t border-indigo-100/80 flex items-center justify-between text-xs font-semibold text-indigo-700">
+                <span className="text-[11px] font-medium text-indigo-800/80">Biometric Locked</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
               </div>
             </div>
 
             {/* 3. Report Crime & Theft */}
             <div 
               onClick={() => router.push('/report')}
-              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+              className="group flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/40 p-4 shadow-2xs hover:border-slate-400 hover:shadow-md hover:shadow-slate-500/10 cursor-pointer transition-all"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-500/10 text-slate-800 dark:bg-slate-800 dark:text-slate-200 group-hover:bg-slate-700 group-hover:text-white transition-colors">
                     <FileWarning className="h-5 w-5" />
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
-                    SAPS Ready
+                  <Badge variant="secondary" className="bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-bold uppercase tracking-wider">
+                    SAPS Crime Log
                   </Badge>
                 </div>
                 <p className="text-sm font-bold text-foreground">Report Crime</p>
@@ -693,23 +699,24 @@ export function SuperHome({ name }: { name: string }) {
                   Robbery, assault, vehicle theft and police misconduct.
                 </p>
               </div>
-              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
-                Log Incident <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              <div className="mt-3.5 pt-2.5 border-t border-slate-100/80 flex items-center justify-between text-xs font-semibold text-slate-800">
+                <span className="text-[11px] font-medium text-slate-600">SAPS Docket Ready</span>
+                <span className="flex items-center">Log <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
               </div>
             </div>
 
             {/* 4. SOS Map & Safe Places */}
             <div 
               onClick={() => router.push('/sos')}
-              className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+              className="group flex flex-col justify-between rounded-2xl border border-emerald-200/90 bg-gradient-to-b from-white to-emerald-50/20 p-4 shadow-2xs hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-500/10 cursor-pointer transition-all"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                     <Navigation className="h-5 w-5" />
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 text-[10px] font-semibold uppercase">
-                    Map
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-bold uppercase tracking-wider">
+                    Emergency Radar
                   </Badge>
                 </div>
                 <p className="text-sm font-bold text-foreground">Emergency Map</p>
@@ -717,8 +724,9 @@ export function SuperHome({ name }: { name: string }) {
                   Locate verified SAPS stations, trauma clinics and shelters.
                 </p>
               </div>
-              <div className="mt-3 flex items-center text-xs font-semibold text-primary">
-                Open Map <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" />
+              <div className="mt-3.5 pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs font-semibold text-emerald-800">
+                <span className="text-[11px] font-medium text-emerald-700">Live GPS Radar</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
               </div>
             </div>
 
@@ -759,13 +767,12 @@ export function SuperHome({ name }: { name: string }) {
                 GPS
               </button>
 
-              <button 
-                type="button" 
-                onClick={() => router.push('/nearby')} 
+              <Link 
+                href="/nearby" 
                 className="text-xs font-semibold text-muted-foreground hover:text-primary flex items-center ml-1"
               >
                 Full List <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-              </button>
+              </Link>
             </div>
           </div>
 

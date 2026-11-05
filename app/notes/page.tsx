@@ -82,10 +82,16 @@ export default function NotesPage() {
   }, [user?.id])
 
   const fetchIncidents = useCallback(async () => {
-    if (!user?.id) return
+    if (!user?.id) {
+      setIsLoading(false)
+      return
+    }
     setIsLoading(true)
 
     const localList = getLocalNotes()
+    if (localList.length > 0) {
+      setIncidents(localList)
+    }
 
     try {
       const { data, error } = await supabase
@@ -388,6 +394,92 @@ https://phola.co.za
         </div>
       )}
 
+      {/* Quick Vault Note In-Page Modal */}
+      {showQuickComposer && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <Card className="max-w-lg w-full rounded-3xl border-emerald-200 bg-white shadow-2xl p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
+                  <Zap className="w-5 h-5 fill-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Quick Incident Note</h3>
+                  <p className="text-xs text-muted-foreground">Encrypted locally in your device enclave</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowQuickComposer(false)}
+                className="rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <form onSubmit={handleSaveQuickNote} className="space-y-3">
+              <Textarea
+                value={quickNoteText}
+                onChange={(e) => setQuickNoteText(e.target.value)}
+                placeholder="Type a fast observation, license plate, suspect description, or safety thought..."
+                className="min-h-[110px] text-xs resize-none rounded-xl border-emerald-200 focus-visible:ring-emerald-500"
+                required
+                autoFocus
+              />
+
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <Input
+                  value={quickNoteLocation}
+                  onChange={(e) => setQuickNoteLocation(e.target.value)}
+                  placeholder="Optional Location (e.g. Braamfontein Taxi Rank)"
+                  className="h-9 text-xs rounded-xl flex-1 border-emerald-200"
+                />
+
+                <select
+                  value={quickNoteType}
+                  onChange={(e) => setQuickNoteType(e.target.value)}
+                  className="h-9 text-xs rounded-xl border border-emerald-200 bg-background px-2.5 font-medium text-foreground outline-none w-full sm:w-auto"
+                >
+                  <option value="other">Safety Note</option>
+                  <option value="crime">Suspicious Activity / Crime</option>
+                  <option value="physical">Physical Incident</option>
+                  <option value="stalking">Stalking / Followed</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowQuickComposer(false)}
+                  className="rounded-xl text-xs h-9"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSavingQuickNote || !quickNoteText.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl h-9 px-5 gap-1.5"
+                >
+                  {isSavingQuickNote ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : quickNoteSuccess ? (
+                    <>
+                      <Check className="w-4 h-4" /> Saved!
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" /> Save to Vault
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       {/* SAPS Statement Export Modal */}
       {selectedForStatement && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -488,7 +580,7 @@ https://phola.co.za
 
               <Button
                 size="sm"
-                onClick={() => setShowQuickComposer(!showQuickComposer)}
+                onClick={() => setShowQuickComposer(true)}
                 className="bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold rounded-xl h-9 px-3 gap-1.5"
               >
                 <Zap className="h-3.5 w-3.5 text-emerald-600" />
@@ -505,73 +597,6 @@ https://phola.co.za
               </Button>
             </div>
           </div>
-
-          {/* ========================================================================= */}
-          {/* QUICK VAULT NOTE COMPOSER                                                 */}
-          {/* ========================================================================= */}
-          {showQuickComposer && (
-            <form onSubmit={handleSaveQuickNote} className="mt-4 pt-4 border-t border-emerald-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  Quick Timestamped Note Composer
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowQuickComposer(false)}
-                  className="text-muted-foreground hover:text-foreground text-xs"
-                >
-                  Close
-                </button>
-              </div>
-
-              <Textarea
-                value={quickNoteText}
-                onChange={(e) => setQuickNoteText(e.target.value)}
-                placeholder="Type a fast observation, license plate, suspect description, or safety thought..."
-                className="min-h-[85px] text-xs resize-none rounded-xl border-emerald-200 focus-visible:ring-emerald-500"
-                required
-              />
-
-              <div className="flex flex-col sm:flex-row items-center gap-2">
-                <Input
-                  value={quickNoteLocation}
-                  onChange={(e) => setQuickNoteLocation(e.target.value)}
-                  placeholder="Optional Location (e.g. Braamfontein Taxi Rank)"
-                  className="h-8 text-xs rounded-xl flex-1 border-emerald-200"
-                />
-
-                <select
-                  value={quickNoteType}
-                  onChange={(e) => setQuickNoteType(e.target.value)}
-                  className="h-8 text-xs rounded-xl border border-emerald-200 bg-background px-2.5 font-medium text-foreground outline-none"
-                >
-                  <option value="other">Safety Note</option>
-                  <option value="crime">Suspicious Activity / Crime</option>
-                  <option value="physical">Physical Incident</option>
-                  <option value="stalking">Stalking / Followed</option>
-                </select>
-
-                <Button
-                  type="submit"
-                  disabled={isSavingQuickNote || !quickNoteText.trim()}
-                  className="w-full sm:w-auto h-8 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-1 px-4"
-                >
-                  {isSavingQuickNote ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : quickNoteSuccess ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" /> Saved!
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" /> Save to Vault
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          )}
         </section>
 
         {/* ========================================================================= */}
@@ -625,31 +650,28 @@ https://phola.co.za
         {/* ========================================================================= */}
         {/* INCIDENT LIST / EMPTY STATE                                               */}
         {/* ========================================================================= */}
-        {isLoading ? (
+        {isLoading && incidents.length === 0 ? (
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse rounded-2xl border-emerald-100 bg-white p-4">
-                <div className="h-4 bg-slate-100 rounded w-1/4 mb-2" />
-                <div className="h-3 bg-slate-100 rounded w-3/4" />
-              </Card>
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-20 rounded-2xl bg-slate-200/70 animate-pulse" />
             ))}
           </div>
         ) : filteredIncidents.length === 0 ? (
-          <div className="rounded-3xl border border-emerald-100 bg-white p-8 text-center space-y-4 shadow-2xs">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center space-y-4 shadow-2xs">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-primary">
               <FileText className="h-7 w-7" />
             </div>
             <div className="max-w-sm mx-auto">
-              <h3 className="text-base font-bold text-foreground">No Incident Notes Found</h3>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                {search ? 'Try clearing your search term to see all saved records.' : 'Capture quick notes, witness statements, or official GBV incidents securely in your personal vault.'}
+              <h3 className="text-sm font-bold text-slate-800">No encrypted records stored yet</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Incident logs, audio notes, and photos added here are encrypted locally on your device.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 pt-1">
               <Button
                 onClick={() => setShowQuickComposer(true)}
                 variant="outline"
-                className="border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl px-4 h-9"
+                className="border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl px-4 h-9 hover:bg-emerald-50"
               >
                 <Zap className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
                 Quick Note

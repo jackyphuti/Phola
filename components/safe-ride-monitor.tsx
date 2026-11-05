@@ -85,6 +85,7 @@ export function SafeRideMonitor() {
   const [linkCopied, setLinkCopied] = useState(false)
   const [checkInFeedback, setCheckInFeedback] = useState(false)
   const [isLaunching, setIsLaunching] = useState(false)
+  const [validationError, setValidationError] = useState('')
 
   const alertIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -194,14 +195,23 @@ export function SafeRideMonitor() {
 
   // Handlers
   const handleStartRide = (andLaunchApp: boolean) => {
+    const trimmedDestination = destination.trim()
+    const trimmedTripLink = tripLink.trim()
+
+    if (!trimmedDestination && !trimmedTripLink) {
+      setValidationError('Please enter a destination or paste a trip link to start watchdog monitoring.')
+      return
+    }
+
+    setValidationError('')
     setIsLaunching(true)
 
     const newSession = startSafeRideSession({
       serviceId: selectedService,
-      destination: destination || 'My Destination',
+      destination: trimmedDestination || 'Shared Trip Link Route',
       expectedDurationMinutes: durationMinutes,
       notes,
-      tripLink,
+      tripLink: trimmedTripLink || undefined,
       startLocation: currentCoords || undefined,
       contactName: contactName || 'My Emergency Contact',
       contactPhone: contactPhone || undefined,
@@ -588,14 +598,22 @@ export function SafeRideMonitor() {
               </CardHeader>
               <CardContent className="space-y-4 pb-4">
                 <div>
-                  <label className="text-xs font-medium text-foreground">Where are you going?</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-foreground">Where are you going? <span className="text-red-600">*</span></label>
+                    {validationError && (
+                      <span className="text-[11px] font-semibold text-red-600 animate-pulse">Required to monitor trip</span>
+                    )}
+                  </div>
                   <div className="relative mt-1">
                     <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="e.g. Hatfield Plaza, Home, Menlyn"
                       value={destination}
-                      onChange={(e) => setDestination(e.target.value)}
-                      className="pl-9 text-sm"
+                      onChange={(e) => {
+                        setDestination(e.target.value)
+                        if (validationError) setValidationError('')
+                      }}
+                      className={`pl-9 text-sm ${validationError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                     />
                   </div>
                 </div>
@@ -701,6 +719,14 @@ export function SafeRideMonitor() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Validation Error Alert */}
+            {validationError && (
+              <div className="rounded-2xl border border-red-300 bg-red-50/90 p-3.5 text-xs text-red-800 flex items-center gap-2.5 animate-in fade-in duration-150">
+                <AlertOctagon className="h-4 w-4 shrink-0 text-red-600" />
+                <span className="font-medium">{validationError}</span>
+              </div>
+            )}
 
             {/* Primary Action Buttons */}
             <div className="space-y-2 pt-1">
