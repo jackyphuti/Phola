@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 
       if (insertError) {
         console.warn('[location-share] Insert error:', insertError.message)
-        return NextResponse.json({ error: 'Failed to create location share invite' }, { status: 500 })
+        return NextResponse.json({ error: insertError.message || 'Failed to create location share invite' }, { status: 500 })
       }
 
       return NextResponse.json({
