@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { INCIDENT_TYPE_LABELS, type Incident, type IncidentType } from '@/lib/types'
 import { AppBottomNav } from '@/components/app-bottom-nav'
+import { hasConfiguredPin } from '@/lib/pin'
 import { 
   ArrowLeft, 
   Plus, 
@@ -61,6 +62,20 @@ export default function NotesPage() {
   // SAPS Statement Generator Modal State
   const [selectedForStatement, setSelectedForStatement] = useState<Incident | null>(null)
   const [statementCopied, setStatementCopied] = useState(false)
+  const [showSetupLockPrompt, setShowSetupLockPrompt] = useState(false)
+
+  const handleLockVaultClick = () => {
+    if (typeof window === 'undefined') return
+    const hasPin = hasConfiguredPin(profile) || Boolean(profile?.pin_hash) || Boolean(window.localStorage.getItem('phola_user_pin'))
+    const hasBio = Boolean(profile?.biometric_enabled) || window.localStorage.getItem('phola-biometric-configured') === 'true' || Boolean(window.localStorage.getItem('phola-biometric-credential-id'))
+    const hasPasskey = Boolean(window.localStorage.getItem('phola-local-passkeys'))
+
+    if (!hasPin && !hasBio && !hasPasskey) {
+      setShowSetupLockPrompt(true)
+      return
+    }
+    lock()
+  }
   
   const [supabase] = useState(() => createClient())
 
@@ -359,6 +374,41 @@ https://phola.co.za
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       
+      {/* Set Up Lock Prompt Modal */}
+      {showSetupLockPrompt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <Card className="max-w-sm w-full rounded-3xl border-emerald-200 bg-white shadow-2xl p-6 text-center space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
+              <Lock className="h-7 w-7" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Set Up Vault Lock First</h3>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                Configure a 4-6 digit Security PIN, Device Biometrics (Fingerprint / Face ID), or a Passkey in Settings to lock your Vault.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
+              <Button
+                onClick={() => {
+                  setShowSetupLockPrompt(false)
+                  router.push('/settings')
+                }}
+                className="w-full rounded-xl bg-primary hover:bg-primary/95 text-white font-bold text-xs h-10"
+              >
+                Set Up Lock in Settings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowSetupLockPrompt(false)}
+                className="w-full rounded-xl text-xs h-9"
+              >
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -570,7 +620,7 @@ https://phola.co.za
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => lock()}
+                onClick={handleLockVaultClick}
                 className="border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold rounded-xl h-9 px-3 gap-1.5 shadow-2xs"
                 title="Immediately lock the vault with biometrics or PIN"
               >

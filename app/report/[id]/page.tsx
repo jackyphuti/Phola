@@ -15,8 +15,8 @@ export default function EditReportPage() {
   const { user, isLoading: authLoading, isLocked } = useAuth()
   const [incident, setIncident] = useState<Incident | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  
-  const supabase = createClient()
+
+  const [supabase] = useState(() => createClient())
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -26,22 +26,54 @@ export default function EditReportPage() {
 
     if (user && params.id) {
       const fetchIncident = async () => {
-        const { data } = await supabase
-          .from('incidents')
-          .select('*')
-          .eq('id', params.id)
-          .eq('user_id', user.id)
-          .single()
-        
-        if (data) {
-          setIncident(data as Incident)
-        } else {
-          router.push('/dashboard')
+        const targetId = String(params.id)
+
+        // 1. Check local vault storage first
+        let localFound: Incident | null = null
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = window.localStorage.getItem(`phola_vault_local_notes_${user.id}`)
+            if (raw) {
+              const list: Incident[] = JSON.parse(raw)
+              localFound = list.find((item) => item.id === targetId) || null
+            }
+          } catch {}
         }
-        setIsLoading(false)
+
+        if (localFound && targetId.startsWith('local_')) {
+          setIncident(localFound)
+          setIsLoading(false)
+          return
+        }
+
+        // 2. Query Supabase
+        try {
+          const { data } = await supabase
+            .from('incidents')
+            .select('*')
+            .eq('id', targetId)
+            .eq('user_id', user.id)
+            .single()
+
+          if (data) {
+            setIncident(data as Incident)
+          } else if (localFound) {
+            setIncident(localFound)
+          } else {
+            router.push('/reports')
+          }
+        } catch {
+          if (localFound) {
+            setIncident(localFound)
+          } else {
+            router.push('/reports')
+          }
+        } finally {
+          setIsLoading(false)
+        }
       }
-      
-      fetchIncident()
+
+      void fetchIncident()
     }
   }, [user, authLoading, params.id, router, supabase])
 
@@ -66,7 +98,7 @@ export default function EditReportPage() {
   }
 
   return (
-    <ReportForm 
+    <ReportForm
       incidentId={incident.id}
       initialData={{
         incident_type: incident.incident_type,

@@ -56,14 +56,19 @@ export function LockScreen() {
 
   const bioLabel = getBiometricLabel(selectedModality)
   const hasPin = hasConfiguredPin(profile)
-  const hasBiometric = Boolean(profile?.biometric_enabled) || Boolean(getCredentialId())
+  const hasBiometric =
+    Boolean(profile?.biometric_enabled) ||
+    Boolean(getCredentialId()) ||
+    (typeof window !== 'undefined' && window.localStorage.getItem('phola-biometric-configured') === 'true')
+  const hasPasskey =
+    typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-local-passkeys'))
 
-  // Safety: If the user never configured a PIN and never enabled biometrics, never trap them
+  // Safety: If the user never configured a PIN, biometrics, or passkeys, never trap them
   useEffect(() => {
-    if (!hasPin && !hasBiometric) {
+    if (!hasPin && !hasBiometric && !hasPasskey) {
       unlock()
     }
-  }, [hasPin, hasBiometric, unlock])
+  }, [hasPin, hasBiometric, hasPasskey, unlock])
 
   // If user only configured PIN and not biometric, default to showing PIN input
   useEffect(() => {

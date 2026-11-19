@@ -24,6 +24,7 @@ import {
 } from '@/lib/location-sharing'
 import { emergencyRingtone } from '@/lib/emergency-ringtone'
 import { useAuth } from '@/lib/auth-context'
+import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371
@@ -305,20 +306,36 @@ export function GuardianDistressAlarmModal() {
             </Button>
 
             <div className="grid grid-cols-2 gap-2">
-              <a
-                href={`tel:${activeDistressBuddy?.buddyEmail}`}
-                className="w-full"
-                onClick={handleSilence}
-              >
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full rounded-xl border-slate-300 text-slate-800 dark:text-slate-200 font-bold text-xs h-10 flex items-center justify-center gap-1.5 hover:bg-slate-100"
-                >
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Call Buddy</span>
-                </Button>
-              </a>
+              {(() => {
+                const storedContacts = getStoredEmergencyContacts(user?.id)
+                const bName = (activeDistressBuddy?.buddyName || '').toLowerCase()
+                const matchedContact =
+                  storedContacts.find((c) => bName && c.name.toLowerCase().includes(bName)) ||
+                  storedContacts.find((c) => c.is_primary) ||
+                  storedContacts[0]
+                const dialHref = matchedContact?.phone
+                  ? `tel:${matchedContact.phone.replace(/[^\d+]/g, '')}`
+                  : activeDistressBuddy?.buddyEmail
+                  ? `mailto:${activeDistressBuddy.buddyEmail}?subject=${encodeURIComponent('Phola Urgent Check-In: Are you safe?')}`
+                  : 'tel:0800428428'
+
+                return (
+                  <a
+                    href={dialHref}
+                    className="w-full"
+                    onClick={handleSilence}
+                  >
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full rounded-xl border-slate-300 text-slate-800 dark:text-slate-200 font-bold text-xs h-10 flex items-center justify-center gap-1.5 hover:bg-slate-100"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{matchedContact?.phone ? 'Call Buddy' : 'Contact Buddy'}</span>
+                    </Button>
+                  </a>
+                )
+              })()}
 
               <a href="tel:10111" className="w-full" onClick={handleSilence}>
                 <Button

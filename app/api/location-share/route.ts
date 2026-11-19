@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/server-auth'
 import { sendWebPushBatch } from '@/lib/server-web-push'
 import { z } from 'zod'
+
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createAdminClient(url, key)
+}
 
 const inviteSchema = z.object({
   action: z.literal('invite'),
@@ -53,7 +61,7 @@ export async function GET(request: NextRequest) {
     const { data: shares, error } = await supabase
       .from('location_shares')
       .select('*')
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
       .order('updated_at', { ascending: false })
 
     if (error) {
@@ -156,7 +164,7 @@ export async function POST(request: NextRequest) {
       const { data: existing } = await supabase
         .from('location_shares')
         .select('id, status')
-        .or(`and(sender_id.eq.${userId},receiver_email.ilike.${receiverEmail}),and(sender_email.ilike.${receiverEmail},receiver_id.eq.${userId})`)
+        .or(`and(sender_id.eq.${userId},receiver_email.ilike."${receiverEmail}"),and(sender_email.ilike."${receiverEmail}",receiver_id.eq.${userId})`)
         .in('status', ['pending', 'accepted'])
         .limit(1)
 
@@ -221,7 +229,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', shareId)
-        .or(`receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .or(`receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
         .select()
         .single()
 
@@ -269,7 +277,7 @@ export async function POST(request: NextRequest) {
           receiver_updated_at: now,
           updated_at: now,
         })
-        .or(`receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .or(`receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
         .eq('status', 'accepted')
 
       return NextResponse.json({ success: true, timestamp: now })
@@ -289,7 +297,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', parsed.data.shareId)
-        .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
 
       return NextResponse.json({ success: true, message: 'Location sharing stopped.' })
     }
@@ -344,7 +352,7 @@ export async function POST(request: NextRequest) {
       const { data: updatedReceiver, error: err2 } = await supabase
         .from('location_shares')
         .update(receiverUpdatePayload)
-        .or(`receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .or(`receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
         .eq('status', 'accepted')
         .select('id')
 
@@ -360,7 +368,7 @@ export async function POST(request: NextRequest) {
         const { data: acceptedShares } = await supabase
           .from('location_shares')
           .select('id, sender_id, receiver_id, sender_name, receiver_name, sender_email, receiver_email')
-          .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
           .eq('status', 'accepted')
 
         const buddyUserIds: string[] = []
@@ -375,7 +383,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (buddyUserIds.length > 0) {
-          const { data: subscriptions } = await supabase
+          const pushClient = getSupabaseAdmin() || supabase
+          const { data: subscriptions } = await pushClient
             .from('push_subscriptions')
             .select('id, endpoint, p256dh, auth, content_encoding')
             .in('user_id', buddyUserIds)
@@ -428,7 +437,7 @@ export async function POST(request: NextRequest) {
           receiver_distress_message: null,
           updated_at: now,
         })
-        .or(`receiver_id.eq.${userId},receiver_email.ilike.${userEmail}`)
+        .or(`receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
         .eq('status', 'accepted')
 
       return NextResponse.json({
