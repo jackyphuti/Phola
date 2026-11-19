@@ -250,6 +250,9 @@ export function SOSMap() {
   const destinationMarkerRef = useRef<mapboxgl.Marker | null>(null)
   const watchIdRef = useRef<number | null>(null)
   const lastSpokenRef = useRef<string>('')
+  const announcedStepThresholdsRef = useRef<Record<string, boolean>>({})
+  const wakeLockRef = useRef<any>(null)
+  const lastCourseReminderAtRef = useRef<number>(0)
   const isFirstFixRef = useRef<boolean>(true)
   const autoRouteTriggeredRef = useRef<boolean>(false)
   const isRasterFallbackRef = useRef<boolean>(false)
@@ -322,6 +325,7 @@ export function SOSMap() {
   // In-App Navigation State
   const [isNavigating, setIsNavigating] = useState(false)
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [liveDistanceToNextManeuverMeters, setLiveDistanceToNextManeuverMeters] = useState<number | null>(null)
   const [isVoiceMuted, setIsVoiceMuted] = useState(false)
   const [isFollowingUser, setIsFollowingUser] = useState(true)
   const [userBearing, setUserBearing] = useState<number>(0)
@@ -827,22 +831,91 @@ export function SOSMap() {
     }
   }, [currentLocation])
 
-  // Voice Guidance speech helper
-  const speakInstruction = useCallback((text: string) => {
+  // Voice Guidance speech helper (Hands-Free Driving AI Voice Assistant)
+  const speakInstruction = useCallback((text: string, options?: { force?: boolean; priority?: boolean }) => {
     if (isVoiceMuted || typeof window === 'undefined' || !('speechSynthesis' in window)) return
-    if (lastSpokenRef.current === text) return
+    const cleanText = text.trim()
+    if (!cleanText) return
+    if (!options?.force && lastSpokenRef.current === cleanText) return
 
-    lastSpokenRef.current = text
+    lastSpokenRef.current = cleanText
     try {
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-ZA'
-      utterance.rate = 1.0
-      window.speechSynthesis.speak(utterance)
+      const synth = window.speechSynthesis
+      // Wake up paused synthesis engine on mobile Chrome / Android WebView / iOS Safari
+      if (synth.paused) {
+        synth.resume()
+      }
+      if (options?.priority !== false) {
+        synth.cancel()
+      }
+
+      const utterance = new SpeechSynthesisUtterance(cleanText)
+      const voices = synth.getVoices()
+      const preferredVoice =
+        voices.find((v) => v.lang.toLowerCase().includes('en-za')) ||
+        voices.find((v) => v.lang.toLowerCase().includes('en-gb')) ||
+        voices.find((v) => v.lang.toLowerCase().startsWith('en'))
+      if (preferredVoice) {
+        utterance.voice = preferredVoice
+        utterance.lang = preferredVoice.lang
+      } else {
+        utterance.lang = 'en-ZA'
+      }
+      utterance.rate = 0.98
+      utterance.pitch = 1.0
+      utterance.volume = 1.0
+
+      synth.speak(utterance)
     } catch {
       // ignore audio error
     }
   }, [isVoiceMuted])
+
+  // Request / release Screen Wake Lock so phone never sleeps while driving
+  const requestDrivingWakeLock = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+    try {
+      if (!wakeLockRef.current) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen')
+        wakeLockRef.current.addEventListener?.('release', () => {
+          wakeLockRef.current = null
+        })
+      }
+    } catch {
+      // wakeLock not granted or unsupported
+    }
+  }, [])
+
+  const releaseDrivingWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release()
+      } catch {}
+      wakeLockRef.current = null
+    }
+  }, [])
+
+  // Keep speechSynthesis voices loaded & keep wakeLock active on visibility restore
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices()
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices()
+      }
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isNavigatingRef.current) {
+        void requestDrivingWakeLock()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      void releaseDrivingWakeLock()
+    }
+  }, [requestDrivingWakeLock, releaseDrivingWakeLock])
 
   // 7. Route Polyline & Turn-By-Turn Steps Fetching
   const getRoute = useCallback(async (place: SafePlace): Promise<RouteInfo | null> => {
@@ -1208,16 +1281,35 @@ export function SOSMap() {
     }
   }
 
-  // 8. Start Real In-App Turn-by-Turn Navigation
+  // 8. Start Real In-App Turn-by-Turn Navigation (Hands-Free Driving Voice Guidance)
   const startInAppNavigation = async (place: SafePlace) => {
     setSelectedPlace(place)
     setHasArrived(false)
     setCurrentStepIndex(0)
+    setLiveDistanceToNextManeuverMeters(null)
     setIsFollowingUser(true)
+    setIsVoiceMuted(false)
+    announcedStepThresholdsRef.current = {}
+    lastCourseReminderAtRef.current = Date.now()
+
+    // Request Screen Wake Lock so phone stays awake while driving
+    void requestDrivingWakeLock()
+
+    // Unlock SpeechSynthesis immediately inside the user click gesture (before any await)
+    // so Android / iOS mobile browsers permit continuous background voice guidance
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel()
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume()
+        }
+      } catch {}
+    }
 
     // Ensure route is computed and retrieve it
     let activeRoute = route
     if (!activeRoute || activeRoute.steps.length === 0 || selectedPlace?.id !== place.id) {
+      speakInstruction(`Calculating safest driving route to ${place.name}.`, { force: true })
       activeRoute = await getRoute(place)
     }
 
@@ -1238,11 +1330,22 @@ export function SOSMap() {
       }, 150)
     }
 
-    // Voice announcement
-    if (activeRoute && activeRoute.steps[0]) {
-      speakInstruction(`Starting navigation to ${place.name}. ${activeRoute.steps[0].instruction}`)
+    // Full Hands-Free Driving Voice Briefing
+    if (activeRoute && activeRoute.steps.length > 0) {
+      const firstStep = activeRoute.steps[0]
+      const secondStep = activeRoute.steps[1]
+      const nextStepPreview =
+        secondStep && firstStep.distanceMeters > 0
+          ? ` In ${formatMeters(firstStep.distanceMeters)}, ${secondStep.instruction}.`
+          : ''
+      speakInstruction(
+        `Starting voice navigation to ${place.name}. Total distance ${activeRoute.distance}, estimated arrival in ${activeRoute.duration}. ${firstStep.instruction}.${nextStepPreview}`,
+        { force: true }
+      )
     } else {
-      speakInstruction(`Starting navigation to ${place.name}.`)
+      speakInstruction(`Starting voice navigation to ${place.name}. Keep driving along the highlighted route.`, {
+        force: true,
+      })
     }
   }
 
@@ -1268,6 +1371,9 @@ export function SOSMap() {
   const stopInAppNavigation = () => {
     setIsNavigating(false)
     setHasArrived(false)
+    setLiveDistanceToNextManeuverMeters(null)
+    announcedStepThresholdsRef.current = {}
+    void releaseDrivingWakeLock()
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
@@ -1289,48 +1395,145 @@ export function SOSMap() {
     }
   }
 
-  // 10. Live Position Tracking During Navigation (watchPosition)
-  useEffect(() => {
-    if (!isNavigating || !navigator.geolocation) return
+  // Repeat current driving voice command on demand
+  const repeatCurrentVoiceInstruction = useCallback(() => {
+    if (!route || route.steps.length === 0) return
+    const currentStep = route.steps[currentStepIndex]
+    const nextStep = route.steps[currentStepIndex + 1]
+    if (nextStep) {
+      const distLabel =
+        liveDistanceToNextManeuverMeters !== null
+          ? formatMeters(liveDistanceToNextManeuverMeters)
+          : currentStep?.distanceMeters
+          ? formatMeters(currentStep.distanceMeters)
+          : 'ahead'
+      speakInstruction(`In ${distLabel}, ${nextStep.instruction}.`, { force: true })
+    } else if (currentStep) {
+      speakInstruction(currentStep.instruction, { force: true })
+    }
+  }, [route, currentStepIndex, liveDistanceToNextManeuverMeters, speakInstruction])
 
-    const handlePositionUpdate = (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude
-      const lng = pos.coords.longitude
+  // 10. Live Position Tracking & Multi-Stage Hands-Free Driving Voice Guidance
+  useEffect(() => {
+    if (!isNavigating) return
+
+    const processNavigationPosition = (
+      lat: number,
+      lng: number,
+      speedMps?: number | null,
+      headingDeg?: number | null
+    ) => {
       const newCoords = { lat, lng }
       setCurrentLocation(newCoords)
 
       // Speed (convert m/s to km/h)
-      if (typeof pos.coords.speed === 'number' && pos.coords.speed > 0) {
-        setUserSpeedKmH(Math.round(pos.coords.speed * 3.6))
+      if (typeof speedMps === 'number' && speedMps >= 0) {
+        setUserSpeedKmH(Math.round(speedMps * 3.6))
       }
 
       // Bearing
-      if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading)) {
-        setUserBearing(pos.coords.heading)
+      let activeBearing = userBearing
+      if (typeof headingDeg === 'number' && !isNaN(headingDeg)) {
+        activeBearing = headingDeg
+        setUserBearing(headingDeg)
       } else if (selectedPlace) {
-        const brng = calculateBearing(lat, lng, selectedPlace.location.lat, selectedPlace.location.lng)
-        setUserBearing(brng)
+        activeBearing = calculateBearing(lat, lng, selectedPlace.location.lat, selectedPlace.location.lng)
+        setUserBearing(activeBearing)
       }
 
-      // Check arrival at destination (within 25m)
+      // Check arrival at destination (within 35m while driving/walking)
       if (selectedPlace) {
-        const distToDestKm = calculateDistanceKm(lat, lng, selectedPlace.location.lat, selectedPlace.location.lng)
-        if (distToDestKm * 1000 <= 25 && !hasArrived) {
+        const distToDestMeters = Math.round(
+          calculateDistanceKm(lat, lng, selectedPlace.location.lat, selectedPlace.location.lng) * 1000
+        )
+        if (distToDestMeters <= 35 && !hasArrived) {
           setHasArrived(true)
-          speakInstruction(`You have arrived at ${selectedPlace.name}`)
+          setLiveDistanceToNextManeuverMeters(0)
+          speakInstruction(
+            `You have arrived at ${selectedPlace.name}. Stay safe.`,
+            { force: true }
+          )
           return
         }
       }
 
-      // Check step advancement
-      if (route && route.steps.length > 0 && currentStepIndex < route.steps.length - 1) {
-        const nextStep = route.steps[currentStepIndex + 1]
-        const distToNextStepKm = calculateDistanceKm(lat, lng, nextStep.location[1], nextStep.location[0])
+      // Multi-stage hands-free driving distance callouts & automatic step advancement
+      if (route && route.steps.length > 0) {
+        // Find if user has reached the next maneuver waypoint (or skipped ahead while driving)
+        const targetStepIndex = Math.min(currentStepIndex + 1, route.steps.length - 1)
+        const targetStep = route.steps[targetStepIndex]
 
-        if (distToNextStepKm * 1000 <= 35) {
-          const nextIdx = currentStepIndex + 1
-          setCurrentStepIndex(nextIdx)
-          speakInstruction(route.steps[nextIdx].instruction)
+        if (targetStep && targetStep.location) {
+          const distToManeuverMeters = Math.round(
+            calculateDistanceKm(lat, lng, targetStep.location[1], targetStep.location[0]) * 1000
+          )
+          setLiveDistanceToNextManeuverMeters(distToManeuverMeters)
+
+          const stepKey = `step-${targetStepIndex}`
+
+          // 1. Immediate Turn Callout & Step Advancement (<= 45m for driving responsiveness)
+          if (distToManeuverMeters <= 45 && currentStepIndex < route.steps.length - 1) {
+            const nextIdx = currentStepIndex + 1
+            setCurrentStepIndex(nextIdx)
+            announcedStepThresholdsRef.current[`${stepKey}-now`] = true
+            lastCourseReminderAtRef.current = Date.now()
+
+            const upcomingAfterThis = route.steps[nextIdx + 1]
+            const followUp =
+              upcomingAfterThis && route.steps[nextIdx].distanceMeters >= 80
+                ? ` Then in ${formatMeters(route.steps[nextIdx].distanceMeters)}, ${upcomingAfterThis.instruction}.`
+                : ''
+
+            speakInstruction(`${targetStep.instruction} now.${followUp}`, { force: true })
+          }
+          // 2. 100m Pre-Turn Callout ("In 100 meters, turn...")
+          else if (
+            distToManeuverMeters <= 120 &&
+            distToManeuverMeters > 45 &&
+            !announcedStepThresholdsRef.current[`${stepKey}-100m`]
+          ) {
+            announcedStepThresholdsRef.current[`${stepKey}-100m`] = true
+            announcedStepThresholdsRef.current[`${stepKey}-250m`] = true
+            announcedStepThresholdsRef.current[`${stepKey}-500m`] = true
+            lastCourseReminderAtRef.current = Date.now()
+            speakInstruction(`In ${formatMeters(distToManeuverMeters)}, ${targetStep.instruction}.`, {
+              force: true,
+            })
+          }
+          // 3. 250m Advance Driving Callout ("In 250 meters, prepare to...")
+          else if (
+            distToManeuverMeters <= 280 &&
+            distToManeuverMeters > 140 &&
+            !announcedStepThresholdsRef.current[`${stepKey}-250m`]
+          ) {
+            announcedStepThresholdsRef.current[`${stepKey}-250m`] = true
+            announcedStepThresholdsRef.current[`${stepKey}-500m`] = true
+            lastCourseReminderAtRef.current = Date.now()
+            speakInstruction(`In 250 meters, ${targetStep.instruction}.`, { force: true })
+          }
+          // 4. 500m Early Highway/Road Callout ("In 500 meters...")
+          else if (
+            distToManeuverMeters <= 550 &&
+            distToManeuverMeters > 350 &&
+            !announcedStepThresholdsRef.current[`${stepKey}-500m`]
+          ) {
+            announcedStepThresholdsRef.current[`${stepKey}-500m`] = true
+            lastCourseReminderAtRef.current = Date.now()
+            speakInstruction(`In 500 meters, ${targetStep.instruction}.`, { force: true })
+          }
+          // 5. Long Straight Stretch Reassurance (every 75 seconds if > 550m to turn)
+          else if (
+            distToManeuverMeters > 550 &&
+            Date.now() - lastCourseReminderAtRef.current > 75000
+          ) {
+            lastCourseReminderAtRef.current = Date.now()
+            const currentStreet = route.steps[currentStepIndex]?.streetName
+            const streetPhrase = currentStreet && currentStreet !== 'Road' ? ` on ${currentStreet}` : ''
+            speakInstruction(
+              `Continue straight${streetPhrase} for ${formatMeters(distToManeuverMeters)}, then ${targetStep.instruction}.`,
+              { force: true }
+            )
+          }
         }
       }
 
@@ -1339,25 +1542,49 @@ export function SOSMap() {
       if (map && isFollowingUser) {
         map.easeTo({
           center: [lng, lat],
-          bearing: pos.coords.heading || userBearing || 0,
+          bearing: activeBearing || 0,
           duration: 500,
         })
       }
     }
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      handlePositionUpdate,
-      (err) => console.warn('WatchPosition error:', err),
-      { enableHighAccuracy: true, maximumAge: 1500, timeout: 6000 }
-    )
+    // Subscribe to our always-on dual-mode GPS daemon + high-frequency watchPosition
+    const unsubscribeDaemon = watchReliableLocation((coords) => {
+      processNavigationPosition(coords.lat, coords.lng, coords.speed, coords.heading)
+    })
+
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          processNavigationPosition(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.speed,
+            pos.coords.heading
+          )
+        },
+        (err) => console.warn('WatchPosition error:', err),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 6000 }
+      )
+    }
 
     return () => {
-      if (watchIdRef.current !== null) {
+      unsubscribeDaemon()
+      if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current)
         watchIdRef.current = null
       }
     }
-  }, [isNavigating, isFollowingUser, userBearing, selectedPlace, route, currentStepIndex, hasArrived, speakInstruction])
+  }, [
+    isNavigating,
+    isFollowingUser,
+    userBearing,
+    selectedPlace,
+    route,
+    currentStepIndex,
+    hasArrived,
+    speakInstruction,
+  ])
 
   // Recenter Camera to User & Force GPS Refresh
   const recenterToUser = () => {
@@ -1786,30 +2013,42 @@ export function SOSMap() {
           <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
           {/* ------------------------------------------------------------- */}
-          {/* ACTIVE IN-APP NAVIGATION TOP HUD BANNER                       */}
+          {/* ACTIVE IN-APP NAVIGATION TOP HUD BANNER (Hands-Free Driving)  */}
           {/* ------------------------------------------------------------- */}
           {isNavigating && route && route.steps.length > 0 && (
             <div className="absolute top-4 left-4 right-4 z-30 flex flex-col gap-2 max-w-lg mx-auto pointer-events-auto">
               <div className="rounded-2xl bg-white/95 text-slate-900 backdrop-blur-md border-2 border-primary p-4 shadow-xl flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3.5 min-w-0">
+                <div
+                  className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer"
+                  onClick={repeatCurrentVoiceInstruction}
+                  title="Tap to hear driving voice command again"
+                >
                   <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-md">
                     {getTurnIcon(
-                      route.steps[currentStepIndex]?.modifier,
-                      route.steps[currentStepIndex]?.type
+                      (route.steps[currentStepIndex + 1] || route.steps[currentStepIndex])?.modifier,
+                      (route.steps[currentStepIndex + 1] || route.steps[currentStepIndex])?.type
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                      {route.steps[currentStepIndex]?.distanceMeters > 0 
-                        ? `In ${formatMeters(route.steps[currentStepIndex].distanceMeters)}` 
-                        : 'Now'}
-                    </p>
-                    <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
-                      {route.steps[currentStepIndex]?.instruction || `Proceed to ${selectedPlace?.name}`}
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-extrabold uppercase tracking-wider text-primary">
+                        {liveDistanceToNextManeuverMeters !== null && liveDistanceToNextManeuverMeters > 0
+                          ? `In ${formatMeters(liveDistanceToNextManeuverMeters)}`
+                          : route.steps[currentStepIndex]?.distanceMeters > 0
+                          ? `In ${formatMeters(route.steps[currentStepIndex].distanceMeters)}`
+                          : 'Now'}
+                      </p>
+                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded-md">
+                        {isVoiceMuted ? 'Voice Muted' : '🔊 AI Voice On'}
+                      </span>
+                    </div>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight line-clamp-2">
+                      {(route.steps[currentStepIndex + 1] || route.steps[currentStepIndex])?.instruction ||
+                        `Proceed to ${selectedPlace?.name}`}
                     </h2>
-                    {route.steps[currentStepIndex + 1] && (
+                    {route.steps[currentStepIndex + 2] && (
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        Then: {route.steps[currentStepIndex + 1].instruction}
+                        Then: {route.steps[currentStepIndex + 2].instruction}
                       </p>
                     )}
                   </div>
@@ -1822,16 +2061,24 @@ export function SOSMap() {
                     className="border-primary/40 text-primary hover:bg-emerald-50 text-xs font-bold rounded-xl h-8 px-2.5 shadow-2xs"
                     onClick={() => setShowDirectionsSheet(true)}
                   >
-                    <ListOrdered className="w-3.5 h-3.5 mr-1" />
-                    Steps
+                    <ListOrdered className="w-3.5 h-3.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Steps</span>
                   </Button>
 
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-primary hover:bg-emerald-50 shrink-0 rounded-full h-8 w-8"
-                    onClick={() => setIsVoiceMuted(!isVoiceMuted)}
-                    title={isVoiceMuted ? 'Unmute voice guidance' : 'Mute voice guidance'}
+                    className="text-primary hover:bg-emerald-50 shrink-0 rounded-full h-9 w-9"
+                    onClick={() => {
+                      const nextMute = !isVoiceMuted
+                      setIsVoiceMuted(nextMute)
+                      if (!nextMute && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                        setTimeout(() => repeatCurrentVoiceInstruction(), 80)
+                      } else if (nextMute && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                        window.speechSynthesis.cancel()
+                      }
+                    }}
+                    title={isVoiceMuted ? 'Unmute hands-free voice guidance' : 'Mute voice guidance'}
                   >
                     {isVoiceMuted ? <VolumeX className="w-5 h-5 text-red-500" /> : <Volume2 className="w-5 h-5 text-primary" />}
                   </Button>
