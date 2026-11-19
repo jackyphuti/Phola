@@ -1,4 +1,12 @@
 -- Enable realtime on incidents and emit private broadcasts automatically.
+-- Also ensures profile_photo_path column and profile-photos bucket exist.
+
+alter table public.profiles
+add column if not exists profile_photo_path text;
+
+insert into storage.buckets (id, name, public)
+values ('profile-photos', 'profile-photos', true)
+on conflict (id) do nothing;
 
 alter table public.incidents replica identity full;
 

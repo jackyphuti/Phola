@@ -1554,49 +1554,47 @@ export function SOSMap() {
   const offlineShortCardinal = getShortCompassCardinal(offlineBearing)
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col w-full max-w-full overflow-x-hidden">
       {/* ========================================================================= */}
       {/* 1. TOP HEADER (Hidden when in full navigation mode)                       */}
       {/* ========================================================================= */}
       {!isNavigating && (
-        <header className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-border z-[100] safe-top shadow-2xs">
-          <div className="flex items-center justify-between p-3.5 sm:p-4 max-w-5xl mx-auto w-full">
-            <div className="flex items-center gap-3">
+        <header className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-border z-[100] safe-top shadow-2xs w-full">
+          <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:p-4 max-w-5xl mx-auto w-full">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
-                className="rounded-full"
+                className="rounded-full h-9 w-9 shrink-0"
                 aria-label="Back to dashboard"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              <div>
-                <h1 className="font-bold text-foreground text-base sm:text-lg">Emergency SOS & Safe Map</h1>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0">
+                <h1 className="font-bold text-foreground text-sm sm:text-lg truncate">Emergency SOS & Safe Map</h1>
+                <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
                   {safePlaces.length} verified safe havens nearby
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <Button
                 variant={myDistressActive ? 'destructive' : 'outline'}
                 size="sm"
                 onClick={handleToggleUnsafePing}
                 disabled={isPingingUnsafe}
+                aria-label={myDistressActive ? 'I am safe now (cancel distress alarm)' : 'Ring guardian phones: I feel unsafe'}
                 className={
                   myDistressActive
-                    ? 'bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black h-9 px-2.5 sm:px-3 shadow-md animate-pulse border-red-500 flex items-center gap-1.5'
-                    : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100 rounded-xl text-xs font-bold h-9 px-2.5 sm:px-3 flex items-center gap-1.5 shadow-2xs'
+                    ? 'bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black h-9 w-9 sm:w-auto sm:px-3 p-0 shadow-md animate-pulse border-red-500 flex items-center justify-center gap-1.5 shrink-0'
+                    : 'border-red-300 text-red-700 bg-red-50 hover:bg-red-100 rounded-xl text-xs font-bold h-9 w-9 sm:w-auto sm:px-3 p-0 flex items-center justify-center gap-1.5 shadow-2xs shrink-0'
                 }
                 title={myDistressActive ? 'I am safe now (cancel distress alarm)' : 'Ring guardian phones: I feel unsafe'}
               >
-                <BellRing className={`w-3.5 h-3.5 ${myDistressActive ? 'animate-bounce text-white' : 'text-red-600'}`} />
+                <BellRing className={`w-4 h-4 ${myDistressActive ? 'animate-bounce text-white' : 'text-red-600'}`} />
                 <span className="hidden sm:inline">
                   {myDistressActive ? 'Distress Active' : 'Feel Unsafe'}
-                </span>
-                <span className="sm:hidden">
-                  {myDistressActive ? 'Active' : 'Unsafe'}
                 </span>
               </Button>
 
@@ -1604,18 +1602,18 @@ export function SOSMap() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowGuardianModal(true)}
-                className="border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-bold h-9 px-2.5 sm:px-3 flex items-center gap-1.5 shadow-2xs relative"
+                aria-label="Mutual Live Location Sharing (Guardian Circle)"
+                className="border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl text-xs font-bold h-9 w-9 sm:w-auto sm:px-3 p-0 flex items-center justify-center gap-1.5 shadow-2xs relative shrink-0"
                 title="Mutual Live Location Sharing (Guardian Circle)"
               >
-                <Users className="w-3.5 h-3.5 text-emerald-700" />
+                <Users className="w-4 h-4 text-emerald-700" />
                 <span className="hidden sm:inline">Guardian Circle</span>
-                <span className="sm:hidden">Buddies</span>
                 {incomingRequestsCount > 0 ? (
-                  <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-extrabold animate-pulse">
+                  <span className="absolute -top-1 -right-1 sm:static flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-extrabold animate-pulse">
                     {incomingRequestsCount}
                   </span>
                 ) : activeBuddies.length > 0 ? (
-                  <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="absolute -top-0.5 -right-0.5 sm:static flex h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                 ) : null}
               </Button>
 
@@ -1624,10 +1622,12 @@ export function SOSMap() {
                 size="sm"
                 onClick={shareLocation}
                 disabled={!currentLocation}
-                className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-semibold h-9"
+                aria-label="Share GPS Location"
+                title="Share GPS Location"
+                className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 rounded-xl text-xs font-semibold h-9 w-9 sm:w-auto sm:px-3 p-0 flex items-center justify-center gap-1.5 shrink-0"
               >
-                <Share2 className="w-3.5 h-3.5 mr-1 text-primary" />
-                Share GPS
+                <Share2 className="w-4 h-4 text-primary" />
+                <span className="hidden sm:inline">Share GPS</span>
               </Button>
             </div>
           </div>
@@ -1637,7 +1637,7 @@ export function SOSMap() {
       {/* ========================================================================= */}
       {/* 2. MAIN MAP CONTAINER & IN-APP NAVIGATION HUD                             */}
       {/* ========================================================================= */}
-      <div className={`flex-1 flex flex-col ${isNavigating ? 'p-0 w-full h-screen fixed inset-0 z-[150] bg-background' : 'p-3 sm:p-4 max-w-5xl mx-auto w-full gap-3'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 max-w-full ${isNavigating ? 'p-0 w-full h-screen fixed inset-0 z-[150] bg-background' : 'p-3 sm:p-4 max-w-5xl mx-auto w-full gap-3'}`}>
         
         {/* LIVE LOCATION REALISTIC RISK & SAFETY STATUS BAR */}
         {!isNavigating && currentLocation && (() => {
