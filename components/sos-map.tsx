@@ -85,6 +85,7 @@ mapboxgl.accessToken = MAPBOX_TOKEN
 const DEFAULT_SA_CENTER: [number, number] = [28.0473, -26.2041]
 
 export const SA_CITIES = [
+  { name: 'Hatfield (Tshwane)', lat: -25.7505, lng: 28.2385 },
   { name: 'Pretoria CBD (Tshwane)', lat: -25.7479, lng: 28.2293 },
   { name: 'Johannesburg (Central)', lat: -26.2041, lng: 28.0473 },
   { name: 'Soweto (Gauteng)', lat: -26.2485, lng: 27.8540 },
@@ -252,6 +253,8 @@ export function SOSMap() {
   const isFirstFixRef = useRef<boolean>(true)
   const autoRouteTriggeredRef = useRef<boolean>(false)
   const isRasterFallbackRef = useRef<boolean>(false)
+  const isNavigatingRef = useRef<boolean>(false)
+  const routeCoordsRef = useRef<[number, number][]>([])
 
   // State
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -396,7 +399,120 @@ export function SOSMap() {
   // 2. Fetch Safe Places (SAPS Stations & Hospitals)
 
 
-  // 3. Initialize Mapbox GL Map
+  // 3. Initialize Mapbox GL Map (Once on mount - NEVER destroy on isNavigating toggle!)
+  const applyRouteLayersToMap = useCallback((map: mapboxgl.Map, coords: [number, number][]) => {
+    if (!coords || coords.length === 0) return
+    try {
+      const routeDataGeoJSON = {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: coords,
+        },
+      }
+
+      const existingSource = map.getSource('route-source') as mapboxgl.GeoJSONSource | undefined
+      if (existingSource) {
+        existingSource.setData(routeDataGeoJSON)
+      } else {
+        map.addSource('route-source', {
+          type: 'geojson',
+          data: routeDataGeoJSON,
+        })
+      }
+
+      // 1. Route Glow (High-Visibility Emerald Pulse)
+      if (!map.getLayer('route-glow')) {
+        map.addLayer({
+          id: 'route-glow',
+          type: 'line',
+          source: 'route-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#10B981',
+            'line-width': 15,
+            'line-opacity': 0.45,
+            'line-blur': 3,
+          },
+        })
+      }
+
+      // 2. Route Casing (Crisp Contrast White)
+      if (!map.getLayer('route-casing')) {
+        map.addLayer({
+          id: 'route-casing',
+          type: 'line',
+          source: 'route-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#ffffff',
+            'line-width': 9,
+            'line-opacity': 0.96,
+          },
+        })
+      }
+
+      // 3. Core Route Line (Safety Emerald)
+      if (!map.getLayer('route-layer')) {
+        map.addLayer({
+          id: 'route-layer',
+          type: 'line',
+          source: 'route-source',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round',
+          },
+          paint: {
+            'line-color': '#047857',
+            'line-width': 5.5,
+            'line-opacity': 1.0,
+          },
+        })
+      }
+
+      // 4. Directional Forward Chevrons along route
+      ensureArrowImage(map, () => {
+        try {
+          if (!map.getLayer('route-arrows') && map.getSource('route-source')) {
+            map.addLayer({
+              id: 'route-arrows',
+              type: 'symbol',
+              source: 'route-source',
+              layout: {
+                'symbol-placement': 'line',
+                'symbol-spacing': 70,
+                'icon-image': 'route-arrow-icon',
+                'icon-size': 0.75,
+                'icon-rotate': 90,
+                'icon-rotation-alignment': 'map',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              },
+            })
+          }
+        } catch {}
+      })
+    } catch (err) {
+      console.warn('[Phola Map] applyRouteLayersToMap warning:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    isNavigatingRef.current = isNavigating
+    // Resize map smoothly whenever layout switches between normal and full-screen navigation
+    const timer = setTimeout(() => {
+      mapRef.current?.resize()
+    }, 60)
+    return () => clearTimeout(timer)
+  }, [isNavigating])
+
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return
 
@@ -409,17 +525,17 @@ export function SOSMap() {
       const cached = getCachedLocation()
       const initialCenter: [number, number] = cached
         ? [cached.lng, cached.lat]
-        : [28.2293, -25.7479]
+        : [28.2385, -25.7505]
 
       map = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: mapStyle,
         center: initialCenter,
-        zoom: cached ? 14 : 12,
+        zoom: cached ? 14.5 : 13,
         attributionControl: true,
       })
 
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-left')
+      map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right')
 
       map.on('error', (e) => {
         if (!isRasterFallbackRef.current) {
@@ -435,11 +551,25 @@ export function SOSMap() {
 
       map.on('load', () => {
         map?.resize()
-        if (map) ensureArrowImage(map)
+        if (map) {
+          ensureArrowImage(map)
+          if (routeCoordsRef.current.length > 0) {
+            applyRouteLayersToMap(map, routeCoordsRef.current)
+          }
+        }
+      })
+
+      map.on('style.load', () => {
+        if (map) {
+          ensureArrowImage(map)
+          if (routeCoordsRef.current.length > 0) {
+            applyRouteLayersToMap(map, routeCoordsRef.current)
+          }
+        }
       })
 
       map.on('dragstart', () => {
-        if (isNavigating) {
+        if (isNavigatingRef.current) {
           setIsFollowingUser(false)
         }
       })
@@ -458,12 +588,18 @@ export function SOSMap() {
 
     return () => {
       resizeObserver.disconnect()
+      userMarkerRef.current?.remove()
+      userMarkerRef.current = null
       destinationMarkerRef.current?.remove()
       destinationMarkerRef.current = null
+      placesMarkersRef.current.forEach((m) => m.remove())
+      placesMarkersRef.current = []
+      buddyMarkersRef.current.forEach((m) => m.remove())
+      buddyMarkersRef.current = []
       mapRef.current?.remove()
       mapRef.current = null
     }
-  }, [isNavigating])
+  }, [applyRouteLayersToMap])
 
   // 4. Resolve Live Coordinates & Keep Real-Time Watcher Active
   useEffect(() => {
@@ -669,7 +805,14 @@ export function SOSMap() {
     }
 
     void syncBuddies()
-    const timer = setInterval(syncBuddies, 8000)
+    const timer = setInterval(syncBuddies, 4000)
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('openBuddies') === 'true') {
+        setShowGuardianModal(true)
+      }
+    }
 
     return () => {
       isMounted = false
@@ -831,90 +974,15 @@ export function SOSMap() {
       setRoute(computedRoute)
       setSelectedPlace(place)
       setCurrentStepIndex(0)
+      routeCoordsRef.current = coords
 
       // Draw highlighted route on Mapbox with emerald glow, casing, and directional forward chevrons
       const map = mapRef.current
       if (map) {
         const renderLayers = () => {
-          try {
-            const geojsonSource = map.getSource('route-source') as mapboxgl.GeoJSONSource
-            const routeDataGeoJSON = {
-              type: 'Feature' as const,
-              properties: {},
-              geometry: {
-                type: 'LineString' as const,
-                coordinates: coords,
-              },
-            }
+          applyRouteLayersToMap(map, coords)
 
-            if (geojsonSource) {
-              geojsonSource.setData(routeDataGeoJSON)
-            } else {
-              map.addSource('route-source', {
-                type: 'geojson',
-                data: routeDataGeoJSON,
-              })
-            }
-
-            // 1. Route Glow (High-Visibility Emerald Pulse)
-            if (!map.getLayer('route-glow')) {
-              map.addLayer({
-                id: 'route-glow',
-                type: 'line',
-                source: 'route-source',
-                layout: {
-                  'line-join': 'round',
-                  'line-cap': 'round',
-                },
-                paint: {
-                  'line-color': '#10B981',
-                  'line-width': 16,
-                  'line-opacity': 0.5,
-                  'line-blur': 3,
-                },
-              })
-            }
-
-            // 2. Route Casing (Crisp Contrast White)
-            if (!map.getLayer('route-casing')) {
-              map.addLayer({
-                id: 'route-casing',
-                type: 'line',
-                source: 'route-source',
-                layout: {
-                  'line-join': 'round',
-                  'line-cap': 'round',
-                },
-                paint: {
-                  'line-color': '#ffffff',
-                  'line-width': 9.5,
-                  'line-opacity': 0.95,
-                },
-              })
-            }
-
-            // 3. Core Route Line (Safety Emerald)
-            if (!map.getLayer('route-layer')) {
-              map.addLayer({
-                id: 'route-layer',
-                type: 'line',
-                source: 'route-source',
-                layout: {
-                  'line-join': 'round',
-                  'line-cap': 'round',
-                },
-                paint: {
-                  'line-color': '#047857',
-                  'line-width': 5.5,
-                  'line-opacity': 1.0,
-                },
-              })
-            }
-          } catch (layerErr) {
-            console.warn('[Phola Map] Vector layer error:', layerErr)
-          }
-
-          // 4. Place High-Visibility Destination Pin Flag
+          // Place High-Visibility Destination Pin Flag
           try {
             if (destinationMarkerRef.current) {
               destinationMarkerRef.current.remove()
@@ -940,8 +1008,8 @@ export function SOSMap() {
             console.warn('[Phola Map] Destination flag error:', markerErr)
           }
 
-          // 5. Smoothly Frame Bounds (Includes both "YOU" beacon and safe haven)
-          if (!isNavigating && coords.length > 0) {
+          // Smoothly Frame Bounds (Includes both "YOU" beacon and safe haven)
+          if (!isNavigatingRef.current && coords.length > 0) {
             try {
               const bounds = new mapboxgl.LngLatBounds()
               coords.forEach((coord) => bounds.extend(coord as [number, number]))
@@ -949,8 +1017,8 @@ export function SOSMap() {
               bounds.extend([place.location.lng, place.location.lat])
 
               map.fitBounds(bounds, {
-                padding: { top: 90, bottom: 230, left: 55, right: 55 },
-                duration: 900,
+                padding: { top: 75, bottom: 75, left: 55, right: 55 },
+                duration: 850,
                 maxZoom: 16.5,
               })
             } catch (boundsErr) {
@@ -959,20 +1027,17 @@ export function SOSMap() {
           }
         }
 
-        const executeRender = () => {
-          try {
-            renderLayers()
-          } catch (e) {
-            console.warn('[Phola Map] executeRender error:', e)
+        renderLayers()
+        setTimeout(() => {
+          if (mapRef.current && routeCoordsRef.current.length > 0) {
+            applyRouteLayersToMap(mapRef.current, routeCoordsRef.current)
           }
-        }
-
-        if (map.isStyleLoaded() || map.loaded()) {
-          executeRender()
-        } else {
-          map.once('load', executeRender)
-          map.once('idle', executeRender)
-        }
+        }, 300)
+        setTimeout(() => {
+          if (mapRef.current && routeCoordsRef.current.length > 0) {
+            applyRouteLayersToMap(mapRef.current, routeCoordsRef.current)
+          }
+        }, 900)
       }
 
       return computedRoute
@@ -983,7 +1048,7 @@ export function SOSMap() {
     } finally {
       setIsLoadingRoute(false)
     }
-  }, [currentLocation, isNavigating])
+  }, [currentLocation, applyRouteLayersToMap])
 
   // Auto-highlight route to nearest safe haven on initial load
   useEffect(() => {
@@ -1348,6 +1413,7 @@ export function SOSMap() {
   // Clear Route
   const clearRoute = () => {
     stopInAppNavigation()
+    routeCoordsRef.current = []
     setRoute(null)
     setSelectedPlace(null)
 
@@ -1640,11 +1706,81 @@ export function SOSMap() {
           )
         })()}
 
+        {/* ACTIVE GUARDIAN CIRCLE BUDDIES & INVITE STRIP */}
+        {!isNavigating && (activeBuddies.length > 0 || incomingRequestsCount > 0) && (
+          <div className="flex items-center gap-2 overflow-x-auto py-1.5 px-3 rounded-2xl bg-white border border-emerald-200/80 shadow-2xs">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 shrink-0">
+              <Users className="w-3.5 h-3.5 text-emerald-600" />
+              Buddies:
+            </span>
+
+            {incomingRequestsCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowGuardianModal(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-extrabold shrink-0 transition cursor-pointer"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping" />
+                <span>{incomingRequestsCount} Pending Invite{incomingRequestsCount > 1 ? 's' : ''}</span>
+              </button>
+            )}
+
+            {activeBuddies.map((buddy) => {
+              const hasGps = typeof buddy.buddyLat === 'number' && typeof buddy.buddyLng === 'number'
+              const distText =
+                hasGps && currentLocation
+                  ? formatDistance(
+                      calculateDistanceKm(
+                        currentLocation.lat,
+                        currentLocation.lng,
+                        buddy.buddyLat!,
+                        buddy.buddyLng!
+                      )
+                    )
+                  : 'Syncing GPS'
+
+              return (
+                <button
+                  key={buddy.shareId}
+                  type="button"
+                  onClick={() => (hasGps ? handleFocusBuddy(buddy) : setShowGuardianModal(true))}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold shrink-0 transition cursor-pointer ${
+                    buddy.buddyDistress
+                      ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm'
+                      : 'bg-emerald-50/90 hover:bg-emerald-100 text-emerald-950 border-emerald-200'
+                  }`}
+                  title={hasGps ? `Focus map on ${buddy.buddyName}` : 'Waiting for buddy GPS signal'}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      buddy.buddyDistress
+                        ? 'bg-white animate-ping'
+                        : hasGps
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-400'
+                    }`}
+                  />
+                  <span className="max-w-[130px] truncate">{buddy.buddyName}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                      buddy.buddyDistress
+                        ? 'bg-red-800 text-white font-black'
+                        : 'bg-white/90 text-emerald-800 border border-emerald-200/60'
+                    }`}
+                  >
+                    {buddy.buddyDistress ? 'SOS ALERT' : distText}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Map Canvas Box */}
         <div className={`overflow-hidden relative ${
           isNavigating 
             ? 'w-full h-full flex-1' 
-            : 'w-full h-[360px] min-h-[360px] sm:h-[460px] sm:min-h-[460px] rounded-2xl border border-emerald-100 shadow-sm bg-slate-100'
+            : 'w-full h-[400px] min-h-[400px] sm:h-[480px] sm:min-h-[480px] rounded-2xl border border-emerald-200 shadow-sm bg-slate-100'
         }`}>
           {/* Mapbox Canvas Mount */}
           <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
@@ -1875,118 +2011,124 @@ export function SOSMap() {
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
-          {/* SELECTED DESTINATION & ROUTE CARD (Clean Preview)             */}
-          {/* ------------------------------------------------------------- */}
-          {!isNavigating && selectedPlace && (
-            <Card className="absolute bottom-3 left-3 right-3 z-10 border border-slate-200/90 bg-white/98 text-slate-900 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden animate-in slide-in-from-bottom-3 duration-250">
-              <CardContent className="p-3.5 sm:p-4 space-y-2.5 relative">
-                {/* Dismiss Button */}
-                <button
-                  onClick={clearRoute}
-                  className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
-                  aria-label="Clear destination"
-                  title="Clear destination"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+        </div>
 
-                <div className="flex items-start justify-between gap-3 pr-8">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        selectedPlace.type === 'hospital' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-800'
-                      }`}>
-                        {selectedPlace.type === 'hospital' ? (
-                          <Hospital className="w-4 h-4" />
-                        ) : (
-                          <Shield className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-bold text-slate-900 text-sm sm:text-base truncate leading-tight">
-                          {selectedPlace.name}
-                        </h3>
-                        <p className="text-xs text-muted-foreground truncate">{selectedPlace.address}</p>
-                      </div>
-                    </div>
+        {/* ------------------------------------------------------------- */}
+        {/* SELECTED DESTINATION & ROUTE CARD (Docked Cleanly Below Map)  */}
+        {/* ------------------------------------------------------------- */}
+        {!isNavigating && selectedPlace && (
+          <Card className="border-2 border-emerald-500/80 bg-white text-slate-900 shadow-lg rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <CardContent className="p-3.5 sm:p-4 space-y-2.5 relative">
+              {/* Dismiss Button */}
+              <button
+                onClick={clearRoute}
+                className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Clear destination"
+                title="Clear destination"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
-                    {/* Route Metrics and Compass Heading */}
-                    <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-semibold">
-                      <span className="bg-emerald-100 text-emerald-950 px-2.5 py-0.5 rounded-lg flex items-center gap-1 border border-emerald-200">
-                        <Route className="w-3.5 h-3.5 text-primary" />
-                        {route ? route.distance : selectedPlace.distanceText}
-                      </span>
-                      <span className="bg-teal-100 text-teal-950 px-2.5 py-0.5 rounded-lg flex items-center gap-1 border border-teal-200">
-                        <Clock className="w-3.5 h-3.5 text-primary" />
-                        {route ? route.duration : selectedPlace.duration}
-                      </span>
-                      {currentLocation && (
-                        <span className="text-slate-600 font-medium text-[11px] flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
-                          <Compass className="w-3 h-3 text-primary" />
-                          Heading {getShortCompassCardinal(calculateBearing(currentLocation.lat, currentLocation.lng, selectedPlace.location.lat, selectedPlace.location.lng))} ({Math.round(calculateBearing(currentLocation.lat, currentLocation.lng, selectedPlace.location.lat, selectedPlace.location.lng))}°)
-                        </span>
+              <div className="flex items-start justify-between gap-3 pr-8">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      selectedPlace.type === 'hospital' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-800'
+                    }`}>
+                      {selectedPlace.type === 'hospital' ? (
+                        <Hospital className="w-4 h-4" />
+                      ) : (
+                        <Shield className="w-4 h-4" />
                       )}
                     </div>
-
-                    {/* Way forward step preview */}
-                    {route && route.steps && route.steps[0] && (
-                      <div className="text-[11px] text-slate-700 mt-2 p-1.5 rounded-lg bg-slate-50 border border-slate-200/80 flex items-center gap-1.5 truncate">
-                        <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span className="truncate">
-                          <strong>First step:</strong> {route.steps[0].instruction}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                          {selectedPlace.name}
+                        </h3>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-900">
+                          Selected Route
                         </span>
                       </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{selectedPlace.address}</p>
+                    </div>
+                  </div>
+
+                  {/* Route Metrics and Compass Heading */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2.5 text-xs font-semibold">
+                    <span className="bg-emerald-100 text-emerald-950 px-2.5 py-0.5 rounded-lg flex items-center gap-1 border border-emerald-200">
+                      <Route className="w-3.5 h-3.5 text-primary" />
+                      {route ? route.distance : selectedPlace.distanceText}
+                    </span>
+                    <span className="bg-teal-100 text-teal-950 px-2.5 py-0.5 rounded-lg flex items-center gap-1 border border-teal-200">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      {route ? route.duration : selectedPlace.duration}
+                    </span>
+                    {currentLocation && (
+                      <span className="text-slate-600 font-medium text-[11px] flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                        <Compass className="w-3 h-3 text-primary" />
+                        Heading {getShortCompassCardinal(calculateBearing(currentLocation.lat, currentLocation.lng, selectedPlace.location.lat, selectedPlace.location.lng))} ({Math.round(calculateBearing(currentLocation.lat, currentLocation.lng, selectedPlace.location.lat, selectedPlace.location.lng))}°)
+                      </span>
                     )}
                   </div>
-                </div>
 
-                {/* Primary Action Buttons */}
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs h-9.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5"
-                    onClick={() => void startInAppNavigation(selectedPlace)}
-                    disabled={isLoadingRoute}
-                  >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>Start Turn-by-Turn Navigation</span>
-                  </Button>
-
-                  {route && route.steps.length > 0 && (
-                    <Button
-                      variant="outline"
-                      className="border-emerald-200 text-emerald-950 hover:bg-emerald-50 text-xs font-semibold h-9.5 rounded-xl px-3"
-                      onClick={() => setShowDirectionsSheet(true)}
-                    >
-                      <ListOrdered className="w-3.5 h-3.5 mr-1 text-primary" />
-                      Steps ({route.steps.length})
-                    </Button>
+                  {/* Way forward step preview */}
+                  {route && route.steps && route.steps[0] && (
+                    <div className="text-[11px] text-slate-700 mt-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-center gap-1.5">
+                      <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate">
+                        <strong>Next turn:</strong> {route.steps[0].instruction}
+                      </span>
+                    </div>
                   )}
+                </div>
+              </div>
 
+              {/* Primary Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  className="flex-1 min-w-[180px] bg-primary hover:bg-primary/90 text-white font-bold text-xs h-10 rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+                  onClick={() => void startInAppNavigation(selectedPlace)}
+                  disabled={isLoadingRoute}
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Start Voice Turn-by-Turn Navigation</span>
+                </Button>
+
+                {route && route.steps.length > 0 && (
                   <Button
                     variant="outline"
-                    className="border-emerald-200 text-emerald-950 hover:bg-emerald-50 text-xs font-semibold h-9.5 rounded-xl px-3"
-                    onClick={() => handleOpenEHailing(selectedPlace)}
-                    title="Request Ride (Uber / Bolt)"
+                    className="border-emerald-200 text-emerald-950 hover:bg-emerald-50 text-xs font-semibold h-10 rounded-xl px-3"
+                    onClick={() => setShowDirectionsSheet(true)}
                   >
-                    <Car className="w-3.5 h-3.5 text-primary" />
+                    <ListOrdered className="w-3.5 h-3.5 mr-1 text-primary" />
+                    Steps ({route.steps.length})
                   </Button>
+                )}
 
-                  {selectedPlace.phone && (
-                    <Button
-                      variant="outline"
-                      className="border-emerald-200 text-emerald-950 hover:bg-emerald-50 text-xs font-semibold h-9.5 rounded-xl px-3"
-                      onClick={() => callNumber(selectedPlace.phone!)}
-                      title="Call Facility"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                <Button
+                  variant="outline"
+                  className="border-emerald-200 text-emerald-950 hover:bg-emerald-50 text-xs font-semibold h-10 rounded-xl px-3"
+                  onClick={() => handleOpenEHailing(selectedPlace)}
+                  title="Request Ride (Uber / Bolt)"
+                >
+                  <Car className="w-3.5 h-3.5 text-primary" />
+                </Button>
+
+                {selectedPlace.phone && (
+                  <Button
+                    variant="outline"
+                    className="border-emerald-200 text-emerald-950 hover:bg-emerald-50 text-xs font-semibold h-10 rounded-xl px-3"
+                    onClick={() => callNumber(selectedPlace.phone!)}
+                    title="Call Facility"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ========================================================================= */}
         {/* 3. CATEGORY FILTERS & FACILITY LIST (Hidden when in navigation)           */}
@@ -2074,31 +2216,33 @@ export function SOSMap() {
               </div>
             )}
 
-            {/* Quick In-App Navigation Action */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
-              <Button
-                onClick={() => void navigateToNearestPoliceStation()}
-                className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm h-11 rounded-2xl shadow-sm flex items-center justify-between px-4 border border-emerald-600/30"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Navigation className="w-4 h-4 text-emerald-200 shrink-0" />
-                  <span className="truncate">Navigate In-App Only</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs bg-white/20 px-2.5 py-1 rounded-lg shrink-0">
-                  <Shield className="w-3.5 h-3.5 text-white" />
-                  <span>Nearest Safe Haven</span>
-                </div>
-              </Button>
+            {/* Quick In-App Navigation Action (Shown when no destination card is docked) */}
+            {!selectedPlace && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <Button
+                  onClick={() => void navigateToNearestPoliceStation()}
+                  className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm h-11 rounded-2xl shadow-sm flex items-center justify-between px-4 border border-emerald-600/30"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Navigation className="w-4 h-4 text-emerald-200 shrink-0" />
+                    <span className="truncate">Navigate to Nearest Safe Haven</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs bg-white/20 px-2.5 py-1 rounded-lg shrink-0">
+                    <Shield className="w-3.5 h-3.5 text-white" />
+                    <span>Auto-Route</span>
+                  </div>
+                </Button>
 
-              <Button
-                variant="outline"
-                onClick={() => void showNearestPoliceStationRoute()}
-                className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 font-semibold text-xs h-11 rounded-2xl px-3 shrink-0"
-              >
-                <Route className="w-3.5 h-3.5 mr-1 text-primary" />
-                View Directions
-              </Button>
-            </div>
+                <Button
+                  variant="outline"
+                  onClick={() => void showNearestPoliceStationRoute()}
+                  className="border-emerald-200 text-emerald-900 hover:bg-emerald-50 font-semibold text-xs h-11 rounded-2xl px-3 shrink-0"
+                >
+                  <Route className="w-3.5 h-3.5 mr-1 text-primary" />
+                  Preview Route
+                </Button>
+              </div>
+            )}
 
             {/* Category Filters */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1">

@@ -12,7 +12,10 @@ import {
   MapPin,
   Clock,
   CheckCircle2,
-  BellRing
+  BellRing,
+  UserPlus,
+  Check,
+  X
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -20,11 +23,15 @@ import { Badge } from '@/components/ui/badge'
 import {
   fetchLocationShares,
   resolveDistressPing,
-  type LocationBuddy
+  respondToLocationShare,
+  type LocationBuddy,
+  type IncomingShareInvite
 } from '@/lib/location-sharing'
 import { emergencyRingtone } from '@/lib/emergency-ringtone'
 import { useAuth } from '@/lib/auth-context'
 import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
+import { getCachedLocation, watchReliableLocation } from '@/lib/geolocation'
+import { showSystemNotification } from '@/lib/push-notifications'
 
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371
@@ -62,46 +69,64 @@ export function GuardianDistressAlarmModal() {
   const { user } = useAuth()
 
   const [activeDistressBuddy, setActiveDistressBuddy] = useState<LocationBuddy | null>(null)
+  const [incomingInvites, setIncomingInvites] = useState<IncomingShareInvite[]>([])
+  const [dismissedInvites, setDismissedInvites] = useState<Record<string, boolean>>({})
+  const [isRespondingInvite, setIsRespondingInvite] = useState<string | null>(null)
   const [myDistressActive, setMyDistressActive] = useState(false)
   const [isRinging, setIsRinging] = useState(false)
   const [isResolving, setIsResolving] = useState(false)
-  const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [myCoords, setMyCoords] = useState<{ lat: number; lng: number } | null>(() => getCachedLocation())
 
-  // Track acknowledged timestamps to avoid ringing repeatedly if silenced
+  // Track acknowledged timestamps & notified IDs
   const silencedPingsRef = useRef<Record<string, string>>({})
+  const notifiedDistressOsRef = useRef<Record<string, string>>({})
+  const notifiedInvitesOsRef = useRef<Record<string, boolean>>({})
 
   // Watch current user position for distance calculation
   useEffect(() => {
-    if (typeof window === 'undefined' || !navigator.geolocation) return
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setMyCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 10000 }
-    )
-    return () => navigator.geolocation.clearWatch(watchId)
+    const stopWatch = watchReliableLocation((coords) => {
+      setMyCoords({ lat: coords.lat, lng: coords.lng })
+    })
+    return () => stopWatch()
   }, [])
 
-  // Poll for buddy distress pings
+  // Poll for buddy distress pings AND incoming invites globally across the app
   useEffect(() => {
     if (!user) return
 
     let isMounted = true
 
-    const checkPings = async () => {
+    const checkPingsAndInvites = async () => {
       try {
         const data = await fetchLocationShares()
         if (!isMounted) return
 
         setMyDistressActive(Boolean(data.myActiveDistress))
 
-        // Find any active buddy distress from the last 30 minutes
+        // 1. Check for new incoming Guardian Circle invites
+        const incoming = data.incoming || []
+        setIncomingInvites(incoming)
+        for (const inv of incoming) {
+          if (!notifiedInvitesOsRef.current[inv.shareId]) {
+            notifiedInvitesOsRef.current[inv.shareId] = true
+            void showSystemNotification(
+              `📍 New Guardian Circle Invite`,
+              `${inv.fromName || inv.fromEmail} wants to share live GPS locations with you on Phola. Tap to accept.`,
+              {
+                href: '/sos?openBuddies=true',
+                tag: `phola-invite-${inv.shareId}`,
+                distress: false,
+              }
+            )
+          }
+        }
+
+        // 2. Find any active buddy distress from the last 30 minutes
         const now = Date.now()
         const urgentBuddy = data.active.find((b) => {
           if (!b.buddyDistress || !b.buddyDistressAt) return false
           const ageMs = now - new Date(b.buddyDistressAt).getTime()
-          const isRecent = ageMs < 30 * 60 * 1000 // 30 minutes
+          const isRecent = ageMs < 30 * 60 * 1000
           const isSilenced = silencedPingsRef.current[b.shareId] === b.buddyDistressAt
           return isRecent && !isSilenced
         })
@@ -112,20 +137,37 @@ export function GuardianDistressAlarmModal() {
             emergencyRingtone.start()
             setIsRinging(true)
           }
+
+          // Also fire native OS Notification if not fired for this timestamp yet
+          if (
+            urgentBuddy.buddyDistressAt &&
+            notifiedDistressOsRef.current[urgentBuddy.shareId] !== urgentBuddy.buddyDistressAt
+          ) {
+            notifiedDistressOsRef.current[urgentBuddy.shareId] = urgentBuddy.buddyDistressAt
+            void showSystemNotification(
+              `🚨 EMERGENCY: ${urgentBuddy.buddyName} Feels Unsafe!`,
+              urgentBuddy.buddyDistressMessage ||
+                'Emergency distress ping triggered! Tap to track live GPS on map.',
+              {
+                href: `/sos?focusBuddy=${urgentBuddy.shareId}`,
+                tag: `phola-distress-${urgentBuddy.shareId}`,
+                distress: true,
+              }
+            )
+          }
         } else {
-          // If no urgent buddy requires ringing, stop
           if (emergencyRingtone.active()) {
             emergencyRingtone.stop()
             setIsRinging(false)
           }
         }
-      } catch (err) {
+      } catch {
         // Ignored
       }
     }
 
-    void checkPings()
-    const interval = setInterval(checkPings, 4500)
+    void checkPingsAndInvites()
+    const interval = setInterval(checkPingsAndInvites, 4000)
 
     return () => {
       isMounted = false
@@ -133,6 +175,17 @@ export function GuardianDistressAlarmModal() {
       emergencyRingtone.stop()
     }
   }, [user])
+
+  // Handle accepting/declining an incoming invite from the global banner
+  const handleRespondToInvite = async (shareId: string, accept: boolean) => {
+    setIsRespondingInvite(shareId)
+    await respondToLocationShare(shareId, accept)
+    setIncomingInvites((prev) => prev.filter((i) => i.shareId !== shareId))
+    setIsRespondingInvite(null)
+    if (accept) {
+      router.push('/sos')
+    }
+  }
 
   // Handle Silence / Acknowledge
   const handleSilence = () => {
@@ -184,8 +237,63 @@ export function GuardianDistressAlarmModal() {
     distanceText = formatDistance(d)
   }
 
+  const visibleInvite = incomingInvites.find((i) => !dismissedInvites[i.shareId])
+
   return (
     <>
+      {/* 0. GLOBAL INCOMING GUARDIAN INVITE BANNER (Shows on ANY page when someone invites you!) */}
+      {visibleInvite && !activeDistressBuddy && (
+        <div className="fixed top-16 inset-x-3 sm:max-w-md sm:mx-auto z-50 animate-in slide-in-from-top-5 duration-300">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 text-foreground shadow-2xl border-2 border-emerald-500 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-extrabold text-xs text-emerald-950 dark:text-emerald-200 truncate">
+                    {visibleInvite.fromName} wants to share live locations!
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {visibleInvite.fromEmail} • Mutual Guardian Circle
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setDismissedInvites((prev) => ({ ...prev, [visibleInvite.shareId]: true }))
+                }
+                className="text-muted-foreground hover:text-foreground p-1"
+                aria-label="Dismiss invite banner"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                disabled={isRespondingInvite === visibleInvite.shareId}
+                onClick={() => void handleRespondToInvite(visibleInvite.shareId, true)}
+                className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 shadow-xs"
+              >
+                <Check className="w-3.5 h-3.5 mr-1" />
+                Accept & Share Live GPS
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isRespondingInvite === visibleInvite.shareId}
+                onClick={() => void handleRespondToInvite(visibleInvite.shareId, false)}
+                className="rounded-xl border-slate-300 text-slate-700 text-xs h-8 px-3"
+              >
+                Decline
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. FLOATING SENDER DISTRESS BANNER (When YOU are broadcasting distress) */}
       {myDistressActive && !activeDistressBuddy && (
         <div className="fixed bottom-20 inset-x-3 sm:max-w-md sm:mx-auto z-50 animate-in slide-in-from-bottom-5 duration-300">

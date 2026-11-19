@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/server-auth'
-import { sendWebPushBatch } from '@/lib/server-web-push'
+import { sendWebPushBatch, type StoredPushSubscription } from '@/lib/server-web-push'
 import { z } from 'zod'
 
 function getSupabaseAdmin() {
@@ -10,6 +10,64 @@ function getSupabaseAdmin() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return null
   return createAdminClient(url, key)
+}
+
+// Server-side fallback cache mapping userId or email -> push subscription
+const globalForPush = globalThis as unknown as {
+  __pholaPushByUser?: Map<string, StoredPushSubscription>
+  __pholaPushByEmail?: Map<string, StoredPushSubscription>
+}
+const pushByUser = globalForPush.__pholaPushByUser || new Map<string, StoredPushSubscription>()
+const pushByEmail = globalForPush.__pholaPushByEmail || new Map<string, StoredPushSubscription>()
+globalForPush.__pholaPushByUser = pushByUser
+globalForPush.__pholaPushByEmail = pushByEmail
+
+async function dispatchPushToRecipients(params: {
+  supabase: any
+  userIds: string[]
+  emails: string[]
+  payload: Record<string, unknown>
+}) {
+  const { supabase, userIds, emails, payload } = params
+  const collected: StoredPushSubscription[] = []
+
+  // 1. Collect from in-memory cache by userId and email
+  for (const uid of userIds) {
+    const sub = pushByUser.get(uid)
+    if (sub) collected.push(sub)
+  }
+  for (const em of emails) {
+    const sub = pushByEmail.get(em.toLowerCase().trim())
+    if (sub) collected.push(sub)
+  }
+
+  // 2. Collect from push_subscriptions table in Supabase
+  if (userIds.length > 0) {
+    try {
+      const dbClient = getSupabaseAdmin() || supabase
+      const { data: subs } = await dbClient
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth, content_encoding')
+        .in('user_id', userIds)
+        .eq('is_active', true)
+
+      if (Array.isArray(subs)) {
+        for (const s of subs) {
+          collected.push(s)
+        }
+      }
+    } catch (err) {
+      console.warn('[location-share] push_subscriptions query warning:', err)
+    }
+  }
+
+  if (collected.length > 0) {
+    try {
+      await sendWebPushBatch(collected, payload)
+    } catch (err) {
+      console.warn('[location-share] sendWebPushBatch warning:', err)
+    }
+  }
 }
 
 const inviteSchema = z.object({
@@ -46,10 +104,21 @@ const resolvePingSchema = z.object({
   action: z.literal('resolve_ping'),
 })
 
+const syncPushSchema = z.object({
+  action: z.literal('sync_push'),
+  subscription: z.object({
+    endpoint: z.string().url(),
+    keys: z.object({
+      p256dh: z.string().min(1),
+      auth: z.string().min(1),
+    }),
+  }),
+})
+
 // GET /api/location-share: Fetch user's active, incoming, and outgoing shares
 export async function GET(request: NextRequest) {
   try {
-    const { user, userId, error: authError } = await getAuthenticatedUser(request)
+    const { user, userId } = await getAuthenticatedUser(request)
     if (!user || !userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -57,7 +126,6 @@ export async function GET(request: NextRequest) {
     const userEmail = (user.email || '').toLowerCase().trim()
     const supabase = await createServerSupabaseClient()
 
-    // Query all shares where current user is either sender or receiver
     const { data: shares, error } = await supabase
       .from('location_shares')
       .select('*')
@@ -75,7 +143,7 @@ export async function GET(request: NextRequest) {
 
     for (const s of shares || []) {
       const isSender = s.sender_id === userId
-      const isReceiver = s.receiver_id === userId || s.receiver_email.toLowerCase() === userEmail
+      const isReceiver = s.receiver_id === userId || s.receiver_email?.toLowerCase() === userEmail
 
       if (s.status === 'accepted') {
         const isBuddyDistress = Boolean(isSender ? s.receiver_distress : s.sender_distress)
@@ -83,7 +151,6 @@ export async function GET(request: NextRequest) {
         const buddyDistressAt = isSender ? s.receiver_distress_at : s.sender_distress_at
         const isMyDistress = Boolean(isSender ? s.sender_distress : s.receiver_distress)
 
-        // Mutual buddy view
         activeList.push({
           shareId: s.id,
           buddyName: isSender ? (s.receiver_name || s.receiver_email) : (s.sender_name || s.sender_email),
@@ -136,10 +203,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/location-share: Handle invite, accept/decline, coordinate updates, and revoke
+// POST /api/location-share: Handle invite, accept/decline, coordinate updates, push sync, and distress pings
 export async function POST(request: NextRequest) {
   try {
-    const { user, userId, error: authError } = await getAuthenticatedUser(request)
+    const { user, userId } = await getAuthenticatedUser(request)
     if (!user || !userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -147,6 +214,42 @@ export async function POST(request: NextRequest) {
     const userEmail = (user.email || '').toLowerCase().trim()
     const body = await request.json()
     const supabase = await createServerSupabaseClient()
+
+    // 0. ACTION: SYNC PUSH SUBSCRIPTION
+    if (body.action === 'sync_push') {
+      const parsed = syncPushSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
+      }
+      const sub: StoredPushSubscription = {
+        id: `mem_${userId}`,
+        endpoint: parsed.data.subscription.endpoint,
+        p256dh: parsed.data.subscription.keys.p256dh,
+        auth: parsed.data.subscription.keys.auth,
+        content_encoding: 'aesgcm',
+      }
+      pushByUser.set(userId, sub)
+      if (userEmail) pushByEmail.set(userEmail, sub)
+
+      // Also upsert into push_subscriptions table
+      try {
+        const dbClient = getSupabaseAdmin() || supabase
+        await dbClient.from('push_subscriptions').upsert(
+          {
+            user_id: userId,
+            endpoint: sub.endpoint,
+            p256dh: sub.p256dh,
+            auth: sub.auth,
+            content_encoding: 'aesgcm',
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,endpoint' }
+        )
+      } catch {}
+
+      return NextResponse.json({ ok: true })
+    }
 
     // 1. ACTION: INVITE
     if (body.action === 'invite') {
@@ -160,7 +263,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'You cannot invite yourself to share locations.' }, { status: 400 })
       }
 
-      // Check for existing pending or active share
       const { data: existing } = await supabase
         .from('location_shares')
         .select('id, status')
@@ -178,20 +280,18 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Lookup receiver name if available in profiles
-      let receiverName: string | null = null
-      let receiverId: string | null = null
+      const senderDisplayName =
+        parsed.data.senderName || user.user_metadata?.full_name || userEmail.split('@')[0]
 
-      // Insert new pending invite
       const { data: newShare, error: insertError } = await supabase
         .from('location_shares')
         .insert({
           sender_id: userId,
           sender_email: userEmail,
-          sender_name: parsed.data.senderName || user.user_metadata?.full_name || userEmail.split('@')[0],
+          sender_name: senderDisplayName,
           receiver_email: receiverEmail,
-          receiver_name: receiverName,
-          receiver_id: receiverId,
+          receiver_name: null,
+          receiver_id: null,
           status: 'pending',
           updated_at: new Date().toISOString(),
         })
@@ -203,9 +303,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: insertError.message || 'Failed to create location share invite' }, { status: 500 })
       }
 
+      // Send Push Notification to Receiver if subscribed
+      await dispatchPushToRecipients({
+        supabase,
+        userIds: [],
+        emails: [receiverEmail],
+        payload: {
+          title: `📍 Guardian Circle Invite from ${senderDisplayName}`,
+          body: `${senderDisplayName} (${userEmail}) invited you to share live GPS locations on Phola. Tap to accept.`,
+          href: '/sos',
+          eventType: 'invite',
+          distress: false,
+          sentAt: new Date().toISOString(),
+        },
+      })
+
       return NextResponse.json({
         success: true,
-        message: `Location sharing invite sent to ${receiverEmail}. They must accept to start mutual sharing.`,
+        message: `Location sharing invite sent to ${receiverEmail}. They will receive a notification to accept.`,
         share: newShare,
       })
     }
@@ -219,13 +334,14 @@ export async function POST(request: NextRequest) {
 
       const { shareId, accept } = parsed.data
       const newStatus = accept ? 'accepted' : 'declined'
+      const receiverDisplayName = user.user_metadata?.full_name || userEmail.split('@')[0]
 
       const { data: updated, error: updateError } = await supabase
         .from('location_shares')
         .update({
           status: newStatus,
           receiver_id: userId,
-          receiver_name: user.user_metadata?.full_name || userEmail.split('@')[0],
+          receiver_name: receiverDisplayName,
           updated_at: new Date().toISOString(),
         })
         .eq('id', shareId)
@@ -236,6 +352,22 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.warn('[location-share] Respond update error:', updateError.message)
         return NextResponse.json({ error: 'Failed to respond to invite' }, { status: 500 })
+      }
+
+      if (accept && updated) {
+        await dispatchPushToRecipients({
+          supabase,
+          userIds: updated.sender_id ? [updated.sender_id] : [],
+          emails: updated.sender_email ? [updated.sender_email] : [],
+          payload: {
+            title: `✅ ${receiverDisplayName} Accepted Your Location Share!`,
+            body: `You and ${receiverDisplayName} can now view each other's live GPS location on the Phola map.`,
+            href: `/sos?focusBuddy=${updated.id}`,
+            eventType: 'invite_accepted',
+            distress: false,
+            sentAt: new Date().toISOString(),
+          },
+        })
       }
 
       return NextResponse.json({
@@ -256,7 +388,6 @@ export async function POST(request: NextRequest) {
       const { lat, lng } = parsed.data
       const now = new Date().toISOString()
 
-      // Update as sender
       await supabase
         .from('location_shares')
         .update({
@@ -268,7 +399,6 @@ export async function POST(request: NextRequest) {
         .eq('sender_id', userId)
         .eq('status', 'accepted')
 
-      // Update as receiver
       await supabase
         .from('location_shares')
         .update({
@@ -302,14 +432,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Location sharing stopped.' })
     }
 
-    // 5. ACTION: PING UNSAFE (TRIGGER AUDIBLE DISTRESS ALARM ON ALL BUDDY DEVICES)
+    // 5. ACTION: PING UNSAFE (TRIGGER AUDIBLE DISTRESS ALARM & PUSH NOTIFICATIONS ON ALL BUDDY DEVICES)
     if (body.action === 'ping_unsafe') {
       const parsed = pingUnsafeSchema.safeParse(body)
       if (!parsed.success) {
         return NextResponse.json({ error: 'Invalid ping parameters' }, { status: 400 })
       }
 
-      const distressMessage = parsed.data.message || 'I feel unsafe right now! Please check my live location and contact me immediately.'
+      const distressMessage =
+        parsed.data.message ||
+        'I feel unsafe right now! Please check my live location and contact me immediately.'
       const now = new Date().toISOString()
 
       const senderUpdatePayload: Record<string, any> = {
@@ -336,75 +468,56 @@ export async function POST(request: NextRequest) {
         receiverUpdatePayload.receiver_updated_at = now
       }
 
-      // Update as sender
-      const { data: updatedSender, error: err1 } = await supabase
+      const { data: updatedSender } = await supabase
         .from('location_shares')
         .update(senderUpdatePayload)
         .eq('sender_id', userId)
         .eq('status', 'accepted')
         .select('id')
 
-      if (err1) {
-        console.warn('[location-share ping_unsafe] sender update error:', err1.message)
-      }
-
-      // Update as receiver
-      const { data: updatedReceiver, error: err2 } = await supabase
+      const { data: updatedReceiver } = await supabase
         .from('location_shares')
         .update(receiverUpdatePayload)
         .or(`receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
         .eq('status', 'accepted')
         .select('id')
 
-      if (err2) {
-        console.warn('[location-share ping_unsafe] receiver update error:', err2.message)
-      }
-
       const totalNotified = (updatedSender?.length || 0) + (updatedReceiver?.length || 0)
 
-      // 5b. DISPATCH MOBILE/WEB PUSH NOTIFICATIONS TO ALL GUARDIANS (Rings them even if outside the app)
+      // Dispatch Web Push Notifications to all connected buddies
       const myDisplayName = user.user_metadata?.full_name || userEmail.split('@')[0] || 'Your Guardian'
-      try {
-        const { data: acceptedShares } = await supabase
-          .from('location_shares')
-          .select('id, sender_id, receiver_id, sender_name, receiver_name, sender_email, receiver_email')
-          .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
-          .eq('status', 'accepted')
+      const { data: acceptedShares } = await supabase
+        .from('location_shares')
+        .select('id, sender_id, receiver_id, sender_email, receiver_email')
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
+        .eq('status', 'accepted')
 
-        const buddyUserIds: string[] = []
-        for (const s of acceptedShares || []) {
-          if (s.sender_id === userId && s.receiver_id) {
-            buddyUserIds.push(s.receiver_id)
-          } else if (s.receiver_id === userId && s.sender_id) {
-            buddyUserIds.push(s.sender_id)
-          } else if (s.receiver_email?.toLowerCase() === userEmail && s.sender_id) {
-            buddyUserIds.push(s.sender_id)
-          }
+      const buddyUserIds: string[] = []
+      const buddyEmails: string[] = []
+      for (const s of acceptedShares || []) {
+        if (s.sender_id === userId) {
+          if (s.receiver_id) buddyUserIds.push(s.receiver_id)
+          if (s.receiver_email) buddyEmails.push(s.receiver_email)
+        } else {
+          if (s.sender_id) buddyUserIds.push(s.sender_id)
+          if (s.sender_email) buddyEmails.push(s.sender_email)
         }
-
-        if (buddyUserIds.length > 0) {
-          const pushClient = getSupabaseAdmin() || supabase
-          const { data: subscriptions } = await pushClient
-            .from('push_subscriptions')
-            .select('id, endpoint, p256dh, auth, content_encoding')
-            .in('user_id', buddyUserIds)
-            .eq('is_active', true)
-
-          if (subscriptions && subscriptions.length > 0) {
-            await sendWebPushBatch(subscriptions, {
-              title: `🚨 EMERGENCY: ${myDisplayName} Feels Unsafe!`,
-              body: `Distress Alert: "${distressMessage}". Tap to open live GPS tracking on map.`,
-              href: `/sos`,
-              eventType: 'sos',
-              distress: true,
-              senderName: myDisplayName,
-              sentAt: now,
-            })
-          }
-        }
-      } catch (pushErr) {
-        console.warn('[location-share ping_unsafe] WebPush dispatch error:', pushErr)
       }
+
+      await dispatchPushToRecipients({
+        supabase,
+        userIds: buddyUserIds,
+        emails: buddyEmails,
+        payload: {
+          title: `🚨 EMERGENCY: ${myDisplayName} Feels Unsafe!`,
+          body: `Distress Alert: "${distressMessage}". Tap to track live GPS location on map.`,
+          href: `/sos`,
+          eventType: 'sos',
+          distress: true,
+          senderName: myDisplayName,
+          sentAt: now,
+        },
+      })
 
       return NextResponse.json({
         success: true,
@@ -419,6 +532,7 @@ export async function POST(request: NextRequest) {
     // 6. ACTION: RESOLVE PING (I AM SAFE NOW)
     if (body.action === 'resolve_ping') {
       const now = new Date().toISOString()
+      const myDisplayName = user.user_metadata?.full_name || userEmail.split('@')[0] || 'Your Guardian'
 
       await supabase
         .from('location_shares')
@@ -439,6 +553,39 @@ export async function POST(request: NextRequest) {
         })
         .or(`receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
         .eq('status', 'accepted')
+
+      // Notify buddies via Push that user is safe now
+      const { data: acceptedShares } = await supabase
+        .from('location_shares')
+        .select('id, sender_id, receiver_id, sender_email, receiver_email')
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId},receiver_email.ilike."${userEmail}"`)
+        .eq('status', 'accepted')
+
+      const buddyUserIds: string[] = []
+      const buddyEmails: string[] = []
+      for (const s of acceptedShares || []) {
+        if (s.sender_id === userId) {
+          if (s.receiver_id) buddyUserIds.push(s.receiver_id)
+          if (s.receiver_email) buddyEmails.push(s.receiver_email)
+        } else {
+          if (s.sender_id) buddyUserIds.push(s.sender_id)
+          if (s.sender_email) buddyEmails.push(s.sender_email)
+        }
+      }
+
+      await dispatchPushToRecipients({
+        supabase,
+        userIds: buddyUserIds,
+        emails: buddyEmails,
+        payload: {
+          title: `✅ ${myDisplayName} is Safe Now`,
+          body: `${myDisplayName} marked themselves safe and cleared the emergency distress alarm.`,
+          href: `/sos`,
+          eventType: 'resolved',
+          distress: false,
+          sentAt: now,
+        },
+      })
 
       return NextResponse.json({
         success: true,

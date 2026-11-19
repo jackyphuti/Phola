@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
 import { getApiUrl } from '@/lib/api-client'
 
+const DEFAULT_VAPID_PUBLIC_KEY =
+  'BOOUybTE1QlN-P9ypAn8XWeM7oscyJd81BhYib6SyVm-VjHiJrHOVSFbX7irisgWgYgbizikEC3s-tt_xQn8yj8'
+
 type PushEventType = 'sos' | 'incident'
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -28,14 +31,17 @@ async function getAccessToken(): Promise<string | null> {
 
 async function authedPushPost(path: string, payload: Record<string, unknown>) {
   const token = await getAccessToken()
-  if (!token) return
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
 
   await fetch(getApiUrl(path), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
+    credentials: 'include',
     body: JSON.stringify(payload),
   })
 }
@@ -49,7 +55,11 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
     return 'granted'
   }
 
-  return Notification.requestPermission()
+  try {
+    return await Notification.requestPermission()
+  } catch {
+    return Notification.permission
+  }
 }
 
 export async function registerNotificationServiceWorker(): Promise<ServiceWorkerRegistration | null> {
@@ -58,18 +68,29 @@ export async function registerNotificationServiceWorker(): Promise<ServiceWorker
   }
 
   try {
-    return await navigator.serviceWorker.register('/sw.js')
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    // Activate background guardian sync inside service worker
+    if (reg.active) {
+      reg.active.postMessage({ type: 'START_GUARDIAN_BACKGROUND_SYNC' })
+    }
+    // Register Periodic Background Sync if supported by browser/PWA
+    try {
+      const anyReg = reg as any
+      if (anyReg.periodicSync && typeof anyReg.periodicSync.register === 'function') {
+        await anyReg.periodicSync.register('phola-guardian-sync', {
+          minInterval: 60 * 1000,
+        })
+      }
+    } catch {}
+    return reg
   } catch {
     return null
   }
 }
 
-export async function subscribeForProductionPush() {
+export async function subscribeForProductionPush(): Promise<boolean> {
   if (typeof window === 'undefined') return false
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
-
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-  if (!vapidPublicKey) return false
+  if (!('serviceWorker' in navigator)) return false
 
   const permission = await requestNotificationPermission()
   if (permission !== 'granted') return false
@@ -77,17 +98,44 @@ export async function subscribeForProductionPush() {
   const registration = await registerNotificationServiceWorker()
   if (!registration) return false
 
-  const existingSubscription = await registration.pushManager.getSubscription()
-  const subscription = existingSubscription || await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-  })
+  if (!('PushManager' in window) || !registration.pushManager) {
+    return true
+  }
 
-  await authedPushPost('/api/push/subscribe', {
-    subscription: subscription.toJSON(),
-  })
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC_KEY
 
-  return true
+  try {
+    let subscription = await registration.pushManager.getSubscription()
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      })
+    }
+
+    const subJson = subscription.toJSON()
+
+    // 1. Register in push_subscriptions table
+    await authedPushPost('/api/push/subscribe', {
+      subscription: subJson,
+    }).catch(() => {})
+
+    // 2. Also attach subscription to user's active/pending location_shares rows so buddies can push directly without RLS block
+    await fetch(getApiUrl('/api/location-share'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        action: 'sync_push',
+        subscription: subJson,
+      }),
+    }).catch(() => {})
+
+    return true
+  } catch (err) {
+    console.warn('[PushNotifications] subscribe warning:', err)
+    return false
+  }
 }
 
 export async function triggerServerPushEvent(input: {
@@ -100,35 +148,51 @@ export async function triggerServerPushEvent(input: {
   await authedPushPost('/api/push/trigger', input)
 }
 
-async function showNotification(title: string, body: string, data?: Record<string, unknown>) {
+export async function showSystemNotification(
+  title: string,
+  body: string,
+  options?: {
+    href?: string
+    tag?: string
+    distress?: boolean
+  }
+) {
   const permission = await requestNotificationPermission()
   if (permission !== 'granted') return
 
+  const isDistress = Boolean(options?.distress)
+  const notifOptions: any = {
+    body,
+    icon: '/icon-light-32x32.png',
+    badge: '/icon-light-32x32.png',
+    vibrate: isDistress ? [600, 250, 600, 250, 1000, 400, 1000] : [250, 150, 250],
+    tag: options?.tag || (isDistress ? 'phola-emergency-distress' : 'phola-notification'),
+    renotify: true,
+    requireInteraction: isDistress,
+    data: {
+      href: options?.href || '/sos',
+      distress: isDistress,
+    },
+  }
+
   const registration = await registerNotificationServiceWorker()
-  if (registration) {
-    await registration.showNotification(title, {
-      body,
-      icon: '/icon-light-32x32.png',
-      badge: '/icon-light-32x32.png',
-      data,
-    })
+  if (registration && registration.showNotification) {
+    await registration.showNotification(title, notifOptions)
     return
   }
 
-  new Notification(title, {
-    body,
-    icon: '/icon-light-32x32.png',
-  })
+  new Notification(title, notifOptions)
 }
 
 export async function notifySOSActivated() {
-  await showNotification('SOS Activated', 'Trusted circle alert initiated. Keep your location on.', {
+  await showSystemNotification('🚨 SOS Activated', 'Trusted circle alert initiated. Keep your location on.', {
     href: '/sos',
+    distress: true,
   })
 
   await triggerServerPushEvent({
     eventType: 'sos',
-    title: 'SOS Activated',
+    title: '🚨 SOS Activated',
     message: 'Emergency mode is active. Open SOS for live support actions.',
     href: '/sos',
   })
@@ -144,7 +208,7 @@ export async function triggerIncidentPushEvent(input: {
     message: input.location
       ? `${input.crimeType} report recorded for ${input.location}.`
       : `${input.crimeType} report recorded successfully.`,
-    href: '/notes',
+    href: '/reports',
     metadata: input,
   })
 }

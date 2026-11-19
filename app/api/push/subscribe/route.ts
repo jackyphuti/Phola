@@ -2,16 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { captureException } from '@sentry/nextjs'
 import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
+import { getAuthenticatedUser } from '@/lib/server-auth'
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { z } from 'zod'
-
-type PushSubscriptionPayload = {
-  endpoint: string
-  expirationTime?: number | null
-  keys?: {
-    p256dh?: string
-    auth?: string
-  }
-}
 
 const subscribeSchema = z.object({
   subscription: z.object({
@@ -24,54 +17,17 @@ const subscribeSchema = z.object({
   }),
 })
 
-function getEnv() {
+function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-    return null
-  }
-
-  return { supabaseUrl, supabaseAnonKey, serviceRoleKey }
-}
-
-async function getAuthenticatedUser(request: NextRequest) {
-  const env = getEnv()
-  if (!env) return { userId: null, error: 'Supabase env vars are missing' }
-
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-
-  if (!token) {
-    return { userId: null, error: 'Missing access token' }
-  }
-
-  const supabaseAuth = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  })
-
-  const { data, error } = await supabaseAuth.auth.getUser()
-  if (error || !data.user) {
-    return { userId: null, error: 'Invalid access token' }
-  }
-
-  return { userId: data.user.id, error: null }
+  if (!supabaseUrl || !serviceRoleKey) return null
+  return createClient(supabaseUrl, serviceRoleKey)
 }
 
 export async function POST(request: NextRequest) {
-  const rateLimit = checkRateLimit(request, 'api:push-subscribe', { limit: 20, windowMs: 10 * 60 * 1000 })
+  const rateLimit = checkRateLimit(request, 'api:push-subscribe', { limit: 40, windowMs: 10 * 60 * 1000 })
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetAt)
-  }
-
-  const env = getEnv()
-  if (!env) {
-    return NextResponse.json({ error: 'Push subscription API is not configured' }, { status: 500 })
   }
 
   const { userId, error: authError } = await getAuthenticatedUser(request)
@@ -85,10 +41,9 @@ export async function POST(request: NextRequest) {
   }
 
   const subscription = parsedBody.data.subscription
+  const dbClient = getSupabaseAdmin() || (await createServerSupabaseClient())
 
-  const supabaseAdmin = createClient(env.supabaseUrl, env.serviceRoleKey)
-
-  const { error } = await supabaseAdmin
+  const { error } = await dbClient
     .from('push_subscriptions')
     .upsert(
       {
@@ -121,11 +76,6 @@ export async function DELETE(request: NextRequest) {
     return rateLimitResponse(rateLimit.resetAt)
   }
 
-  const env = getEnv()
-  if (!env) {
-    return NextResponse.json({ error: 'Push subscription API is not configured' }, { status: 500 })
-  }
-
   const { userId, error: authError } = await getAuthenticatedUser(request)
   if (!userId) {
     return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 })
@@ -137,10 +87,9 @@ export async function DELETE(request: NextRequest) {
   }
 
   const { endpoint } = parsedBody.data
+  const dbClient = getSupabaseAdmin() || (await createServerSupabaseClient())
 
-  const supabaseAdmin = createClient(env.supabaseUrl, env.serviceRoleKey)
-
-  const { error } = await supabaseAdmin
+  const { error } = await dbClient
     .from('push_subscriptions')
     .update({
       is_active: false,

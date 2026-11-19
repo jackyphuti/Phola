@@ -6,6 +6,7 @@ import { captureException } from '@sentry/nextjs'
 import { sendWebPushBatch } from '@/lib/server-web-push'
 import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
 import { getAuthenticatedUser } from '@/lib/server-auth'
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
 type PushEventType = 'sos' | 'incident'
@@ -26,22 +27,17 @@ const triggerSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 })
 
-function getEnv() {
+function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-    return null
-  }
-
-  return { supabaseUrl, supabaseAnonKey, serviceRoleKey }
+  if (!supabaseUrl || !serviceRoleKey) return null
+  return createClient(supabaseUrl, serviceRoleKey)
 }
 
 function buildDefaultPayload(eventType: PushEventType) {
   if (eventType === 'sos') {
     return {
-      title: 'SOS Activated',
+      title: '🚨 SOS Activated',
       message: 'Emergency mode is active. Keep location sharing on.',
       href: '/sos',
     }
@@ -49,20 +45,15 @@ function buildDefaultPayload(eventType: PushEventType) {
 
   return {
     title: 'Incident Submitted',
-    message: 'Your report was submitted successfully.',
-    href: '/notes',
+    message: 'Your report was submitted successfully to your Encrypted Vault.',
+    href: '/reports',
   }
 }
 
 export async function POST(request: NextRequest) {
-  const rateLimit = checkRateLimit(request, 'api:push-trigger', { limit: 10, windowMs: 10 * 60 * 1000 })
+  const rateLimit = checkRateLimit(request, 'api:push-trigger', { limit: 30, windowMs: 10 * 60 * 1000 })
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetAt)
-  }
-
-  const env = getEnv()
-  if (!env) {
-    return NextResponse.json({ error: 'Push trigger API is not configured' }, { status: 500 })
   }
 
   const { userId, error: authError } = await getAuthenticatedUser(request)
@@ -83,13 +74,14 @@ export async function POST(request: NextRequest) {
     body: body.message || defaults.message,
     href: body.href || defaults.href,
     eventType: body.eventType,
+    distress: body.eventType === 'sos',
     metadata: body.metadata || {},
     sentAt: new Date().toISOString(),
   }
 
-  const supabaseAdmin = createClient(env.supabaseUrl, env.serviceRoleKey)
+  const dbClient = getSupabaseAdmin() || (await createServerSupabaseClient())
 
-  const { data: subscriptions, error: subscriptionsError } = await supabaseAdmin
+  const { data: subscriptions, error: subscriptionsError } = await dbClient
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth, content_encoding')
     .eq('user_id', userId)
@@ -107,7 +99,7 @@ export async function POST(request: NextRequest) {
   const result = await sendWebPushBatch(subscriptions, payload)
 
   if (result.successIds.length > 0) {
-    const { error } = await supabaseAdmin
+    await dbClient
       .from('push_subscriptions')
       .update({
         last_success_at: new Date().toISOString(),
@@ -115,14 +107,10 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .in('id', result.successIds)
-
-  if (error) {
-      captureException(new Error(error.message))
-    }
   }
 
   if (result.staleIds.length > 0) {
-    const { error } = await supabaseAdmin
+    await dbClient
       .from('push_subscriptions')
       .update({
         is_active: false,
@@ -130,26 +118,6 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .in('id', result.staleIds)
-
-    if (error) {
-      captureException(new Error(error.message))
-    }
-  }
-
-  if (result.failures.length > 0) {
-    for (const failure of result.failures) {
-      const { error } = await supabaseAdmin
-        .from('push_subscriptions')
-        .update({
-          last_error: failure.reason,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', failure.id)
-
-      if (error) {
-        captureException(new Error(error.message))
-      }
-    }
   }
 
   return NextResponse.json({
