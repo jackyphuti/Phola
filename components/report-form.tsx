@@ -17,6 +17,7 @@ import { queueIncidentSubmission } from '@/lib/offline-queue'
 import { triggerIncidentPushEvent } from '@/lib/push-notifications'
 import { safeExit } from '@/lib/safe-exit'
 import { getApiUrl } from '@/lib/api-client'
+import { sanitizeText } from '@/lib/utils'
 import { AlertCircle, ArrowLeft, Calendar, FileImage, Loader2, MapPin, Save, Send, Shield, Upload, X } from 'lucide-react'
 
 interface ReportFormProps {
@@ -242,10 +243,10 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
     return {
       incident_type: formData.crime_type,
       crime_type: formData.crime_type,
-      description: formData.description || null,
-      location: formData.location || null,
+      description: sanitizeText(formData.description) || null,
+      location: sanitizeText(formData.location) || null,
       date_occurred: formData.date_occurred || new Date().toISOString(),
-      perpetrator_relationship: formData.perpetrator_relationship || dynamicFields.relationship_to_suspect || null,
+      perpetrator_relationship: sanitizeText(formData.perpetrator_relationship || dynamicFields.relationship_to_suspect) || null,
       severity: formData.severity || 'medium',
       anonymous_report: formData.anonymous_report,
       case_reference: generatedRef,

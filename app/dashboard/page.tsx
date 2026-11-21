@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { LockScreen } from '@/components/lock-screen'
 import { SuperHome } from '@/components/super-home'
 import { AppLoadingState } from '@/components/app-loading-state'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,7 @@ import { LogIn } from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, profile, isLoading, isLocked } = useAuth()
+  const { user, profile, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -42,9 +41,7 @@ export default function DashboardPage() {
     )
   }
 
-  if (isLocked) {
-    return <LockScreen />
-  }
+
 
   const name = profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'friend'
 

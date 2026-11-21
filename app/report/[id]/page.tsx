@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
-import { LockScreen } from '@/components/lock-screen'
 import { ReportForm } from '@/components/report-form'
 import { Loader2 } from 'lucide-react'
 import type { Incident } from '@/lib/types'
@@ -12,7 +11,7 @@ import type { Incident } from '@/lib/types'
 export default function EditReportPage() {
   const router = useRouter()
   const params = useParams()
-  const { user, isLoading: authLoading, isLocked } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const [incident, setIncident] = useState<Incident | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -89,9 +88,7 @@ export default function EditReportPage() {
     return null
   }
 
-  if (isLocked) {
-    return <LockScreen />
-  }
+
 
   if (!incident) {
     return null

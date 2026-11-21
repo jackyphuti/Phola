@@ -39,3 +39,10 @@ Phola_Presentation_Deck_standalone.html
 package-lock.json
 supabase/.temp/
 supabase/.branches/
+
+# Swift / xtool build outputs
+/.build
+/Packages
+.swiftpm/
+/xtool
+

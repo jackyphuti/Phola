@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
-import { LockScreen } from '@/components/lock-screen'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +12,8 @@ import { Input } from '@/components/ui/input'
 import { INCIDENT_TYPE_LABELS, type Incident, type IncidentType } from '@/lib/types'
 import { AppBottomNav } from '@/components/app-bottom-nav'
 import { hasConfiguredPin } from '@/lib/pin'
+import { safeExit } from '@/lib/safe-exit'
+import { triggerHapticFeedback } from '@/lib/biometric'
 import { 
   ArrowLeft, 
   Plus, 
@@ -43,7 +44,7 @@ const LOCAL_NOTES_PREFIX = 'phola_vault_local_notes_'
 
 export default function NotesPage() {
   const router = useRouter()
-  const { user, profile, isLoading: authLoading, isLocked, lock } = useAuth()
+  const { user, profile, isLoading: authLoading, lock } = useAuth()
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
@@ -62,19 +63,10 @@ export default function NotesPage() {
   // SAPS Statement Generator Modal State
   const [selectedForStatement, setSelectedForStatement] = useState<Incident | null>(null)
   const [statementCopied, setStatementCopied] = useState(false)
-  const [showSetupLockPrompt, setShowSetupLockPrompt] = useState(false)
 
-  const handleLockVaultClick = () => {
-    if (typeof window === 'undefined') return
-    const hasPin = hasConfiguredPin(profile) || Boolean(profile?.pin_hash) || Boolean(window.localStorage.getItem('phola_user_pin'))
-    const hasBio = Boolean(profile?.biometric_enabled) || window.localStorage.getItem('phola-biometric-configured') === 'true' || Boolean(window.localStorage.getItem('phola-biometric-credential-id'))
-    const hasPasskey = Boolean(window.localStorage.getItem('phola-local-passkeys'))
-
-    if (!hasPin && !hasBio && !hasPasskey) {
-      setShowSetupLockPrompt(true)
-      return
-    }
-    lock()
+  const handleQuickExit = () => {
+    triggerHapticFeedback('heavy')
+    safeExit()
   }
   
   const [supabase] = useState(() => createClient())
@@ -369,45 +361,9 @@ https://phola.co.za
       </div>
     )
   }
-  if (isLocked) return <LockScreen />
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
-      
-      {/* Set Up Lock Prompt Modal */}
-      {showSetupLockPrompt && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <Card className="max-w-sm w-full rounded-3xl border-emerald-200 bg-white shadow-2xl p-6 text-center space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
-              <Lock className="h-7 w-7" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-foreground">Set Up Vault Lock First</h3>
-              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                Configure a 4-6 digit Security PIN, Device Biometrics (Fingerprint / Face ID), or a Passkey in Settings to lock your Vault.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 pt-2">
-              <Button
-                onClick={() => {
-                  setShowSetupLockPrompt(false)
-                  router.push('/settings')
-                }}
-                className="w-full rounded-xl bg-primary hover:bg-primary/95 text-white font-bold text-xs h-10"
-              >
-                Set Up Lock in Settings
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowSetupLockPrompt(false)}
-                className="w-full rounded-xl text-xs h-9"
-              >
-                Cancel
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
@@ -616,16 +572,16 @@ https://phola.co.za
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center">
-              {/* 1-Tap Lock Vault Button */}
+              {/* Quick Safe Exit Button */}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleLockVaultClick}
-                className="border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold rounded-xl h-9 px-3 gap-1.5 shadow-2xs"
-                title="Immediately lock the vault with biometrics or PIN"
+                onClick={handleQuickExit}
+                className="border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold rounded-xl h-9 px-3 gap-1.5 shadow-2xs"
+                title="Immediately exit vault to neutral weather screen"
               >
-                <Lock className="h-3.5 w-3.5 text-emerald-600" />
-                Lock Vault
+                <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+                Quick Exit
               </Button>
 
               <Button

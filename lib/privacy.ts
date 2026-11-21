@@ -1,30 +1,26 @@
-const LOCAL_DATA_KEYS = [
-  'phola-pending-incidents',
-  'phola-language',
-  'phola-intro-seen',
-  'phola-biometric-credential-id',
-  'phola_side_tabs_hidden',
-  'phola_active_safe_ride',
-]
-
 export function clearSensitiveLocalData() {
   if (typeof window === 'undefined') {
     return
   }
 
-  // Clear all localStorage keys
-  LOCAL_DATA_KEYS.forEach((key) => {
-    try {
-      window.localStorage.removeItem(key)
-    } catch {
-      // ignore
+  // Deep wipe of all Phola-related sensitive local storage items (GPS, notes, contacts, drafts)
+  try {
+    const keysToRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i)
+      if (key && (key.startsWith('phola') || key.startsWith('sb-') || key.includes('incident') || key.includes('gps'))) {
+        keysToRemove.push(key)
+      }
     }
-  })
+    keysToRemove.forEach((key) => {
+      try {
+        window.localStorage.removeItem(key)
+      } catch {}
+    })
+  } catch {}
 
   // Completely wipe session storage (tokens, drafts, unlock states)
   try {
     window.sessionStorage.clear()
-  } catch {
-    // ignore
-  }
+  } catch {}
 }

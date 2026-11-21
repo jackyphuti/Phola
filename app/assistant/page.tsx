@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { LockScreen } from '@/components/lock-screen'
 import { AIAssistant } from '@/components/ai-assistant'
 import { AppLoadingState } from '@/components/app-loading-state'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,7 @@ import { LogIn } from 'lucide-react'
 
 export default function AssistantPage() {
   const router = useRouter()
-  const { user, isLoading, isLocked } = useAuth()
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -42,9 +41,7 @@ export default function AssistantPage() {
     )
   }
 
-  if (isLocked) {
-    return <LockScreen />
-  }
+
 
   return <AIAssistant />
 }

@@ -162,10 +162,21 @@ export function playBiometricScanPulse(): void {
 /**
  * Triggers hardware vibration pulse if device supports it
  */
-export function triggerHapticFeedback(pattern: number[] = [25, 40, 25]): void {
+export type HapticType = 'light' | 'medium' | 'heavy' | number[]
+
+export function triggerHapticFeedback(pattern: HapticType = [25, 40, 25]): void {
   if (typeof window !== 'undefined' && 'vibrate' in navigator) {
     try {
-      navigator.vibrate(pattern)
+      if (typeof pattern === 'string') {
+        const hapticMap: Record<string, number[]> = {
+          light: [15],
+          medium: [35],
+          heavy: [60, 40, 60],
+        }
+        navigator.vibrate(hapticMap[pattern] || [25])
+      } else {
+        navigator.vibrate(pattern)
+      }
     } catch {}
   }
 }

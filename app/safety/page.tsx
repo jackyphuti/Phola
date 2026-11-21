@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { LockScreen } from '@/components/lock-screen'
 import { SafetyHub } from '@/components/safety-hub'
 import { AppLoadingState } from '@/components/app-loading-state'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,7 @@ import { LogIn } from 'lucide-react'
 
 export default function SafetyPage() {
   const router = useRouter()
-  const { user, isLoading, isLocked } = useAuth()
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -42,7 +41,6 @@ export default function SafetyPage() {
     )
   }
 
-  if (isLocked) return <LockScreen />
 
   return <SafetyHub />
 }

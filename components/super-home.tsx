@@ -55,6 +55,7 @@ import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 import { getNearbySAPSStations, getNearbyHospitals, getNearbyMalls } from '@/lib/saps-stations'
 import { getCachedLocation } from '@/lib/geolocation'
 import { evaluateLocationSafety } from '@/lib/high-risk-zones'
+import { triggerHapticFeedback } from '@/lib/biometric'
 
 const SA_RADAR_AREAS = [
   { name: 'Hatfield (Tshwane)', lat: -25.7505, lng: 28.2385 },
@@ -301,6 +302,7 @@ export function SuperHome({ name }: { name: string }) {
   const startSOSHold = () => {
     setIsSOSHolding(true)
     setHoldProgress(0)
+    triggerHapticFeedback('medium')
 
     let progress = 0
     holdIntervalRef.current = setInterval(() => {
@@ -315,6 +317,7 @@ export function SuperHome({ name }: { name: string }) {
       setIsSOSHolding(false)
       setHoldProgress(0)
       if (holdIntervalRef.current) clearInterval(holdIntervalRef.current)
+      triggerHapticFeedback('heavy')
       void triggerTrustedCirclePing()
       void notifySOSActivated()
       if (navigator.vibrate) navigator.vibrate([200, 100, 300, 100, 500])
@@ -677,7 +680,7 @@ export function SuperHome({ name }: { name: string }) {
                 </p>
               </div>
               <div className="mt-3.5 pt-2.5 border-t border-indigo-100/80 flex items-center justify-between text-xs font-semibold text-indigo-700">
-                <span className="text-[11px] font-medium text-indigo-800/80">Biometric Locked</span>
+                <span className="text-[11px] font-medium text-indigo-800/80">Encrypted Vault</span>
                 <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
               </div>
             </div>

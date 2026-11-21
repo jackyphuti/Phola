@@ -3,7 +3,6 @@
 import { Suspense, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { LockScreen } from '@/components/lock-screen'
 import { SafeRideMonitor } from '@/components/safe-ride-monitor'
 import { AppLoadingState } from '@/components/app-loading-state'
 import { Button } from '@/components/ui/button'
@@ -11,7 +10,7 @@ import { LogIn } from 'lucide-react'
 
 function SafeRideContent() {
   const router = useRouter()
-  const { user, isLoading, isLocked } = useAuth()
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -42,7 +41,6 @@ function SafeRideContent() {
     )
   }
 
-  if (isLocked) return <LockScreen />
 
   return <SafeRideMonitor />
 }

@@ -235,9 +235,30 @@ export function watchReliableLocation(
     }
   }
 
+  // 6. Listen for native iOS/Android background location broadcast events (always-active)
+  const handleNativeBackgroundLocation = (e: any) => {
+    const data = e.detail || e.data?.data
+    if (data?.lat && data?.lng && Number.isFinite(data.lat) && Number.isFinite(data.lng)) {
+      emitPosition({
+        coords: {
+          latitude: data.lat,
+          longitude: data.lng,
+          heading: data.heading ?? null,
+          speed: data.speed ?? null,
+          accuracy: data.accuracy ?? 5,
+          altitude: null,
+          altitudeAccuracy: null,
+        },
+        timestamp: data.ts || Date.now(),
+      } as GeolocationPosition)
+    }
+  }
+
   window.addEventListener('focus', handleVisibilityOrFocus)
   window.addEventListener('online', forceLocationPing)
   document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+  window.addEventListener('phola-background-location', handleNativeBackgroundLocation)
+  window.addEventListener('message', handleNativeBackgroundLocation)
 
   return () => {
     isDisposed = true
@@ -245,6 +266,8 @@ export function watchReliableLocation(
     window.removeEventListener('focus', handleVisibilityOrFocus)
     window.removeEventListener('online', forceLocationPing)
     document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.removeEventListener('phola-background-location', handleNativeBackgroundLocation)
+    window.removeEventListener('message', handleNativeBackgroundLocation)
     if (highAccWatchId !== null) {
       try {
         navigator.geolocation.clearWatch(highAccWatchId)

@@ -98,18 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch {}
         }
 
-        const hasSecurity =
-          hasConfiguredPin(p) ||
-          Boolean(p.biometric_enabled) ||
-          (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-biometric-credential-id')))
-        if (hasSecurity) {
-          const isSessionUnlocked =
-            typeof window !== 'undefined' &&
-            window.sessionStorage.getItem(`phola_unlocked_${userId}`) === 'true'
-          setIsLocked(!isSessionUnlocked)
-        } else {
-          setIsLocked(false)
-        }
+        // In-app lock screen disabled: users use native device app lock (Face ID / Fingerprint / Passcode)
+        setIsLocked(false)
         return p
       }
       return null
@@ -230,23 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void syncUserData(session.user.id, supabase)
           const p = await fetchProfile(session.user.id)
           if (event === 'SIGNED_IN') {
-            const hasSecurity =
-              hasConfiguredPin(p) ||
-              Boolean(p?.biometric_enabled) ||
-              (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-biometric-credential-id')))
-            if (hasSecurity) {
-              // User has configured a PIN or biometrics: require unlock on sign-in
-              if (typeof window !== 'undefined') {
-                window.sessionStorage.removeItem(`phola_unlocked_${session.user.id}`)
-              }
-              setIsLocked(true)
-            } else {
-              // User has no PIN and no biometrics: never lock
-              if (typeof window !== 'undefined') {
-                window.sessionStorage.setItem(`phola_unlocked_${session.user.id}`, 'true')
-              }
-              setIsLocked(false)
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem(`phola_unlocked_${session.user.id}`, 'true')
             }
+            setIsLocked(false)
           }
         } else if (event === 'SIGNED_OUT') {
           if (typeof window !== 'undefined') {
@@ -276,71 +253,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const hasSecurity =
-      hasConfiguredPin(profile) ||
-      Boolean(profile?.biometric_enabled) ||
-      (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('phola-biometric-credential-id')))
-    if (!hasSecurity) {
-      // User has not configured PIN or biometric lock - never lock
-      setIsLocked(false)
-      return
-    }
-
-    const idleMs = 5 * 60 * 1000
-
-    const resetIdleTimer = () => {
-      if (idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current)
-      }
-
-      idleTimerRef.current = setTimeout(() => {
-        if (typeof window !== 'undefined') {
-          window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
-        }
-        setIsLocked(true)
-      }, idleMs)
-    }
-
-    const lockOnHide = () => {
-      if (document.visibilityState === 'hidden') {
-        if (typeof window !== 'undefined') {
-          window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
-        }
-        setIsLocked(true)
-      }
-    }
-
-    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const
-
-    activityEvents.forEach((eventName) => window.addEventListener(eventName, resetIdleTimer, { passive: true }))
-    document.addEventListener('visibilitychange', lockOnHide)
-
-    resetIdleTimer()
-
-    return () => {
-      if (idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current)
-        idleTimerRef.current = null
-      }
-
-      activityEvents.forEach((eventName) => window.removeEventListener(eventName, resetIdleTimer))
-      document.removeEventListener('visibilitychange', lockOnHide)
-    }
-  }, [user, profile])
+    // In-app lock screen disabled in favor of device-level app locks
+    setIsLocked(false)
+  }, [user])
 
   const unlock = useCallback(() => {
-    if (user?.id && typeof window !== 'undefined') {
-      window.sessionStorage.setItem(`phola_unlocked_${user.id}`, 'true')
-    }
     setIsLocked(false)
-  }, [user?.id])
+  }, [])
 
   const lock = useCallback(() => {
-    if (user?.id && typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(`phola_unlocked_${user.id}`)
-    }
-    setIsLocked(true)
-  }, [user?.id])
+    // In-app lock screen disabled: users use native device app lock
+    setIsLocked(false)
+  }, [])
 
   const signOut = async () => {
     if (typeof window !== 'undefined') {

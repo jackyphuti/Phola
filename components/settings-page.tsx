@@ -1777,15 +1777,15 @@ export function SettingsPage() {
               </div>
             )}
 
-            {/* Preferred Lock Method Selector */}
+            {/* Device Security & Native App Lock Guidance */}
             <div className="p-5 space-y-3 bg-slate-50/50 dark:bg-muted/20 border-t border-border/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold text-sm text-foreground">Preferred App Lock Screen</p>
-                  <p className="text-xs text-muted-foreground">Select your primary authentication mode when locking Phola.</p>
+                  <p className="font-semibold text-sm text-foreground">Device App Lock & Vault Security</p>
+                  <p className="text-xs text-muted-foreground">To lock Phola automatically, enable your phone&apos;s native App Lock (iOS Face ID in Settings or Android App Lock). Your encrypted vault uses your configured biometrics.</p>
                 </div>
                 <Badge variant="outline" className="border-emerald-200 text-emerald-800 text-[10px] font-bold">
-                  {preferredLockMode === 'biometrics' ? 'Biometrics' : preferredLockMode === 'pin' ? 'PIN Lock' : preferredLockMode === 'passkey' ? 'Passkey' : 'Auto'}
+                  Device Native
                 </Badge>
               </div>
 

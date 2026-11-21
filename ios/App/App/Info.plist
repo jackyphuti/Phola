@@ -45,10 +45,18 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Phola requires your live location to display nearby safe havens, provide emergency navigation, and share your GPS with emergency services and contacts.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Phola requires continuous background location access to protect your safety, monitor danger zones, and share live tracking with your guardian circle even when the app is closed.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Phola monitors your travel in the background to detect emergency deviations and protect your trip.</string>
+	<string>Phola monitors your travel and location in the background to detect emergency deviations, trigger distress alerts, and broadcast live coordinates to your emergency contacts even when the app is closed.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Phola uses the camera to capture evidence and attach photos to incident reports.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

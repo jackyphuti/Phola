@@ -17,14 +17,15 @@ import {
   LogOut,
   Car,
   Siren,
-  Lock,
   CloudSun,
-  Sun
+  Sun,
+  ShieldAlert
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { LanguageSelector } from '@/components/language-selector'
-import { hasConfiguredPin } from '@/lib/pin'
+import { safeExit } from '@/lib/safe-exit'
+import { triggerHapticFeedback } from '@/lib/biometric'
 
 const tabs = [
   { label: 'Home', href: '/dashboard', icon: Home },
@@ -41,27 +42,17 @@ const tabs = [
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
-  const { signOut, lock, profile } = useAuth()
+  const { signOut } = useAuth()
   const [isHidden, setIsHidden] = useState<boolean>(true)
   const [isMounted, setIsMounted] = useState(false)
-  const [showSetupLockModal, setShowSetupLockModal] = useState(false)
 
   // Global Stealth Weather Decoy State
   const [isDecoyActive, setIsDecoyActive] = useState(false)
   const [decoyTapCount, setDecoyTapCount] = useState(0)
 
-  const handleLockClick = () => {
-    if (typeof window === 'undefined') return
-    const hasPin = hasConfiguredPin(profile) || Boolean(profile?.pin_hash) || Boolean(window.localStorage.getItem('phola_user_pin'))
-    const hasBio = Boolean(profile?.biometric_enabled) || Boolean(window.localStorage.getItem('phola-biometric-configured') === 'true') || Boolean(window.localStorage.getItem('phola-biometric-credential-id'))
-    const hasPasskey = Boolean(window.localStorage.getItem('phola-local-passkeys'))
-
-    if (!hasPin && !hasBio && !hasPasskey) {
-      setShowSetupLockModal(true)
-      return
-    }
-
-    lock()
+  const handleSafeExit = () => {
+    triggerHapticFeedback('heavy')
+    safeExit()
   }
 
   const handleDecoyTap = () => {
@@ -227,16 +218,16 @@ export function AppBottomNav() {
             <span className="hidden md:inline ml-1 text-[11px]">Stealth</span>
           </button>
 
-          {/* Quick Biometric Lock Button */}
+          {/* Quick Safe Exit Emergency Button */}
           <button
             type="button"
-            onClick={handleLockClick}
-            className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 hover:bg-emerald-100/80 active:scale-95 transition-all shadow-2xs"
-            title="Lock Vault & App with Biometrics"
-            aria-label="Biometric Lock"
+            onClick={handleSafeExit}
+            className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border border-rose-200/90 dark:border-rose-800 hover:bg-rose-100/90 active:scale-95 transition-all shadow-2xs"
+            title="Quick Safe Exit (Instantly wipes sensitive session data and exits to neutral screen)"
+            aria-label="Quick Safe Exit"
           >
-            <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span className="hidden sm:inline">Lock App</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span className="hidden sm:inline">Safe Exit</span>
           </button>
         </div>
       </header>
@@ -353,108 +344,78 @@ export function AppBottomNav() {
       {/* ========================================================================= */}
       <nav
         aria-label="Mobile Navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 md:hidden flex items-center justify-around h-16 bg-white/95 dark:bg-card/95 border-t border-emerald-100/90 dark:border-border shadow-lg backdrop-blur-md pb-[env(safe-area-inset-bottom,0px)] px-2"
+        className="fixed bottom-0 left-0 right-0 z-40 md:hidden flex items-center justify-around h-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-1.5 bg-white/90 dark:bg-card/90 border-t border-emerald-100/90 dark:border-border shadow-lg backdrop-blur-xl px-2"
       >
         {/* Tab 1: Home */}
         <Link
           href="/dashboard"
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
+          onClick={() => triggerHapticFeedback('light')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/dashboard'
-              ? 'text-primary font-bold'
+              ? 'text-primary font-bold scale-105'
               : 'text-slate-500 hover:text-foreground'
           }`}
         >
           <Home className={`h-5 w-5 ${pathname === '/dashboard' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5">Home</span>
+          <span className="text-[10px] mt-0.5 font-medium">Home</span>
         </Link>
 
         {/* Tab 2: Radar */}
         <Link
           href="/nearby"
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
+          onClick={() => triggerHapticFeedback('light')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/nearby'
-              ? 'text-primary font-bold'
+              ? 'text-primary font-bold scale-105'
               : 'text-slate-500 hover:text-foreground'
           }`}
         >
           <MapPin className={`h-5 w-5 ${pathname === '/nearby' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5">Radar</span>
+          <span className="text-[10px] mt-0.5 font-medium">Radar</span>
         </Link>
 
         {/* Tab 3: Raised Center Emergency SOS Trigger (High-urgency Crimson) */}
         <div className="flex flex-col items-center justify-center -mt-6 px-1 shrink-0">
           <Link
             href="/sos"
+            onClick={() => triggerHapticFeedback('medium')}
             aria-label="Emergency SOS Map"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white shadow-lg shadow-red-600/40 border-4 border-white dark:border-card active:scale-95 transition-transform hover:bg-red-700"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-red-700 via-red-600 to-rose-500 text-white shadow-xl shadow-red-600/40 border-4 border-white dark:border-card active:scale-90 transition-transform"
           >
-            <Siren className="h-6 w-6 text-white animate-pulse" />
+            <span className="absolute inset-0 rounded-full bg-red-400 opacity-30 animate-ping pointer-events-none" />
+            <Siren className="h-6 w-6 text-white relative z-10" />
           </Link>
-          <span className="text-[10px] font-bold text-red-600 mt-0.5 tracking-tight">SOS</span>
+          <span className="text-[10px] font-extrabold text-red-600 mt-0.5 tracking-tight">SOS</span>
         </div>
 
         {/* Tab 4: Watchdog */}
         <Link
           href="/safe-ride"
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
+          onClick={() => triggerHapticFeedback('light')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/safe-ride'
-              ? 'text-primary font-bold'
+              ? 'text-primary font-bold scale-105'
               : 'text-slate-500 hover:text-foreground'
           }`}
         >
           <Car className={`h-5 w-5 ${pathname === '/safe-ride' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5">Watchdog</span>
+          <span className="text-[10px] mt-0.5 font-medium">Watchdog</span>
         </Link>
 
         {/* Tab 5: Vault */}
         <Link
           href="/reports"
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-colors ${
+          onClick={() => triggerHapticFeedback('light')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/reports' || pathname === '/notes'
-              ? 'text-primary font-bold'
+              ? 'text-primary font-bold scale-105'
               : 'text-slate-500 hover:text-foreground'
           }`}
         >
           <FileText className={`h-5 w-5 ${pathname === '/reports' || pathname === '/notes' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5">Vault</span>
+          <span className="text-[10px] mt-0.5 font-medium">Vault</span>
         </Link>
       </nav>
-      {/* ========================================================================= */}
-      {/* SET UP LOCK SCREEN PROMPT MODAL (If no PIN, Biometrics or Passkey is set) */}
-      {/* ========================================================================= */}
-      {showSetupLockModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="max-w-sm w-full rounded-3xl border border-emerald-200 bg-white dark:bg-card p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
-              <Lock className="h-7 w-7" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-foreground">Set Up Lock Screen First</h3>
-              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                You haven&apos;t set up an App Lock method yet. Please configure your Security PIN, Device Biometrics (Fingerprint / Face ID), or a Passkey in Settings.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 pt-2">
-              <Button
-                onClick={() => {
-                  setShowSetupLockModal(false)
-                  router.push('/settings')
-                }}
-                className="w-full rounded-xl bg-primary hover:bg-primary/95 text-white font-bold text-xs h-10 shadow-xs"
-              >
-                Set Up in Settings
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowSetupLockModal(false)}
-                className="w-full rounded-xl text-xs h-9 border-slate-200"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }

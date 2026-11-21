@@ -3,13 +3,12 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { LockScreen } from '@/components/lock-screen'
 import { JobsBoard } from '@/components/jobs-board'
 import { Loader2 } from 'lucide-react'
 
 export default function JobsPage() {
   const router = useRouter()
-  const { user, isLoading, isLocked } = useAuth()
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -26,7 +25,6 @@ export default function JobsPage() {
   }
 
   if (!user) return null
-  if (isLocked) return <LockScreen />
 
   return <JobsBoard />
 }

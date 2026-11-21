@@ -1,0 +1,6 @@
+version: 1
+bundleID: com.phola.phola
+infoPath: ios/App/App/Info.plist
+iconPath: ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+resources:
+  - public
