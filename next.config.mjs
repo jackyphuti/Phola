@@ -22,10 +22,15 @@ const nextConfig = {
     if (isStaticExport) {
       return []
     }
+    const isDev = process.env.NODE_ENV === 'development'
     return [
       {
         source: '/py-api/:path*',
-        destination: 'http://127.0.0.1:8000/:path*',
+        destination: isDev ? 'http://127.0.0.1:8000/:path*' : '/api/index.py',
+      },
+      {
+        source: '/api/py/:path*',
+        destination: isDev ? 'http://127.0.0.1:8000/:path*' : '/api/index.py',
       },
     ]
   },

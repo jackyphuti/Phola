@@ -46,3 +46,10 @@ supabase/.branches/
 .swiftpm/
 /xtool
 
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+

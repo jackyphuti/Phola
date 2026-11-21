@@ -1,0 +1,995 @@
+{
+  "stations": [
+    {
+      "code": "GP-JHB-CENTRAL",
+      "name": "Johannesburg Central SAPS",
+      "lat": -26.2049,
+      "lng": 28.0473,
+      "province": "Gauteng",
+      "phone": "0113755911"
+    },
+    {
+      "code": "GP-HILLBROW",
+      "name": "Hillbrow SAPS",
+      "lat": -26.1912,
+      "lng": 28.0494,
+      "province": "Gauteng",
+      "phone": "0114886511"
+    },
+    {
+      "code": "GP-MOROKA",
+      "name": "Moroka SAPS (Soweto)",
+      "lat": -26.2674,
+      "lng": 27.8582,
+      "province": "Gauteng",
+      "phone": "0119388601"
+    },
+    {
+      "code": "GP-ORLANDO",
+      "name": "Orlando SAPS (Soweto)",
+      "lat": -26.2335,
+      "lng": 27.9152,
+      "province": "Gauteng",
+      "phone": "0119358200"
+    },
+    {
+      "code": "GP-DOBSONVILLE",
+      "name": "Dobsonville SAPS (Soweto)",
+      "lat": -26.2162,
+      "lng": 27.8722,
+      "province": "Gauteng",
+      "phone": "0119831500"
+    },
+    {
+      "code": "GP-ELDORADO",
+      "name": "Eldorado Park SAPS",
+      "lat": -26.2894,
+      "lng": 27.9048,
+      "province": "Gauteng",
+      "phone": "0119460300"
+    },
+    {
+      "code": "GP-SANDTON",
+      "name": "Sandton SAPS",
+      "lat": -26.1076,
+      "lng": 28.0567,
+      "province": "Gauteng",
+      "phone": "0117228800"
+    },
+    {
+      "code": "GP-RANDBURG",
+      "name": "Randburg SAPS",
+      "lat": -26.0911,
+      "lng": 28.0053,
+      "province": "Gauteng",
+      "phone": "0114499000"
+    },
+    {
+      "code": "GP-ALEXANDRA",
+      "name": "Alexandra SAPS",
+      "lat": -26.1042,
+      "lng": 28.0935,
+      "province": "Gauteng",
+      "phone": "0113217600"
+    },
+    {
+      "code": "GP-ROSEBANK",
+      "name": "Rosebank SAPS",
+      "lat": -26.1472,
+      "lng": 28.0416,
+      "province": "Gauteng",
+      "phone": "0117784700"
+    },
+    {
+      "code": "GP-MIDRAND",
+      "name": "Midrand SAPS",
+      "lat": -25.9984,
+      "lng": 28.1278,
+      "province": "Gauteng",
+      "phone": "0113471600"
+    },
+    {
+      "code": "GP-TEMBISA",
+      "name": "Tembisa SAPS",
+      "lat": -26.0125,
+      "lng": 28.2255,
+      "province": "Gauteng",
+      "phone": "0119262970"
+    },
+    {
+      "code": "GP-KEMPTON-PARK",
+      "name": "Kempton Park SAPS",
+      "lat": -26.1012,
+      "lng": 28.2361,
+      "province": "Gauteng",
+      "phone": "0113938600"
+    },
+    {
+      "code": "GP-BOKSBURG",
+      "name": "Boksburg SAPS",
+      "lat": -26.2155,
+      "lng": 28.2572,
+      "province": "Gauteng",
+      "phone": "0118413600"
+    },
+    {
+      "code": "GP-GERMISTON",
+      "name": "Germiston SAPS",
+      "lat": -26.2238,
+      "lng": 28.1691,
+      "province": "Gauteng",
+      "phone": "0118715000"
+    },
+    {
+      "code": "GP-PRETORIA-CENTRAL",
+      "name": "Pretoria Central SAPS",
+      "lat": -25.7516,
+      "lng": 28.1878,
+      "province": "Gauteng",
+      "phone": "0123534000"
+    },
+    {
+      "code": "GP-HATFIELD",
+      "name": "Hatfield SAPS (Pretoria)",
+      "lat": -25.7486,
+      "lng": 28.238,
+      "province": "Gauteng",
+      "phone": "0123661700"
+    },
+    {
+      "code": "GP-CENTURION",
+      "name": "Lyttelton / Centurion SAPS",
+      "lat": -25.8361,
+      "lng": 28.2045,
+      "province": "Gauteng",
+      "phone": "0126448600"
+    },
+    {
+      "code": "GP-GARSFONTEIN",
+      "name": "Garsfontein SAPS",
+      "lat": -25.7956,
+      "lng": 28.2994,
+      "province": "Gauteng",
+      "phone": "0124704200"
+    },
+    {
+      "code": "GP-SUNNYSIDE",
+      "name": "Sunnyside SAPS",
+      "lat": -25.7562,
+      "lng": 28.2125,
+      "province": "Gauteng",
+      "phone": "0124223600"
+    },
+    {
+      "code": "GP-BROOKLYN",
+      "name": "Brooklyn SAPS",
+      "lat": -25.7725,
+      "lng": 28.2394,
+      "province": "Gauteng",
+      "phone": "0123661700"
+    },
+    {
+      "code": "WC-CPT-CENTRAL",
+      "name": "Cape Town Central SAPS",
+      "lat": -33.9249,
+      "lng": 18.4241,
+      "province": "Western Cape",
+      "phone": "0214678000"
+    },
+    {
+      "code": "WC-SEA-POINT",
+      "name": "Sea Point SAPS",
+      "lat": -33.9142,
+      "lng": 18.3912,
+      "province": "Western Cape",
+      "phone": "0214303700"
+    },
+    {
+      "code": "WC-WOODSTOCK",
+      "name": "Woodstock SAPS",
+      "lat": -33.9298,
+      "lng": 18.4526,
+      "province": "Western Cape",
+      "phone": "0214421200"
+    },
+    {
+      "code": "WC-CLAREMONT",
+      "name": "Claremont SAPS",
+      "lat": -33.9818,
+      "lng": 18.4682,
+      "province": "Western Cape",
+      "phone": "0216572240"
+    },
+    {
+      "code": "WC-BELLVILLE",
+      "name": "Bellville SAPS",
+      "lat": -33.8986,
+      "lng": 18.6292,
+      "province": "Western Cape",
+      "phone": "0219183000"
+    },
+    {
+      "code": "WC-STELLENBOSCH",
+      "name": "Stellenbosch SAPS",
+      "lat": -33.9352,
+      "lng": 18.8601,
+      "province": "Western Cape",
+      "phone": "0218095000"
+    },
+    {
+      "code": "WC-GEORGE",
+      "name": "George SAPS",
+      "lat": -33.9582,
+      "lng": 22.4611,
+      "province": "Western Cape",
+      "phone": "0448034700"
+    },
+    {
+      "code": "WC-MITCHELLS-PLAIN",
+      "name": "Mitchells Plain SAPS",
+      "lat": -34.0494,
+      "lng": 18.6272,
+      "province": "Western Cape",
+      "phone": "0213701600"
+    },
+    {
+      "code": "WC-KHAYELITSHA",
+      "name": "Khayelitsha SAPS",
+      "lat": -34.0363,
+      "lng": 18.6761,
+      "province": "Western Cape",
+      "phone": "0213601600"
+    },
+    {
+      "code": "KZN-DURBAN-CENTRAL",
+      "name": "Durban Central SAPS",
+      "lat": -29.8587,
+      "lng": 31.0218,
+      "province": "KwaZulu-Natal",
+      "phone": "0313254200"
+    },
+    {
+      "code": "KZN-BEREA",
+      "name": "Berea SAPS",
+      "lat": -29.8452,
+      "lng": 30.9984,
+      "province": "KwaZulu-Natal",
+      "phone": "0312771060"
+    },
+    {
+      "code": "KZN-POINT",
+      "name": "Point SAPS",
+      "lat": -29.8665,
+      "lng": 31.0412,
+      "province": "KwaZulu-Natal",
+      "phone": "0313674000"
+    },
+    {
+      "code": "KZN-UMHLANGA",
+      "name": "Durban North / Umhlanga SAPS",
+      "lat": -29.7785,
+      "lng": 31.0345,
+      "province": "KwaZulu-Natal",
+      "phone": "0315608000"
+    },
+    {
+      "code": "KZN-PIETERMARITZBURG",
+      "name": "Pietermaritzburg SAPS",
+      "lat": -29.6006,
+      "lng": 30.3794,
+      "province": "KwaZulu-Natal",
+      "phone": "0338452400"
+    },
+    {
+      "code": "EC-GQEBERHA",
+      "name": "Humewood SAPS (Gqeberha)",
+      "lat": -33.9651,
+      "lng": 25.6374,
+      "province": "Eastern Cape",
+      "phone": "0414027000"
+    },
+    {
+      "code": "EC-MOUNT-ROAD",
+      "name": "Mount Road SAPS (Gqeberha)",
+      "lat": -33.9458,
+      "lng": 25.5991,
+      "province": "Eastern Cape",
+      "phone": "0413946000"
+    },
+    {
+      "code": "EC-EAST-LONDON",
+      "name": "East London SAPS",
+      "lat": -33.0153,
+      "lng": 27.9116,
+      "province": "Eastern Cape",
+      "phone": "0437070145"
+    },
+    {
+      "code": "FS-BLOEMFONTEIN",
+      "name": "Parkweg SAPS (Bloemfontein)",
+      "lat": -29.1183,
+      "lng": 26.216,
+      "province": "Free State",
+      "phone": "0515076600"
+    },
+    {
+      "code": "LP-POLOKWANE",
+      "name": "Polokwane SAPS",
+      "lat": -23.9045,
+      "lng": 29.4689,
+      "province": "Limpopo",
+      "phone": "0152901000"
+    },
+    {
+      "code": "MP-NELSPRUIT",
+      "name": "Nelspruit SAPS (Mbombela)",
+      "lat": -25.4753,
+      "lng": 30.9694,
+      "province": "Mpumalanga",
+      "phone": "0137591008"
+    },
+    {
+      "code": "NW-RUSTENBURG",
+      "name": "Rustenburg SAPS",
+      "lat": -25.6676,
+      "lng": 27.242,
+      "province": "North West",
+      "phone": "0145938400"
+    }
+  ],
+  "zones": [
+    {
+      "id": "pta-hatfield",
+      "name": "Hatfield (Student & Transit Corridor)",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.7505,
+      "lng": 28.2385,
+      "radiusMeters": 1700,
+      "level": "moderate",
+      "riskFactors": [
+        "Phone & laptop snatching",
+        "Opportunistic muggings near clubs & Burnett St",
+        "Theft out of motor vehicles",
+        "Smash-and-grab along Jan Shoba & Duncan Rd"
+      ],
+      "safetyAdvice": "Moderate Risk: Lively student precinct. Keep your phone concealed when walking near Hatfield Gautrain and Burnett Street. Avoid walking alone after dark and park in guarded, well-lit bays."
+    },
+    {
+      "id": "pta-hatfield-campus",
+      "name": "Hatfield University Campus & Green Route",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.7545,
+      "lng": 28.2315,
+      "radiusMeters": 900,
+      "level": "safe",
+      "riskFactors": [
+        "Minor unattended property theft"
+      ],
+      "safetyAdvice": "Safe Area: Monitored university green precinct with active 24/7 private security patrols and surveillance kiosks."
+    },
+    {
+      "id": "pta-cbd",
+      "name": "Pretoria Central CBD Inner Core",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.7465,
+      "lng": 28.1885,
+      "radiusMeters": 2200,
+      "level": "high",
+      "riskFactors": [
+        "Armed robbery",
+        "Smash-and-grab",
+        "Carjacking",
+        "Theft out of motor vehicles"
+      ],
+      "safetyAdvice": "High Risk Zone: Inner-city property and violent crime hotspot. Keep vehicle doors locked, windows closed, and avoid walking after sunset."
+    },
+    {
+      "id": "pta-marabastad",
+      "name": "Marabastad & Belle Ombre Transit Hub",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.7388,
+      "lng": 28.1798,
+      "radiusMeters": 1800,
+      "level": "high",
+      "riskFactors": [
+        "Violent mugging",
+        "Transit robberies",
+        "Pickpocketing syndicates"
+      ],
+      "safetyAdvice": "High Risk Zone: Major transit crime node. Do not display cellphones or luggage."
+    },
+    {
+      "id": "pta-sunnyside",
+      "name": "Sunnyside & Berea Park Corridor",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.7533,
+      "lng": 28.2094,
+      "radiusMeters": 1800,
+      "level": "high",
+      "riskFactors": [
+        "Street muggings",
+        "Vehicle hijacking",
+        "Robbery after dark"
+      ],
+      "safetyAdvice": "High Risk Zone: Elevated muggings after 19:00 along Troye and Robert Sobukwe streets."
+    },
+    {
+      "id": "pta-arcadia",
+      "name": "Arcadia & Embassy Outskirts",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.747,
+      "lng": 28.218,
+      "radiusMeters": 1600,
+      "level": "moderate",
+      "riskFactors": [
+        "Smash-and-grab near intersections",
+        "Nighttime street muggings"
+      ],
+      "safetyAdvice": "Moderate Risk: Remain alert at traffic lights along Stanza Bopape and avoid park perimeters after dark."
+    },
+    {
+      "id": "pta-mamelodi",
+      "name": "Mamelodi (East & West)",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.713,
+      "lng": 28.368,
+      "radiusMeters": 5500,
+      "level": "high",
+      "riskFactors": [
+        "Violent assault",
+        "Carjacking",
+        "Armed robbery"
+      ],
+      "safetyAdvice": "High Risk Zone: High hijacking and violent robbery frequency."
+    },
+    {
+      "id": "pta-soshanguve",
+      "name": "Soshanguve Metropolitan",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.525,
+      "lng": 28.105,
+      "radiusMeters": 6000,
+      "level": "high",
+      "riskFactors": [
+        "Armed robbery",
+        "Vehicle theft",
+        "Violent crime"
+      ],
+      "safetyAdvice": "High Risk Zone: Exercise extreme caution on main arterials."
+    },
+    {
+      "id": "pta-atteridgeville",
+      "name": "Atteridgeville",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.772,
+      "lng": 28.075,
+      "radiusMeters": 4500,
+      "level": "high",
+      "riskFactors": [
+        "Armed robbery",
+        "Carjacking"
+      ],
+      "safetyAdvice": "High Risk Zone: Avoid unfamiliar routes at night."
+    },
+    {
+      "id": "pta-brooklyn",
+      "name": "Brooklyn & Menlo Park",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.771,
+      "lng": 28.252,
+      "radiusMeters": 2200,
+      "level": "safe",
+      "riskFactors": [
+        "Low residential crime"
+      ],
+      "safetyAdvice": "Safe Area: Well-monitored residential and embassy zone with active private security."
+    },
+    {
+      "id": "pta-menlyn",
+      "name": "Menlyn Maine Urban Precinct",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.786,
+      "lng": 28.277,
+      "radiusMeters": 2400,
+      "level": "safe",
+      "riskFactors": [
+        "Normal suburban vigilance"
+      ],
+      "safetyAdvice": "Safe Area: Controlled commercial precinct with private security surveillance."
+    },
+    {
+      "id": "pta-centurion-cbd",
+      "name": "Centurion CBD & Station Precinct",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.856,
+      "lng": 28.188,
+      "radiusMeters": 2000,
+      "level": "moderate",
+      "riskFactors": [
+        "Theft from vehicles",
+        "Commuter phone snatching"
+      ],
+      "safetyAdvice": "Moderate Risk: Keep valuables concealed when boarding Gautrain or walking near the lake."
+    },
+    {
+      "id": "pta-midstream",
+      "name": "Midstream & Irene Secure Estates",
+      "region": "Gauteng - Tshwane",
+      "lat": -25.905,
+      "lng": 28.205,
+      "radiusMeters": 3500,
+      "level": "safe",
+      "riskFactors": [
+        "Gated access control"
+      ],
+      "safetyAdvice": "Safe Area: High-security gated residential corridor."
+    },
+    {
+      "id": "jhb-cbd",
+      "name": "Johannesburg CBD & Park Station",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.2041,
+      "lng": 28.0473,
+      "radiusMeters": 3200,
+      "level": "high",
+      "riskFactors": [
+        "Armed robbery",
+        "Mugging",
+        "Smash-and-grab",
+        "Carjacking"
+      ],
+      "safetyAdvice": "High Risk Zone: Major urban robbery hotspot. Avoid walking alone or holding cellphones in transit."
+    },
+    {
+      "id": "jhb-hillbrow",
+      "name": "Hillbrow",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.1884,
+      "lng": 28.0494,
+      "radiusMeters": 1800,
+      "level": "high",
+      "riskFactors": [
+        "Violent mugging",
+        "Armed crime",
+        "Hijacking"
+      ],
+      "safetyAdvice": "High Risk Zone: Extreme caution required. Avoid pedestrian transit."
+    },
+    {
+      "id": "jhb-berea-yeoville",
+      "name": "Berea & Yeoville",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.183,
+      "lng": 28.06,
+      "radiusMeters": 2200,
+      "level": "high",
+      "riskFactors": [
+        "Street mugging",
+        "Violent robbery"
+      ],
+      "safetyAdvice": "High Risk Zone: Elevated armed mugging and extortion."
+    },
+    {
+      "id": "jhb-jeppestown",
+      "name": "Jeppestown & Doornfontein",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.203,
+      "lng": 28.067,
+      "radiusMeters": 2000,
+      "level": "high",
+      "riskFactors": [
+        "Armed robbery",
+        "Vehicle hijacking"
+      ],
+      "safetyAdvice": "High Risk Zone: High hijacking frequency."
+    },
+    {
+      "id": "jhb-alexandra",
+      "name": "Alexandra Township",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.1056,
+      "lng": 28.1006,
+      "radiusMeters": 3200,
+      "level": "high",
+      "riskFactors": [
+        "Violent crime",
+        "Armed robbery",
+        "Carjacking"
+      ],
+      "safetyAdvice": "High Risk Zone: High violent crime incidence."
+    },
+    {
+      "id": "jhb-tembisa",
+      "name": "Tembisa",
+      "region": "Gauteng - Ekurhuleni",
+      "lat": -25.9964,
+      "lng": 28.2268,
+      "radiusMeters": 5500,
+      "level": "high",
+      "riskFactors": [
+        "Violent crime",
+        "Carjacking",
+        "Armed assault"
+      ],
+      "safetyAdvice": "High Risk Zone: Frequent carjackings and armed crime."
+    },
+    {
+      "id": "jhb-diepsloot",
+      "name": "Diepsloot",
+      "region": "Gauteng - Johannesburg",
+      "lat": -25.9333,
+      "lng": 28.0167,
+      "radiusMeters": 4500,
+      "level": "high",
+      "riskFactors": [
+        "Violent robbery",
+        "Sexual assault",
+        "Mugging"
+      ],
+      "safetyAdvice": "High Risk Zone: Exercise extreme vigilance."
+    },
+    {
+      "id": "jhb-braamfontein",
+      "name": "Braamfontein Student Precinct",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.192,
+      "lng": 28.035,
+      "radiusMeters": 1600,
+      "level": "moderate",
+      "riskFactors": [
+        "Phone snatching",
+        "Night street robbery",
+        "Smash-and-grab near bridge"
+      ],
+      "safetyAdvice": "Moderate Risk: Bustling student hub. Keep phones securely tucked away and walk in groups at night."
+    },
+    {
+      "id": "jhb-melville",
+      "name": "Melville & Auckland Park",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.176,
+      "lng": 28.005,
+      "radiusMeters": 1800,
+      "level": "moderate",
+      "riskFactors": [
+        "Opportunistic mugging",
+        "Car break-ins"
+      ],
+      "safetyAdvice": "Moderate Risk: Keep vehicle doors locked and stay alert on 7th Street."
+    },
+    {
+      "id": "jhb-rosebank-perimeter",
+      "name": "Rosebank Oxford Corridor",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.147,
+      "lng": 28.042,
+      "radiusMeters": 1400,
+      "level": "moderate",
+      "riskFactors": [
+        "Smash-and-grab",
+        "Phone snatching at crossings"
+      ],
+      "safetyAdvice": "Moderate Risk: Remain alert at traffic intersections along Oxford Rd."
+    },
+    {
+      "id": "jhb-sandton",
+      "name": "Sandton Central & Nelson Mandela Sq",
+      "region": "Gauteng - Johannesburg",
+      "lat": -26.1075,
+      "lng": 28.0535,
+      "radiusMeters": 1800,
+      "level": "safe",
+      "riskFactors": [
+        "Minor opportunism in crowd"
+      ],
+      "safetyAdvice": "Safe Area: Highly managed business district with private security infrastructure."
+    },
+    {
+      "id": "jhb-waterfall",
+      "name": "Waterfall City Precinct",
+      "region": "Gauteng - Midrand",
+      "lat": -26.015,
+      "lng": 28.109,
+      "radiusMeters": 2200,
+      "level": "safe",
+      "riskFactors": [
+        "Standard vigilance"
+      ],
+      "safetyAdvice": "Safe Area: Secure master-planned smart city with high camera surveillance."
+    },
+    {
+      "id": "wc-nyanga",
+      "name": "Nyanga",
+      "region": "Western Cape - Cape Town",
+      "lat": -33.9961,
+      "lng": 18.5872,
+      "radiusMeters": 3000,
+      "level": "high",
+      "riskFactors": [
+        "Homicide hotspot",
+        "Armed carjacking",
+        "Robbery",
+        "Violent assault"
+      ],
+      "safetyAdvice": "High Risk Zone: Avoid non-essential travel. Do not follow unverified GPS shortcuts."
+    },
+    {
+      "id": "wc-khayelitsha",
+      "name": "Khayelitsha",
+      "region": "Western Cape - Cape Town",
+      "lat": -34.0383,
+      "lng": 18.675,
+      "radiusMeters": 5500,
+      "level": "high",
+      "riskFactors": [
+        "Violent crime",
+        "Armed robbery",
+        "Carjacking",
+        "Extortion"
+      ],
+      "safetyAdvice": "High Risk Zone: High hijacking frequency."
+    },
+    {
+      "id": "wc-gugulethu",
+      "name": "Gugulethu",
+      "region": "Western Cape - Cape Town",
+      "lat": -33.978,
+      "lng": 18.572,
+      "radiusMeters": 3000,
+      "level": "high",
+      "riskFactors": [
+        "Violent robbery",
+        "Armed carjacking"
+      ],
+      "safetyAdvice": "High Risk Zone: High armed carjacking risk."
+    },
+    {
+      "id": "wc-philippi",
+      "name": "Philippi & Browns Farm",
+      "region": "Western Cape - Cape Town",
+      "lat": -34.015,
+      "lng": 18.555,
+      "radiusMeters": 3500,
+      "level": "high",
+      "riskFactors": [
+        "Violent hijacking",
+        "Armed assault",
+        "Murder hotspot"
+      ],
+      "safetyAdvice": "High Risk Zone: Never stop on secluded roads or highway off-ramps."
+    },
+    {
+      "id": "wc-delft",
+      "name": "Delft",
+      "region": "Western Cape - Cape Town",
+      "lat": -33.985,
+      "lng": 18.643,
+      "radiusMeters": 3500,
+      "level": "high",
+      "riskFactors": [
+        "Violent robbery",
+        "Carjacking",
+        "Gang violence"
+      ],
+      "safetyAdvice": "High Risk Zone: Gang crossfire and hijacking hotspot."
+    },
+    {
+      "id": "wc-mitchells-plain",
+      "name": "Mitchells Plain & Beacon Valley",
+      "region": "Western Cape - Cape Town",
+      "lat": -34.048,
+      "lng": 18.622,
+      "radiusMeters": 4500,
+      "level": "high",
+      "riskFactors": [
+        "Gang activity",
+        "Armed robbery",
+        "Violent crime"
+      ],
+      "safetyAdvice": "High Risk Zone: Stay on primary arterials."
+    },
+    {
+      "id": "wc-observatory",
+      "name": "Observatory & Salt River Corridor",
+      "region": "Western Cape - Cape Town",
+      "lat": -33.937,
+      "lng": 18.472,
+      "radiusMeters": 1600,
+      "level": "moderate",
+      "riskFactors": [
+        "Mugging along railway lines",
+        "Car break-ins"
+      ],
+      "safetyAdvice": "Moderate Risk: Exercise caution on Lower Main Road late at night."
+    },
+    {
+      "id": "wc-waterfront",
+      "name": "V&A Waterfront Precinct",
+      "region": "Western Cape - Cape Town",
+      "lat": -33.905,
+      "lng": 18.422,
+      "radiusMeters": 1600,
+      "level": "safe",
+      "riskFactors": [
+        "Normal vigilance"
+      ],
+      "safetyAdvice": "Safe Area: Dedicated security zone with 24/7 CCTV surveillance."
+    },
+    {
+      "id": "wc-camps-bay",
+      "name": "Camps Bay & Clifton Promenade",
+      "region": "Western Cape - Cape Town",
+      "lat": -33.951,
+      "lng": 18.378,
+      "radiusMeters": 2000,
+      "level": "safe",
+      "riskFactors": [
+        "Low residential crime"
+      ],
+      "safetyAdvice": "Safe Area: Monitored coastal tourism strip."
+    },
+    {
+      "id": "dbn-cbd",
+      "name": "Durban Central & Warwick Sector",
+      "region": "KwaZulu-Natal - eThekwini",
+      "lat": -29.8587,
+      "lng": 31.0218,
+      "radiusMeters": 3000,
+      "level": "high",
+      "riskFactors": [
+        "Armed mugging",
+        "Violent robbery",
+        "Vehicle theft"
+      ],
+      "safetyAdvice": "High Risk Zone: Major urban theft hotspot. Avoid walking alone near Warwick."
+    },
+    {
+      "id": "kzn-kwamashu",
+      "name": "KwaMashu",
+      "region": "KwaZulu-Natal - eThekwini",
+      "lat": -29.7533,
+      "lng": 30.9856,
+      "radiusMeters": 4000,
+      "level": "high",
+      "riskFactors": [
+        "Violent assault",
+        "Carjacking",
+        "Armed robbery",
+        "Homicide hotspot"
+      ],
+      "safetyAdvice": "High Risk Zone: High hijacking frequency."
+    },
+    {
+      "id": "kzn-inanda",
+      "name": "Inanda & Ntuzuma",
+      "region": "KwaZulu-Natal - eThekwini",
+      "lat": -29.71,
+      "lng": 30.935,
+      "radiusMeters": 5000,
+      "level": "high",
+      "riskFactors": [
+        "Violent crime",
+        "GBV hotspot",
+        "Armed robbery"
+      ],
+      "safetyAdvice": "High Risk Zone: Extreme caution required."
+    },
+    {
+      "id": "dbn-umlazi",
+      "name": "Umlazi",
+      "region": "KwaZulu-Natal - eThekwini",
+      "lat": -29.9678,
+      "lng": 30.8872,
+      "radiusMeters": 5500,
+      "level": "high",
+      "riskFactors": [
+        "Violent crime",
+        "Carjacking",
+        "Armed assault"
+      ],
+      "safetyAdvice": "High Risk Zone: Exercise high vigilance on major township routes."
+    },
+    {
+      "id": "dbn-florida-rd",
+      "name": "Florida Road Dining & Night Strip",
+      "region": "KwaZulu-Natal - eThekwini",
+      "lat": -29.832,
+      "lng": 31.014,
+      "radiusMeters": 1400,
+      "level": "moderate",
+      "riskFactors": [
+        "Street opportunism",
+        "Theft from parked cars"
+      ],
+      "safetyAdvice": "Moderate Risk: Keep phones away on street corners and use designated parking guards."
+    },
+    {
+      "id": "dbn-umhlanga",
+      "name": "Umhlanga Ridge & Gateway Precinct",
+      "region": "KwaZulu-Natal - eThekwini",
+      "lat": -29.728,
+      "lng": 31.085,
+      "radiusMeters": 2600,
+      "level": "safe",
+      "riskFactors": [
+        "Suburban vigilance"
+      ],
+      "safetyAdvice": "Safe Area: Private security patrol district with rapid response units."
+    },
+    {
+      "id": "plz-korsten",
+      "name": "Korsten (Gqeberha / Port Elizabeth)",
+      "region": "Eastern Cape - Nelson Mandela Bay",
+      "lat": -33.928,
+      "lng": 25.578,
+      "radiusMeters": 2500,
+      "level": "high",
+      "riskFactors": [
+        "Armed robbery",
+        "Carjacking",
+        "Violent mugging"
+      ],
+      "safetyAdvice": "High Risk Zone: High armed mugging incidence."
+    },
+    {
+      "id": "plz-new-brighton",
+      "name": "New Brighton",
+      "region": "Eastern Cape - Nelson Mandela Bay",
+      "lat": -33.902,
+      "lng": 25.602,
+      "radiusMeters": 3000,
+      "level": "high",
+      "riskFactors": [
+        "Violent crime",
+        "Armed robbery",
+        "Carjacking"
+      ],
+      "safetyAdvice": "High Risk Zone: Avoid traveling alone at night."
+    },
+    {
+      "id": "plz-kwazakhele",
+      "name": "KwaZakhele",
+      "region": "Eastern Cape - Nelson Mandela Bay",
+      "lat": -33.885,
+      "lng": 25.59,
+      "radiusMeters": 3000,
+      "level": "high",
+      "riskFactors": [
+        "Violent assault",
+        "Armed robbery",
+        "Vehicle theft"
+      ],
+      "safetyAdvice": "High Risk Zone: Keep doors locked and stay alert."
+    },
+    {
+      "id": "pmb-cbd",
+      "name": "Pietermaritzburg Central CBD",
+      "region": "KwaZulu-Natal - Pietermaritzburg",
+      "lat": -29.6006,
+      "lng": 30.3794,
+      "radiusMeters": 3500,
+      "level": "high",
+      "riskFactors": [
+        "Violent robbery",
+        "Armed street crime",
+        "Carjacking"
+      ],
+      "safetyAdvice": "High Risk Zone: Heavy commercial and property crime."
+    },
+    {
+      "id": "pmb-imbali",
+      "name": "Imbali",
+      "region": "KwaZulu-Natal - Pietermaritzburg",
+      "lat": -29.6644,
+      "lng": 30.3475,
+      "radiusMeters": 4500,
+      "level": "high",
+      "riskFactors": [
+        "Violent assault",
+        "Armed robbery",
+        "Homicide hotspot"
+      ],
+      "safetyAdvice": "High Risk Zone: High homicide and violent assault rates."
+    }
+  ]
+}
