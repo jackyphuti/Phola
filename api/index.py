@@ -15,7 +15,7 @@ import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 # Ensure local api folder is on sys.path for Vercel Lambda execution
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -69,13 +69,22 @@ class handler(BaseHTTPRequestHandler):
 
     def _get_clean_path(self) -> str:
         parsed = urlparse(self.path)
-        path = parsed.path.rstrip("/")
+        qs = parse_qs(parsed.query)
+        raw_path = (
+            qs.get("__path", [None])[0]
+            or qs.get("path", [None])[0]
+            or self.headers.get("x-matched-path")
+            or parsed.path
+        )
+        path = str(raw_path).rstrip("/")
         # Strip common routing prefixes used by Next.js / Vercel rewrites
         for prefix in ["/py-api", "/api/py", "/api/index.py", "/api/index", "/api"]:
             if path.startswith(prefix):
                 path = path[len(prefix):]
-        if not path:
-            path = "/"
+        if not path.startswith("/"):
+            path = "/" + path
+        if path != "/":
+            path = path.rstrip("/")
         return path
 
     def _read_json_body(self) -> dict:

@@ -6,6 +6,7 @@ Criminal Procedure Act requirements from incident notes, voice transcripts, and 
 """
 
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -135,7 +136,7 @@ def generate_sample_docket() -> Path:
         nearest_station="Brooklyn Police Station (SAPS)",
     )
 
-    out_file = Path("/tmp/SAPS_Docket_VAULT-782914.txt")
+    out_file = Path(tempfile.gettempdir()) / "SAPS_Docket_VAULT-782914.txt"
     out_file.write_text(statement, encoding="utf-8")
     return out_file
 

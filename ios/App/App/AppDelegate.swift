@@ -59,4 +59,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, CLLocationManagerDelegate
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        let lat = location.coordinate.latitude
+        let lng = location.coordinate.longitude
+        let speed = location.speed >= 0 ? "\(location.speed)" : "null"
+        let heading = location.course >= 0 ? "\(location.course)" : "null"
+
+        let js = """
+        (function() {
+            try {
+                var payload = { lat: \(lat), lng: \(lng), speed: \(speed), heading: \(heading), ts: Date.now() };
+                window.localStorage.setItem('phola_last_gps', JSON.stringify(payload));
+                window.sessionStorage.setItem('phola_last_gps', JSON.stringify(payload));
+                window.dispatchEvent(new CustomEvent('phola-background-location', { detail: payload }));
+                window.postMessage({ type: 'PHOLA_BACKGROUND_LOCATION', data: payload }, '*');
+            } catch (e) {}
+        })();
+        """
+
+        DispatchQueue.main.async { [weak self] in
+            if let bridgeVC = self?.window?.rootViewController as? CAPBridgeViewController {
+                bridgeVC.webView?.evaluateJavaScript(js, completionHandler: nil)
+            }
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("[Phola AppDelegate] Background GPS Error: \(error.localizedDescription)")
+    }
+
 }

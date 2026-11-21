@@ -45,7 +45,12 @@ class DocketEngine:
         description = incident.get("description") or "No detailed factual narrative provided."
         location = incident.get("location") or "Location recorded via GPS enclave."
         date_occurred = incident.get("date_occurred") or incident.get("dateOccurred") or date_formatted
-        perpetrator = incident.get("perpetrator_relationship") or "Unknown / Withheld"
+        perpetrator = (
+            incident.get("perpetrator_relationship")
+            or incident.get("perpetratorRelationship")
+            or "Unknown / Withheld"
+        )
+        user_id_str = str(incident.get("user_id") or incident.get("userId") or "Confidential")
 
         # Resolve SAPS station
         saps_code = incident.get("saps_station_code") or incident.get("sapsStationCode")
@@ -109,7 +114,7 @@ CHAIN-OF-CUSTODY STATUS   : VERIFIED DIGITAL ORIGINAL (IMMUTABLE HASH)
 --------------------------------------------------------------------------------
 Full Name / Identifier    : {complainant}
 Contact Telephone         : {phone}
-Identity Verification     : Phola Client Enclave Authenticated (User ID: {incident.get('user_id', 'Confidential')[:8]}...)
+Identity Verification     : Phola Client Enclave Authenticated (User ID: {user_id_str[:8]}...)
 Jurisdictional Province   : {province}
 
 --------------------------------------------------------------------------------

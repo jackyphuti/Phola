@@ -10,11 +10,11 @@
   "rewrites": [
     {
       "source": "/py-api/:path*",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?__path=/:path*"
     },
     {
       "source": "/api/py/:path*",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?__path=/:path*"
     }
   ]
 }

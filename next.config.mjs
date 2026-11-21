@@ -26,11 +26,11 @@ const nextConfig = {
     return [
       {
         source: '/py-api/:path*',
-        destination: isDev ? 'http://127.0.0.1:8000/:path*' : '/api/index.py',
+        destination: isDev ? 'http://127.0.0.1:8000/:path*' : '/api/index.py?__path=/:path*',
       },
       {
         source: '/api/py/:path*',
-        destination: isDev ? 'http://127.0.0.1:8000/:path*' : '/api/index.py',
+        destination: isDev ? 'http://127.0.0.1:8000/:path*' : '/api/index.py?__path=/:path*',
       },
     ]
   },
