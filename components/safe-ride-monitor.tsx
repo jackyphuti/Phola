@@ -24,8 +24,15 @@ import {
   HeartPulse,
   History,
   RotateCcw,
-  Check
+  Check,
+  Radio,
+  Activity
 } from 'lucide-react'
+import { 
+  sendWatchdogTelemetry, 
+  closeWatchdogSession, 
+  type WatchdogTelemetryResponse 
+} from '@/lib/python-api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -79,6 +86,7 @@ export function SafeRideMonitor() {
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [telemetryReport, setTelemetryReport] = useState<WatchdogTelemetryResponse | null>(null)
 
   // Dialog / feedback
   const [showArrivalModal, setShowArrivalModal] = useState(false)
@@ -193,6 +201,60 @@ export function SafeRideMonitor() {
     }
   }, [session?.status])
 
+  // 6. Live Telemetry Stream to Python Safe Ride Watchdog Engine
+  useEffect(() => {
+    if (!session || session.status === 'arrived' || session.status === 'cancelled') {
+      return
+    }
+
+    let isCancelled = false
+
+    const sendFix = async (coords: { lat: number; lng: number }) => {
+      try {
+        const report = await sendWatchdogTelemetry({
+          sessionId: session.id,
+          lat: coords.lat,
+          lng: coords.lng,
+          serviceId: session.serviceId,
+          destination: session.destination,
+        })
+        if (!isCancelled && report) {
+          setTelemetryReport(report)
+          if (report.status === 'critical') {
+            triggerSafetyVibration('urgent')
+          }
+        }
+      } catch {}
+    }
+
+    if (currentCoords) {
+      void sendFix(currentCoords)
+    }
+
+    const telemetryInterval = setInterval(() => {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+            setCurrentCoords(coords)
+            void sendFix(coords)
+          },
+          () => {
+            if (currentCoords) void sendFix(currentCoords)
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
+        )
+      } else if (currentCoords) {
+        void sendFix(currentCoords)
+      }
+    }, 12000)
+
+    return () => {
+      isCancelled = true
+      clearInterval(telemetryInterval)
+    }
+  }, [session?.id, session?.status, session?.serviceId, session?.destination])
+
   // Handlers
   const handleStartRide = (andLaunchApp: boolean) => {
     const trimmedDestination = destination.trim()
@@ -261,8 +323,10 @@ export function SafeRideMonitor() {
 
   const handleArrivedSafely = () => {
     if (!session) return
+    void closeWatchdogSession(session.id)
     clearActiveSafeRide()
     setSession(null)
+    setTelemetryReport(null)
     setRecentTrips(getRecentTrips())
     setShowArrivalModal(true)
     triggerSafetyVibration('warning')
@@ -270,8 +334,10 @@ export function SafeRideMonitor() {
 
   const handleCancelRide = () => {
     if (window.confirm('Cancel this Safe Ride session? Phola watchdog countdown will stop.')) {
+      if (session) void closeWatchdogSession(session.id)
       clearActiveSafeRide()
       setSession(null)
+      setTelemetryReport(null)
       setRecentTrips(getRecentTrips())
     }
   }
@@ -406,6 +472,74 @@ export function SafeRideMonitor() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Live Python Watchdog Telemetry & Police Beacon */}
+            {telemetryReport && (
+              <Card className="border border-emerald-100 bg-white/95 backdrop-blur-xs shadow-xs rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Radio className="h-4 w-4 text-emerald-600 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        Live Route Telemetry
+                      </span>
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        telemetryReport.status === 'safe'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : telemetryReport.status === 'warning'
+                          ? 'border-amber-200 bg-amber-50 text-amber-900'
+                          : 'border-red-200 bg-red-50 text-red-900 animate-pulse'
+                      }`}
+                    >
+                      {telemetryReport.status === 'safe' ? 'Normal Corridor' : telemetryReport.status === 'warning' ? 'Route Caution' : 'Critical Deviation'}
+                    </Badge>
+                  </div>
+
+                  {/* Safety Score Meter & Nearest SAPS Station */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">Safety Score</span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className={`text-lg font-extrabold ${telemetryReport.safetyScore >= 80 ? 'text-emerald-600' : telemetryReport.safetyScore >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                          {telemetryReport.safetyScore}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">/ 100</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">Nearest Police</span>
+                      <div className="truncate text-xs font-bold text-foreground mt-0.5">
+                        {telemetryReport.nearestStation.name}
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5">
+                        <span>{telemetryReport.nearestStation.distanceKm !== null ? `${telemetryReport.nearestStation.distanceKm} km` : 'Tracking'}</span>
+                        <a
+                          href={`tel:${telemetryReport.nearestStation.phone}`}
+                          className="font-bold text-emerald-600 hover:underline"
+                        >
+                          Call SAPS
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {telemetryReport.alerts.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      {telemetryReport.alerts.map((alt, idx) => (
+                        <div key={idx} className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50/80 p-2 rounded-lg border border-amber-200/60">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <span>{alt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Mid-Trip "I'm Okay — Log Check-In" Heartbeat Button */}
             <Button

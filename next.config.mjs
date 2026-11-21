@@ -18,6 +18,17 @@ const nextConfig = {
       },
     ]
   },
+  async rewrites() {
+    if (isStaticExport) {
+      return []
+    }
+    return [
+      {
+        source: '/py-api/:path*',
+        destination: 'http://127.0.0.1:8000/:path*',
+      },
+    ]
+  },
   async headers() {
     if (isStaticExport) {
       return []
@@ -34,7 +45,7 @@ const nextConfig = {
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://plausible.io https://plausible.site",
-      "connect-src 'self' https: wss:",
+      "connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 https: wss:",
       "media-src 'self' data: blob:",
       "worker-src 'self' blob:",
     ].join('; ')

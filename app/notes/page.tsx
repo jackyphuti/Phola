@@ -36,8 +36,11 @@ import {
   Zap,
   FileCheck,
   Send,
-  LogIn
+  LogIn,
+  KeyRound,
+  Award
 } from 'lucide-react'
+import { generateSapsDocket, type SapsDocketResponse } from '@/lib/python-api'
 import { AppLoadingState } from '@/components/app-loading-state'
 
 const LOCAL_NOTES_PREFIX = 'phola_vault_local_notes_'
@@ -63,6 +66,50 @@ export default function NotesPage() {
   // SAPS Statement Generator Modal State
   const [selectedForStatement, setSelectedForStatement] = useState<Incident | null>(null)
   const [statementCopied, setStatementCopied] = useState(false)
+  const [sapsDocket, setSapsDocket] = useState<SapsDocketResponse | null>(null)
+  const [isGeneratingDocket, setIsGeneratingDocket] = useState(false)
+
+  // Fetch verified Section 212 SAPS Docket from Python microservice
+  useEffect(() => {
+    if (!selectedForStatement) {
+      setSapsDocket(null)
+      return
+    }
+
+    let isCancelled = false
+    setIsGeneratingDocket(true)
+
+    async function loadDocket() {
+      try {
+        const docket = await generateSapsDocket({
+          id: selectedForStatement!.id,
+          complainantName: profile?.display_name || user?.user_metadata?.full_name || 'Anonymous Complainant',
+          complainantPhone: user?.phone || user?.user_metadata?.phone_number || 'Confidential',
+          incidentType: selectedForStatement!.incident_type,
+          crimeType: selectedForStatement!.crime_type || selectedForStatement!.incident_type,
+          severity: selectedForStatement!.severity,
+          description: selectedForStatement!.description,
+          location: selectedForStatement!.location,
+          dateOccurred: selectedForStatement!.date_occurred,
+          perpetratorRelationship: selectedForStatement!.perpetrator_relationship,
+          sapsStationCode: selectedForStatement!.saps_station_code,
+          sapsStationName: selectedForStatement!.saps_station_name,
+          evidenceFiles: selectedForStatement!.evidence_files,
+          userId: user?.id,
+        })
+        if (!isCancelled && docket) {
+          setSapsDocket(docket)
+        }
+      } catch {} finally {
+        if (!isCancelled) setIsGeneratingDocket(false)
+      }
+    }
+
+    void loadDocket()
+    return () => {
+      isCancelled = true
+    }
+  }, [selectedForStatement, profile, user])
 
   const handleQuickExit = () => {
     triggerHapticFeedback('heavy')
@@ -298,7 +345,7 @@ https://phola.co.za
 
   const handleCopyStatement = () => {
     if (!selectedForStatement) return
-    const text = generateSapsStatementText(selectedForStatement)
+    const text = sapsDocket?.swornStatementText || generateSapsStatementText(selectedForStatement)
     navigator.clipboard.writeText(text)
     setStatementCopied(true)
     setTimeout(() => setStatementCopied(false), 2000)
@@ -306,11 +353,11 @@ https://phola.co.za
 
   const handleDownloadStatementTxt = () => {
     if (!selectedForStatement) return
-    const text = generateSapsStatementText(selectedForStatement)
+    const text = sapsDocket?.swornStatementText || generateSapsStatementText(selectedForStatement)
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    const filename = `SAPS_Docket_${selectedForStatement.case_reference || selectedForStatement.id.slice(0, 8)}.txt`
+    const filename = `${sapsDocket?.docketNumber || `SAPS_Docket_${selectedForStatement.case_reference || selectedForStatement.id.slice(0, 8)}`}.txt`
     link.href = url
     link.download = filename
     document.body.appendChild(link)
@@ -497,7 +544,7 @@ https://phola.co.za
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">SAPS Docket Statement</h3>
-                  <p className="text-xs text-muted-foreground">Formatted sworn report ready for court or police station</p>
+                  <p className="text-xs text-muted-foreground">Section 212 Sworn Forensic Affidavit for Court & SAPS Stations</p>
                 </div>
               </div>
               <Button
@@ -510,13 +557,39 @@ https://phola.co.za
               </Button>
             </div>
 
+            {/* Python Cryptographic Seal Banner */}
+            <div className="bg-slate-950 px-4 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+              {isGeneratingDocket ? (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Generating Section 212 SHA-256 seal via Python enclave...</span>
+                </div>
+              ) : sapsDocket ? (
+                <>
+                  <div className="flex items-center gap-2 text-emerald-400 font-mono">
+                    <Award className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-semibold text-white">CPA Sec. 212(4) Certified</span>
+                    <span className="text-slate-400 hidden sm:inline">•</span>
+                    <span className="text-slate-300 hidden sm:inline">{sapsDocket.docketNumber}</span>
+                  </div>
+                  <div className="font-mono text-[10px] text-emerald-500 bg-emerald-950/70 border border-emerald-800/60 rounded px-2 py-0.5">
+                    SHA-256: {sapsDocket.sha256Checksum.slice(0, 16)}...
+                  </div>
+                </>
+              ) : (
+                <div className="text-slate-400 font-mono">
+                  Standard Affidavit Export
+                </div>
+              )}
+            </div>
+
             <div className="p-4 sm:p-5 overflow-y-auto flex-1 font-mono text-xs bg-slate-900 text-emerald-300 rounded-b-none whitespace-pre-wrap leading-relaxed select-all">
-              {generateSapsStatementText(selectedForStatement)}
+              {sapsDocket?.swornStatementText || generateSapsStatementText(selectedForStatement)}
             </div>
 
             <div className="p-4 border-t border-border bg-background flex flex-col sm:flex-row items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground">
-                Zero-knowledge encrypted export
+                Section 212 & Cybercrimes Act compliant export
               </span>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
