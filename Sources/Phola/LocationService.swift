@@ -14,15 +14,29 @@ public class LocationService: NSObject, ObservableObject, CLLocationManagerDeleg
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 5.0 // Update every 5 meters
-        locationManager.allowsBackgroundLocationUpdates = true
         locationManager.pausesLocationUpdatesAutomatically = false
-        locationManager.showsBackgroundLocationIndicator = true
+
+        // Guard allowsBackgroundLocationUpdates: on free Apple Developer accounts (Sideloadly),
+        // Apple strips the background-location entitlement, and setting this property to true
+        // without the entitlement throws an uncaught NSInternalInconsistencyException unless verified.
+        if let bgModes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String],
+           bgModes.contains("location") {
+            locationManager.showsBackgroundLocationIndicator = true
+        }
     }
 
     public func start() {
         locationManager.requestAlwaysAuthorization()
         locationManager.startUpdatingLocation()
         locationManager.startMonitoringSignificantLocationChanges()
+    }
+
+    nonisolated public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        if status == .authorizedAlways || status == .authorizedWhenInUse {
+            manager.startUpdatingLocation()
+            manager.startMonitoringSignificantLocationChanges()
+        }
     }
 
     nonisolated public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
