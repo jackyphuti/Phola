@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import WebKit
 
+@MainActor
 public class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
     public static let shared = LocationService()
 
@@ -24,7 +25,7 @@ public class LocationService: NSObject, ObservableObject, CLLocationManagerDeleg
         locationManager.startMonitoringSignificantLocationChanges()
     }
 
-    public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    nonisolated public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         let lat = location.coordinate.latitude
         let lng = location.coordinate.longitude
@@ -43,12 +44,12 @@ public class LocationService: NSObject, ObservableObject, CLLocationManagerDeleg
         })();
         """
 
-        DispatchQueue.main.async { [weak self] in
-            self?.webView?.evaluateJavaScript(js, completionHandler: nil)
+        Task { @MainActor in
+            self.webView?.evaluateJavaScript(js, completionHandler: nil)
         }
     }
 
-    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    nonisolated public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("[Phola LocationService] Background GPS Error: \(error.localizedDescription)")
     }
 }
