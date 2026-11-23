@@ -19,7 +19,6 @@ import {
   ShieldCheck, 
   AlertTriangle,
   Scale, 
-  Sparkles, 
   ArrowRight,
   EyeOff,
   Volume2,
@@ -559,13 +558,13 @@ export function SafetyHub() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         
         {/* ========================================================================= */}
         {/* HERO TITLE & DISGUISE ACTION                                              */}
         {/* ========================================================================= */}
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_60px_rgba(5,40,40,0.05)] sm:p-6">
+        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">

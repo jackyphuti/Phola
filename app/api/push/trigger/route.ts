@@ -37,7 +37,7 @@ function getSupabaseAdmin() {
 function buildDefaultPayload(eventType: PushEventType) {
   if (eventType === 'sos') {
     return {
-      title: '🚨 SOS Activated',
+      title: 'SOS Activated',
       message: 'Emergency mode is active. Keep location sharing on.',
       href: '/sos',
     }

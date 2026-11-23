@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Briefcase, GraduationCap, MapPin, Search, ExternalLink, Sparkles, Building2, HeartHandshake, X } from 'lucide-react'
+import { Briefcase, GraduationCap, MapPin, Search, ExternalLink, Building2, HeartHandshake, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -98,13 +98,13 @@ export function JobsBoard() {
   }, [query, activeTab])
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4 sm:px-6">
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
+        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
-                <Sparkles className="mr-1 h-3 w-3 text-primary" />
+              <Badge variant="secondary" className="border border-border bg-muted text-foreground text-[10px] font-bold uppercase tracking-wider">
+                <Building2 className="mr-1 h-3 w-3 text-primary" />
                 Economic Empowerment
               </Badge>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">

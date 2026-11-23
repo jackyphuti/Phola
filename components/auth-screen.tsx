@@ -24,7 +24,6 @@ import {
   Phone, 
   ShieldCheck, 
   Shield,
-  Sparkles,
   LogOut,
   CheckCircle2
 } from 'lucide-react'
@@ -278,7 +277,7 @@ export function AuthScreen({ initialMode = 'login' }: AuthScreenProps) {
 
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.1),_transparent_45%),linear-gradient(180deg,#f8fcfb_0%,#ffffff_100%)] px-4 py-8 safe-top safe-bottom">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-background px-4 py-8 safe-top safe-bottom">
       
       {/* Top Header Bar: Clean Minimal Language Selector & Quick Exit */}
       <header className="fixed top-3 left-4 right-4 z-30 max-w-5xl mx-auto flex items-center justify-between pointer-events-none">

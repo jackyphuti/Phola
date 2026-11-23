@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
         userIds: [],
         emails: [receiverEmail],
         payload: {
-          title: `📍 Guardian Circle Invite from ${senderDisplayName}`,
+          title: `Guardian Circle Invite from ${senderDisplayName}`,
           body: `${senderDisplayName} (${userEmail}) invited you to share live GPS locations on Phola. Tap to accept.`,
           href: '/sos',
           eventType: 'invite',
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
           userIds: updated.sender_id ? [updated.sender_id] : [],
           emails: updated.sender_email ? [updated.sender_email] : [],
           payload: {
-            title: `✅ ${receiverDisplayName} Accepted Your Location Share!`,
+            title: `${receiverDisplayName} Accepted Your Location Share!`,
             body: `You and ${receiverDisplayName} can now view each other's live GPS location on the Phola map.`,
             href: `/sos?focusBuddy=${updated.id}`,
             eventType: 'invite_accepted',
@@ -509,7 +509,7 @@ export async function POST(request: NextRequest) {
         userIds: buddyUserIds,
         emails: buddyEmails,
         payload: {
-          title: `🚨 EMERGENCY: ${myDisplayName} Feels Unsafe!`,
+          title: `EMERGENCY: ${myDisplayName} Feels Unsafe!`,
           body: `Distress Alert: "${distressMessage}". Tap to track live GPS location on map.`,
           href: `/sos`,
           eventType: 'sos',
@@ -578,7 +578,7 @@ export async function POST(request: NextRequest) {
         userIds: buddyUserIds,
         emails: buddyEmails,
         payload: {
-          title: `✅ ${myDisplayName} is Safe Now`,
+          title: `${myDisplayName} is Safe Now`,
           body: `${myDisplayName} marked themselves safe and cleared the emergency distress alarm.`,
           href: `/sos`,
           eventType: 'resolved',

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { 
   CheckCircle2, 
-  Sparkles, 
   ShieldCheck, 
   Car, 
   Siren, 
@@ -74,21 +73,21 @@ export function AccountVerifiedModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <Card className="w-full max-w-sm rounded-[2rem] border-2 border-emerald-200 bg-white p-6 shadow-2xl text-center space-y-4 animate-in zoom-in-95 duration-200">
+      <Card className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-lg text-center space-y-4 animate-in zoom-in-95 duration-200">
         
         {/* Animated Checkmark with Pulsing Ring */}
-        <div className="relative mx-auto flex h-16 w-16 items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping opacity-30" />
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-sm">
-            <CheckCircle2 className="h-9 w-9 stroke-[2.2]" />
+        <div className="relative mx-auto flex h-14 w-14 items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-2 border-primary animate-ping opacity-30" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-xs">
+            <CheckCircle2 className="h-8 w-8 stroke-[2.2]" />
           </div>
         </div>
 
         {/* Title & Badges */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-center gap-1.5">
-            <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] uppercase font-bold tracking-wider">
-              <Sparkles className="w-3 h-3 mr-1 text-emerald-600" />
+            <Badge variant="secondary" className="bg-muted text-foreground border border-border text-[10px] uppercase font-bold tracking-wider">
+              <ShieldCheck className="w-3 h-3 mr-1 text-primary" />
               Verified Account
             </Badge>
           </div>
@@ -101,17 +100,17 @@ export function AccountVerifiedModal() {
         </div>
 
         {/* Feature unlocked badges */}
-        <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-left space-y-2 text-xs">
-          <div className="flex items-center gap-2 text-emerald-950 font-medium">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-3.5 rounded-lg bg-muted/40 border border-border text-left space-y-2 text-xs">
+          <div className="flex items-center gap-2 text-foreground font-medium">
+            <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
             <span>Zero-Knowledge Encrypted Vault</span>
           </div>
-          <div className="flex items-center gap-2 text-emerald-950 font-medium">
-            <Car className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="flex items-center gap-2 text-foreground font-medium">
+            <Car className="w-4 h-4 text-primary shrink-0" />
             <span>Safe Ride Watchdog & Transit Alerts</span>
           </div>
-          <div className="flex items-center gap-2 text-emerald-950 font-medium">
-            <Siren className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="flex items-center gap-2 text-foreground font-medium">
+            <Siren className="w-4 h-4 text-primary shrink-0" />
             <span>Instant Emergency SOS & Safe Havens</span>
           </div>
         </div>
@@ -121,9 +120,9 @@ export function AccountVerifiedModal() {
           <Button
             size="lg"
             onClick={handleContinueExploring}
-            className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition"
+            className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm shadow-xs flex items-center justify-center gap-2 transition"
           >
-            <span>Continue Exploring the App</span>
+            <span>Continue to Dashboard</span>
             <ArrowRight className="w-4 h-4" />
           </Button>
         </div>

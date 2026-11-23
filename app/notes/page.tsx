@@ -38,7 +38,8 @@ import {
   Send,
   LogIn,
   KeyRound,
-  Award
+  Award,
+  MapPin
 } from 'lucide-react'
 import { generateSapsDocket, type SapsDocketResponse } from '@/lib/python-api'
 import { AppLoadingState } from '@/components/app-loading-state'
@@ -145,20 +146,27 @@ export default function NotesPage() {
     const localList = getLocalNotes()
     if (localList.length > 0) {
       setIncidents(localList)
+      setIsLoading(false)
     }
 
     try {
-      const { data, error } = await supabase
+      const queryPromise = supabase
         .from('incidents')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+
+      const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
+        setTimeout(() => reject(new Error('Supabase request timeout')), 4000)
+      )
+
+      const res = await Promise.race([queryPromise, timeoutPromise]) as { data: Incident[] | null; error: any }
       
-      if (!error && data) {
+      if (!res.error && res.data) {
         // Merge Supabase records with local-only notes (deduping by id)
-        const remoteIds = new Set(data.map((d: Incident) => d.id))
+        const remoteIds = new Set(res.data.map((d: Incident) => d.id))
         const localOnly = localList.filter((l) => !remoteIds.has(l.id))
-        const combined = [...localOnly, ...(data as Incident[])]
+        const combined = [...localOnly, ...res.data]
         setIncidents(combined)
       } else {
         // Offline or fetch error: display local cache
@@ -214,16 +222,29 @@ export default function NotesPage() {
 
     // 2. Best-effort Supabase sync
     try {
-      await supabase.from('incidents').insert({
-        user_id: user.id,
-        incident_type: quickNoteType,
-        description: quickNoteText.trim(),
-        location: quickNoteLocation.trim() || 'Recorded via Quick Vault',
-        date_occurred: nowIso,
-        severity: 'medium',
-        anonymous_report: false,
-        is_draft: false
-      })
+      const { data: savedRow, error } = await supabase
+        .from('incidents')
+        .insert({
+          user_id: user.id,
+          incident_type: quickNoteType,
+          description: quickNoteText.trim(),
+          location: quickNoteLocation.trim() || 'Recorded via Quick Vault',
+          date_occurred: nowIso,
+          severity: 'medium',
+          anonymous_report: false,
+          is_draft: false,
+          case_reference: newIncident.case_reference
+        })
+        .select('*')
+        .single()
+
+      if (!error && savedRow) {
+        // Replace temporary local_... ID in both localStorage and React incidents state with the real Supabase UUID
+        const currentLocal = getLocalNotes()
+        const updatedLocalWithUuid = currentLocal.map(item => item.id === newNoteId ? { ...item, id: savedRow.id } : item)
+        saveLocalNotes(updatedLocalWithUuid)
+        setIncidents(prev => prev.map(item => item.id === newNoteId ? (savedRow as Incident) : item))
+      }
     } catch {
       // Offline fallback: already secured in local vault
     }
@@ -410,13 +431,13 @@ https://phola.co.za
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <Card className="max-w-sm w-full rounded-3xl border-emerald-100 bg-white shadow-2xl p-6 text-center space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600">
+          <Card className="max-w-sm w-full rounded-xl border border-border bg-card shadow-lg p-6 text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
               <Trash2 className="h-6 w-6" />
             </div>
             <div>
@@ -428,7 +449,7 @@ https://phola.co.za
             <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
-                className="flex-1 rounded-xl"
+                className="flex-1 rounded-lg"
                 onClick={() => setShowDeleteConfirm(null)}
                 disabled={isDeleting}
               >
@@ -436,7 +457,7 @@ https://phola.co.za
               </Button>
               <Button
                 variant="destructive"
-                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 font-semibold"
+                className="flex-1 rounded-lg bg-destructive hover:bg-destructive/90 font-semibold"
                 onClick={() => handleDelete(showDeleteConfirm)}
                 disabled={isDeleting}
               >
@@ -450,11 +471,11 @@ https://phola.co.za
       {/* Quick Vault Note In-Page Modal */}
       {showQuickComposer && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <Card className="max-w-lg w-full rounded-3xl border-emerald-200 bg-white shadow-2xl p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <Card className="max-w-lg w-full rounded-xl border border-border bg-card shadow-lg p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
-                  <Zap className="w-5 h-5 fill-amber-500" />
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Zap className="w-5 h-5 fill-primary" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Quick Incident Note</h3>
@@ -476,7 +497,7 @@ https://phola.co.za
                 value={quickNoteText}
                 onChange={(e) => setQuickNoteText(e.target.value)}
                 placeholder="Type a fast observation, license plate, suspect description, or safety thought..."
-                className="min-h-[110px] text-xs resize-none rounded-xl border-emerald-200 focus-visible:ring-emerald-500"
+                className="min-h-[110px] text-xs resize-none rounded-lg border-border focus-visible:ring-primary"
                 required
                 autoFocus
               />
@@ -486,13 +507,13 @@ https://phola.co.za
                   value={quickNoteLocation}
                   onChange={(e) => setQuickNoteLocation(e.target.value)}
                   placeholder="Optional Location (e.g. Braamfontein Taxi Rank)"
-                  className="h-9 text-xs rounded-xl flex-1 border-emerald-200"
+                  className="h-9 text-xs rounded-lg flex-1 border-border"
                 />
 
                 <select
                   value={quickNoteType}
                   onChange={(e) => setQuickNoteType(e.target.value)}
-                  className="h-9 text-xs rounded-xl border border-emerald-200 bg-background px-2.5 font-medium text-foreground outline-none w-full sm:w-auto"
+                  className="h-9 text-xs rounded-lg border border-border bg-background px-2.5 font-medium text-foreground outline-none w-full sm:w-auto"
                 >
                   <option value="other">Safety Note</option>
                   <option value="crime">Suspicious Activity / Crime</option>
@@ -506,14 +527,14 @@ https://phola.co.za
                   type="button"
                   variant="outline"
                   onClick={() => setShowQuickComposer(false)}
-                  className="rounded-xl text-xs h-9"
+                  className="rounded-lg text-xs h-9"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isSavingQuickNote || !quickNoteText.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl h-9 px-5 gap-1.5"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs rounded-lg h-9 px-5 gap-1.5"
                 >
                   {isSavingQuickNote ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -536,10 +557,10 @@ https://phola.co.za
       {/* SAPS Statement Export Modal */}
       {selectedForStatement && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <Card className="max-w-2xl w-full max-h-[85vh] rounded-3xl border-emerald-200 bg-white shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-emerald-50/70">
+          <Card className="max-w-2xl w-full max-h-[85vh] rounded-xl border border-border bg-card shadow-lg flex flex-col overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-muted/40">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-emerald-600 text-white">
+                <div className="p-2 rounded-lg bg-primary text-primary-foreground">
                   <FileCheck className="w-5 h-5" />
                 </div>
                 <div>
@@ -595,11 +616,11 @@ https://phola.co.za
                 <Button
                   variant="outline"
                   onClick={handleCopyStatement}
-                  className="flex-1 sm:flex-none text-xs rounded-xl h-9 gap-1.5"
+                  className="flex-1 sm:flex-none text-xs rounded-lg h-9 gap-1.5"
                 >
                   {statementCopied ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+                      <Check className="w-3.5 h-3.5 text-primary" /> Copied!
                     </>
                   ) : (
                     <>
@@ -609,7 +630,7 @@ https://phola.co.za
                 </Button>
                 <Button
                   onClick={handleDownloadStatementTxt}
-                  className="flex-1 sm:flex-none text-xs rounded-xl h-9 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                  className="flex-1 sm:flex-none text-xs rounded-lg h-9 bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" /> Download .TXT
                 </Button>
@@ -624,11 +645,11 @@ https://phola.co.za
         {/* ========================================================================= */}
         {/* HEADER SECTION (With 1-Tap Lock Vault Button)                            */}
         {/* ========================================================================= */}
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
+        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
+                <Badge variant="secondary" className="border border-border bg-muted text-foreground text-[10px] font-bold uppercase tracking-wider">
                   <FolderLock className="mr-1 h-3 w-3 text-primary" />
                   Encrypted Vault
                 </Badge>
@@ -650,26 +671,26 @@ https://phola.co.za
                 variant="outline"
                 size="sm"
                 onClick={handleQuickExit}
-                className="border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold rounded-xl h-9 px-3 gap-1.5 shadow-2xs"
+                className="border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-semibold rounded-lg h-8 px-3 gap-1.5"
                 title="Immediately exit vault to neutral weather screen"
               >
-                <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+                <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
                 Quick Exit
               </Button>
 
               <Button
                 size="sm"
                 onClick={() => setShowQuickComposer(true)}
-                className="bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold rounded-xl h-9 px-3 gap-1.5"
+                className="bg-muted text-foreground hover:bg-muted/80 border border-border text-xs font-bold rounded-lg h-8 px-3 gap-1.5"
               >
-                <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                <Zap className="h-3.5 w-3.5 text-primary" />
                 Quick Note
               </Button>
 
               <Button
                 size="sm"
                 onClick={() => router.push('/report')}
-                className="bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl h-9 px-3.5 shadow-xs"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-lg h-8 px-3.5 shadow-xs"
               >
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 New Report
@@ -683,7 +704,7 @@ https://phola.co.za
         {/* ========================================================================= */}
         <div className="space-y-2">
           {/* Search bar */}
-          <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-white px-3.5 py-2.5 shadow-2xs">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-xs">
             <Search className="h-4 w-4 text-primary shrink-0" />
             <input
               value={search}
@@ -714,10 +735,10 @@ https://phola.co.za
                 key={tab.id}
                 type="button"
                 onClick={() => setFilter(tab.id as 'all' | 'gbv' | 'crime' | 'drafts')}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold shrink-0 transition ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold shrink-0 transition ${
                   filter === tab.id
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'bg-white border border-emerald-100 text-slate-600 hover:bg-emerald-50'
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
+                    : 'bg-card border border-border text-muted-foreground hover:bg-muted'
                 }`}
               >
                 {tab.label} ({tab.count})
@@ -732,17 +753,17 @@ https://phola.co.za
         {isLoading && incidents.length === 0 ? (
           <div className="space-y-3">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="h-20 rounded-2xl bg-slate-200/70 animate-pulse" />
+              <div key={n} className="h-20 rounded-xl bg-muted/60 animate-pulse" />
             ))}
           </div>
         ) : filteredIncidents.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center space-y-4 shadow-2xs">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-primary">
-              <FileText className="h-7 w-7" />
+          <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center space-y-4 shadow-xs">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-primary">
+              <FileText className="h-6 w-6" />
             </div>
             <div className="max-w-sm mx-auto">
-              <h3 className="text-sm font-bold text-slate-800">No encrypted records stored yet</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              <h3 className="text-sm font-bold text-foreground">No encrypted records stored yet</h3>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 Incident logs, audio notes, and photos added here are encrypted locally on your device.
               </p>
             </div>
@@ -750,14 +771,14 @@ https://phola.co.za
               <Button
                 onClick={() => setShowQuickComposer(true)}
                 variant="outline"
-                className="border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl px-4 h-9 hover:bg-emerald-50"
+                className="border-border text-foreground text-xs font-bold rounded-lg px-4 h-8 hover:bg-muted"
               >
-                <Zap className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                <Zap className="mr-1.5 h-3.5 w-3.5 text-primary" />
                 Quick Note
               </Button>
               <Button
                 onClick={() => router.push('/report')}
-                className="bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-xl px-5 h-9 shadow-xs"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-lg px-5 h-8 shadow-xs"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Record First Incident
@@ -780,12 +801,12 @@ https://phola.co.za
                       router.push(`/report/${incident.id}`)
                     }
                   }}
-                  className="group rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+                  className="group rounded-xl border border-border bg-card p-4 shadow-xs hover:border-border/80 hover:shadow-sm cursor-pointer transition"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-primary mt-0.5 group-hover:bg-primary group-hover:text-white transition">
-                        {isCrime ? <FileWarning className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-primary mt-0.5 group-hover:bg-primary group-hover:text-primary-foreground transition">
+                        {isCrime ? <FileWarning className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -793,16 +814,16 @@ https://phola.co.za
                             {getTypeLabel(incident.incident_type)}
                           </span>
                           {incident.is_draft ? (
-                            <Badge variant="outline" className="text-[10px] bg-slate-50 border-slate-200 text-slate-600">
+                            <Badge variant="outline" className="text-[10px] bg-muted/50 border-border text-muted-foreground">
                               Draft
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-[10px] bg-emerald-50 border-emerald-200 text-emerald-800">
+                            <Badge variant="secondary" className="text-[10px] bg-muted text-foreground">
                               {isLocalOnly ? 'Local Vault' : 'Synced'}
                             </Badge>
                           )}
                           {incident.case_reference && (
-                            <span className="text-[10px] font-mono text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded">
+                            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                               CAS {incident.case_reference}
                             </span>
                           )}
@@ -818,8 +839,9 @@ https://phola.co.za
                             {formatDate(incident.created_at)}
                           </span>
                           {incident.location && (
-                            <span className="truncate max-w-[180px]">
-                              📍 {incident.location}
+                            <span className="flex items-center gap-1 truncate max-w-[180px]">
+                              <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                              {incident.location}
                             </span>
                           )}
                         </div>
@@ -831,7 +853,7 @@ https://phola.co.za
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-xl h-8 px-2.5 gap-1"
+                        className="text-xs text-primary hover:text-primary/90 hover:bg-muted rounded-lg h-8 px-2.5 gap-1"
                         onClick={(e) => {
                           e.stopPropagation()
                           setSelectedForStatement(incident)
@@ -845,7 +867,7 @@ https://phola.co.za
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-xl h-8 w-8"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg h-8 w-8"
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowDeleteConfirm(incident.id)

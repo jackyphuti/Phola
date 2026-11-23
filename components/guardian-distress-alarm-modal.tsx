@@ -110,7 +110,7 @@ export function GuardianDistressAlarmModal() {
           if (!notifiedInvitesOsRef.current[inv.shareId]) {
             notifiedInvitesOsRef.current[inv.shareId] = true
             void showSystemNotification(
-              `📍 New Guardian Circle Invite`,
+              `New Guardian Circle Invite`,
               `${inv.fromName || inv.fromEmail} wants to share live GPS locations with you on Phola. Tap to accept.`,
               {
                 href: '/sos?openBuddies=true',
@@ -145,7 +145,7 @@ export function GuardianDistressAlarmModal() {
           ) {
             notifiedDistressOsRef.current[urgentBuddy.shareId] = urgentBuddy.buddyDistressAt
             void showSystemNotification(
-              `🚨 EMERGENCY: ${urgentBuddy.buddyName} Feels Unsafe!`,
+              `EMERGENCY: ${urgentBuddy.buddyName} Feels Unsafe!`,
               urgentBuddy.buddyDistressMessage ||
                 'Emergency distress ping triggered! Tap to track live GPS on map.',
               {

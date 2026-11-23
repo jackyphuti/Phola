@@ -11,7 +11,7 @@ import {
   Newspaper, 
   User, 
   FileText, 
-  Sparkles, 
+  Compass, 
   Menu, 
   X, 
   LogOut,
@@ -32,10 +32,10 @@ const tabs = [
   { label: 'Safe Ride Watchdog', href: '/safe-ride', icon: Car },
   { label: 'Safety Hub & Hotlines', href: '/safety', icon: Shield },
   { label: 'Emergency SOS Map', href: '/sos', icon: Siren },
-  { label: 'Nearby Services Radar', href: '/nearby', icon: MapPin },
-  { label: 'Report GBV (VAULT)', href: '/reports', icon: FileText },
-  { label: 'Mzansi News', href: '/news', icon: Newspaper },
-  { label: 'AI Safety Assistant', href: '/assistant', icon: Sparkles },
+  { label: 'Nearby Services', href: '/nearby', icon: MapPin },
+  { label: 'Incident Vault', href: '/reports', icon: FileText },
+  { label: 'South Africa News', href: '/news', icon: Newspaper },
+  { label: 'Safety Guide', href: '/assistant', icon: Compass },
   { label: 'Profile & Settings', href: '/settings', icon: User },
 ]
 
@@ -247,21 +247,21 @@ export function AppBottomNav() {
       {/* SIDE NAVIGATION DRAWER (z-50, always sits above offline banner z-30)       */}
       {/* ========================================================================= */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 z-50 flex flex-col w-72 bg-white dark:bg-card border-r border-emerald-100 dark:border-border shadow-2xl transition-transform duration-250 ease-out safe-top safe-bottom ${
+        className={`fixed left-0 top-0 bottom-0 z-50 flex flex-col w-72 bg-card border-r border-border shadow-2xl transition-transform duration-250 ease-out safe-top safe-bottom ${
           isHidden ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
         {/* Drawer Header */}
-        <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-emerald-100/80 dark:border-border shrink-0">
+        <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => setIsHidden(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-foreground hover:bg-muted active:bg-muted/80 transition-colors"
               title="Close menu"
               aria-label="Close navigation menu"
             >
-              <Menu className="h-5 w-5 text-emerald-950" />
+              <Menu className="h-5 w-5 text-foreground" />
             </button>
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
@@ -280,7 +280,7 @@ export function AppBottomNav() {
           <button
             type="button"
             onClick={() => setIsHidden(true)}
-            className="rounded-full p-2 text-muted-foreground hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             title="Close menu"
           >
             <X className="h-5 w-5" />
@@ -293,8 +293,7 @@ export function AppBottomNav() {
             const isActive =
               pathname === tab.href ||
               pathname?.startsWith(`${tab.href}/`) ||
-              (tab.href === '/reports' && pathname === '/notes') ||
-              (tab.href === '/safety' && pathname === '/safe-ride')
+              (tab.href === '/reports' && pathname === '/notes')
             const Icon = tab.icon
 
             return (
@@ -305,14 +304,14 @@ export function AppBottomNav() {
                   setIsHidden(true)
                   router.push(tab.href)
                 }}
-                className={`w-full flex items-center justify-between rounded-2xl px-3.5 py-3 text-sm font-semibold transition-all ${
+                className={`w-full flex items-center justify-between rounded-lg px-3.5 py-3 text-sm font-semibold transition-all ${
                   isActive
-                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200/80 shadow-2xs dark:bg-emerald-950/40 dark:text-emerald-100'
-                    : 'text-slate-600 dark:text-muted-foreground hover:bg-emerald-50/60 hover:text-foreground'
+                    ? 'bg-accent text-foreground border border-border shadow-xs'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-slate-500'}`} />
+                  <Icon className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span>{tab.label}</span>
                 </div>
                 {isActive && (
@@ -324,15 +323,15 @@ export function AppBottomNav() {
         </nav>
 
         {/* Drawer Footer Actions */}
-        <div className="p-3 border-t border-emerald-100/80 dark:border-border space-y-2 shrink-0">
+        <div className="p-3 border-t border-border space-y-2 shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="w-full justify-start rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            className="w-full justify-start rounded-lg text-xs font-semibold text-destructive border-border hover:bg-destructive/10 transition-colors"
             onClick={handleSignOut}
           >
-            <LogOut className="h-4 w-4 mr-2 text-red-600" />
+            <LogOut className="h-4 w-4 mr-2 text-destructive" />
             Logout
           </Button>
           <p className="text-[10px] text-center text-muted-foreground">Phola Safety Network • South Africa</p>
@@ -344,7 +343,7 @@ export function AppBottomNav() {
       {/* ========================================================================= */}
       <nav
         aria-label="Mobile Navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 md:hidden flex items-center justify-around h-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-1.5 bg-white/90 dark:bg-card/90 border-t border-emerald-100/90 dark:border-border shadow-lg backdrop-blur-xl px-2"
+        className="fixed bottom-0 left-0 right-0 z-40 md:hidden flex items-center justify-around h-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-1.5 bg-card/95 border-t border-border shadow-lg backdrop-blur-xl px-2"
       >
         {/* Tab 1: Home */}
         <Link
@@ -360,18 +359,18 @@ export function AppBottomNav() {
           <span className="text-[10px] mt-0.5 font-medium">Home</span>
         </Link>
 
-        {/* Tab 2: Radar */}
+        {/* Tab 2: Services */}
         <Link
           href="/nearby"
           onClick={() => triggerHapticFeedback('light')}
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/nearby'
               ? 'text-primary font-bold scale-105'
-              : 'text-slate-500 hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <MapPin className={`h-5 w-5 ${pathname === '/nearby' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5 font-medium">Radar</span>
+          <span className="text-[10px] mt-0.5 font-medium">Services</span>
         </Link>
 
         {/* Tab 3: Raised Center Emergency SOS Trigger (High-urgency Crimson) */}
@@ -380,26 +379,25 @@ export function AppBottomNav() {
             href="/sos"
             onClick={() => triggerHapticFeedback('medium')}
             aria-label="Emergency SOS Map"
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-red-700 via-red-600 to-rose-500 text-white shadow-xl shadow-red-600/40 border-4 border-white dark:border-card active:scale-90 transition-transform"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg border-4 border-card active:scale-95 transition-transform"
           >
-            <span className="absolute inset-0 rounded-full bg-red-400 opacity-30 animate-ping pointer-events-none" />
             <Siren className="h-6 w-6 text-white relative z-10" />
           </Link>
-          <span className="text-[10px] font-extrabold text-red-600 mt-0.5 tracking-tight">SOS</span>
+          <span className="text-[10px] font-extrabold text-destructive mt-0.5 tracking-tight">SOS</span>
         </div>
 
-        {/* Tab 4: Watchdog */}
+        {/* Tab 4: Safe Ride */}
         <Link
           href="/safe-ride"
           onClick={() => triggerHapticFeedback('light')}
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/safe-ride'
               ? 'text-primary font-bold scale-105'
-              : 'text-slate-500 hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Car className={`h-5 w-5 ${pathname === '/safe-ride' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5 font-medium">Watchdog</span>
+          <span className="text-[10px] mt-0.5 font-medium">Safe Ride</span>
         </Link>
 
         {/* Tab 5: Vault */}
@@ -409,7 +407,7 @@ export function AppBottomNav() {
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
             pathname === '/reports' || pathname === '/notes'
               ? 'text-primary font-bold scale-105'
-              : 'text-slate-500 hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <FileText className={`h-5 w-5 ${pathname === '/reports' || pathname === '/notes' ? 'text-primary stroke-[2.5]' : ''}`} />

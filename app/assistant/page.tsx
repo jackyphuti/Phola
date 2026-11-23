@@ -19,13 +19,13 @@ export default function AssistantPage() {
   }, [user, isLoading, router])
 
   if (isLoading) {
-    return <AppLoadingState message="Connecting to AI Safety Assistant..." />
+    return <AppLoadingState message="Connecting to Safety Guide..." />
   }
 
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
-        <h2 className="text-base font-bold text-foreground">Sign in to consult AI Safety Assistant</h2>
+        <h2 className="text-base font-bold text-foreground">Sign in to consult Safety Guide</h2>
         <p className="text-xs text-muted-foreground mt-1 max-w-xs">
           Get discreet legal rights guidance, emergency advice, and GBV support resources.
         </p>

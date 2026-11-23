@@ -185,14 +185,14 @@ export async function showSystemNotification(
 }
 
 export async function notifySOSActivated() {
-  await showSystemNotification('🚨 SOS Activated', 'Trusted circle alert initiated. Keep your location on.', {
+  await showSystemNotification('SOS Activated', 'Trusted circle alert initiated. Keep your location on.', {
     href: '/sos',
     distress: true,
   })
 
   await triggerServerPushEvent({
     eventType: 'sos',
-    title: '🚨 SOS Activated',
+    title: 'SOS Activated',
     message: 'Emergency mode is active. Open SOS for live support actions.',
     href: '/sos',
   })

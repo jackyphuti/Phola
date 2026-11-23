@@ -20,7 +20,6 @@ import {
   Volume2, 
   AlertOctagon, 
   ShieldAlert,
-  Sparkles,
   HeartPulse,
   History,
   RotateCcw,
@@ -41,6 +40,7 @@ import { AppBottomNav } from '@/components/app-bottom-nav'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { notifySOSActivated } from '@/lib/push-notifications'
+import { getStoredEmergencyContacts } from '@/lib/emergency-contacts-storage'
 import { 
   RIDE_SERVICES, 
   RideServiceId, 
@@ -86,10 +86,17 @@ export function SafeRideMonitor() {
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [currentCoords, setCurrentCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const coordsRef = useRef(currentCoords)
+
+  useEffect(() => {
+    coordsRef.current = currentCoords
+  }, [currentCoords])
+
   const [telemetryReport, setTelemetryReport] = useState<WatchdogTelemetryResponse | null>(null)
 
   // Dialog / feedback
   const [showArrivalModal, setShowArrivalModal] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
   const [checkInFeedback, setCheckInFeedback] = useState(false)
   const [isLaunching, setIsLaunching] = useState(false)
@@ -133,8 +140,17 @@ export function SafeRideMonitor() {
     }
   }, [searchParams])
 
-  // 3. Load Primary Emergency Contact from Supabase
+  // 3. Load Primary Emergency Contact (Local Storage first, then Supabase sync)
   useEffect(() => {
+    const local = getStoredEmergencyContacts(user?.id)
+    if (local && local.length > 0) {
+      const primary = local.find(c => c.is_primary) || local[0]
+      if (primary) {
+        setContactName(primary.name)
+        setContactPhone(primary.phone)
+      }
+    }
+
     if (!user?.id) return
     let isCancelled = false
 
@@ -158,7 +174,7 @@ export function SafeRideMonitor() {
     return () => {
       isCancelled = true
     }
-  }, [supabase, user])
+  }, [supabase, user?.id])
 
   // 4. Watchdog Countdown & Audio/Vibration Heartbeat
   useEffect(() => {
@@ -240,12 +256,12 @@ export function SafeRideMonitor() {
             void sendFix(coords)
           },
           () => {
-            if (currentCoords) void sendFix(currentCoords)
+            if (coordsRef.current) void sendFix(coordsRef.current)
           },
           { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
         )
-      } else if (currentCoords) {
-        void sendFix(currentCoords)
+      } else if (coordsRef.current) {
+        void sendFix(coordsRef.current)
       }
     }, 12000)
 
@@ -333,13 +349,16 @@ export function SafeRideMonitor() {
   }
 
   const handleCancelRide = () => {
-    if (window.confirm('Cancel this Safe Ride session? Phola watchdog countdown will stop.')) {
-      if (session) void closeWatchdogSession(session.id)
-      clearActiveSafeRide()
-      setSession(null)
-      setTelemetryReport(null)
-      setRecentTrips(getRecentTrips())
-    }
+    setShowCancelConfirm(true)
+  }
+
+  const confirmCancelRide = () => {
+    if (session) void closeWatchdogSession(session.id)
+    clearActiveSafeRide()
+    setSession(null)
+    setTelemetryReport(null)
+    setRecentTrips(getRecentTrips())
+    setShowCancelConfirm(false)
   }
 
   const handleTriggerSOS = () => {
@@ -390,7 +409,7 @@ export function SafeRideMonitor() {
   const isOverdue = session?.status === 'overdue' || remainingSeconds < 0
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-4 sm:px-6">
         
         {/* Navigation Header */}
@@ -550,7 +569,7 @@ export function SafeRideMonitor() {
               <HeartPulse className="h-5 w-5 animate-pulse text-white" />
               <span>
                 {checkInFeedback
-                  ? 'Check-In Confirmed! ❤️'
+                  ? 'Check-In Confirmed'
                   : `I'm Okay — Log Check-In (${session.checkInCount || 0} logged)`}
               </span>
             </Button>
@@ -932,6 +951,43 @@ export function SafeRideMonitor() {
               </Card>
             )}
 
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* CANCEL TRIP CONFIRMATION MODAL                                            */}
+        {/* ========================================================================= */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Cancel Safe Ride?</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The watchdog countdown and telemetry monitoring will stop.
+                </p>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 rounded-lg text-xs"
+                  onClick={() => setShowCancelConfirm(false)}
+                >
+                  Keep Monitoring
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1 rounded-lg text-xs font-semibold"
+                  onClick={confirmCancelRide}
+                >
+                  Cancel Trip
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 

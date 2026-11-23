@@ -310,29 +310,29 @@ export function generateWhatsAppDispatch(session: SafeRideSession): string {
   const service = session.serviceName
   const remainingMins = Math.max(1, Math.round(calculateRemainingSeconds(session) / 60))
 
-  let msg = `🚨 *Phola Safe Ride Watchdog Alert:*\nI am in transit via *${service}* heading to *${destination}*.\nEstimated Arrival: ~${remainingMins} minutes.`
+  let msg = `*Phola Safe Ride Watchdog Alert:*\nI am in transit via *${service}* heading to *${destination}*.\nEstimated Arrival: ~${remainingMins} minutes.`
 
   if (session.vehicleNumberPlate) {
-    msg += `\n🚗 *Vehicle Number Plate:* ${session.vehicleNumberPlate}`
+    msg += `\n*Vehicle Number Plate:* ${session.vehicleNumberPlate}`
   }
 
   if (session.driverName || session.vehicleModel) {
-    msg += `\n👤 *Driver / Car:* ${session.driverName || 'Verified Driver'}${session.vehicleModel ? ` (${session.vehicleModel})` : ''}`
+    msg += `\n*Driver / Car:* ${session.driverName || 'Verified Driver'}${session.vehicleModel ? ` (${session.vehicleModel})` : ''}`
   }
 
   if (session.startLocation) {
-    msg += `\n📍 *Pickup GPS:* https://maps.google.com/?q=${session.startLocation.lat.toFixed(5)},${session.startLocation.lng.toFixed(5)}`
+    msg += `\n*Pickup GPS:* https://maps.google.com/?q=${session.startLocation.lat.toFixed(5)},${session.startLocation.lng.toFixed(5)}`
   }
 
   if (session.tripLink) {
-    msg += `\n🔗 *Live Ride Link:* ${session.tripLink}`
+    msg += `\n*Live Ride Link:* ${session.tripLink}`
   }
 
   if (session.checkInCount && session.checkInCount > 0) {
-    msg += `\n⏱️ *Check-ins Logged:* ${session.checkInCount} safe heartbeats`
+    msg += `\n*Check-ins Logged:* ${session.checkInCount} safe heartbeats`
   }
 
-  msg += `\n\n🛡️ *Protected by Phola Safe Ride Watchdog.* If I do not check in safely upon arrival, please call me or emergency services.`
+  msg += `\n\n*Protected by Phola Safe Ride Watchdog.* If I do not check in safely upon arrival, please call me or emergency services.`
   return msg
 }
 

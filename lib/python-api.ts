@@ -5,6 +5,8 @@
  * and real-time geospatial risk assessments.
  */
 
+import { getApiUrl } from '@/lib/api-client'
+
 export interface WatchdogTelemetryPayload {
   sessionId: string
   lat: number
@@ -80,10 +82,7 @@ export interface LocationRiskResponse {
  * and falls back to direct `http://127.0.0.1:8000` when needed.
  */
 function getApiEndpoint(path: string): string {
-  if (typeof window !== 'undefined') {
-    return `/py-api${path}`
-  }
-  return `http://127.0.0.1:8000${path}`
+  return getApiUrl(`/py-api${path}`)
 }
 
 /**

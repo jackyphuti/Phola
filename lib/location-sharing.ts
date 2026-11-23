@@ -205,20 +205,34 @@ export async function stopLocationShare(shareId: string): Promise<{ success: boo
  * Send an emergency distress ping to all accepted guardians.
  * Triggers their devices to audibly ring and display your live GPS location.
  */
-export async function pingUnsafeBuddies(params?: {
-  lat?: number
-  lng?: number
-  message?: string
-}): Promise<{ success: boolean; totalNotified?: number; message: string }> {
+export async function pingUnsafeBuddies(
+  paramsOrMessage?: string | { lat?: number; lng?: number; message?: string },
+  fallbackLat?: number,
+  fallbackLng?: number
+): Promise<{ success: boolean; totalNotified?: number; message: string }> {
+  let message = 'I feel unsafe right now! Please check my live location and contact me.'
+  let lat: number | undefined
+  let lng: number | undefined
+
+  if (typeof paramsOrMessage === 'string') {
+    message = paramsOrMessage
+    lat = fallbackLat
+    lng = fallbackLng
+  } else if (paramsOrMessage && typeof paramsOrMessage === 'object') {
+    if (paramsOrMessage.message) message = paramsOrMessage.message
+    lat = paramsOrMessage.lat
+    lng = paramsOrMessage.lng
+  }
+
   try {
     const res = await fetch('/api/location-share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'ping_unsafe',
-        message: params?.message || 'I feel unsafe right now! Please check my live location and contact me.',
-        lat: params?.lat,
-        lng: params?.lng,
+        message,
+        lat,
+        lng,
       }),
       credentials: 'include',
     })

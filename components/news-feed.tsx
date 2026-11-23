@@ -102,23 +102,23 @@ export function NewsFeed() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
         
         {/* ========================================================================= */}
         {/* HEADER SECTION                                                            */}
         {/* ========================================================================= */}
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
+        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="border border-emerald-200 bg-emerald-50 text-emerald-900 text-[10px] font-bold uppercase tracking-wider">
+                <Badge variant="secondary" className="border border-border bg-muted text-foreground text-[10px] font-bold uppercase tracking-wider">
                   <Flame className="mr-1 h-3 w-3 text-primary" />
                   Live South Africa Feed
                 </Badge>
               </div>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                Mzansi News & Updates
+                South Africa News & Updates
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Curated daily headlines across South Africa from verified media sources.

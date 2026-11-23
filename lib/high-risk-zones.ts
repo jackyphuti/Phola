@@ -810,7 +810,7 @@ export async function dispatchHighRiskZoneNotification(zone: HighRiskZone) {
   console.warn(`[Phola Safety] High-risk zone warning triggered: ${zone.name}`)
   recordAlertSent(zone.id)
 
-  const title = `⚠️ HIGH-RISK ZONE ALERT: ${zone.name.toUpperCase()}`
+  const title = `HIGH-RISK ZONE ALERT: ${zone.name.toUpperCase()}`
 
   // 1. Device Vibration
   if ('vibrate' in navigator) {

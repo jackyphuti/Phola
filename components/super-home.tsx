@@ -19,7 +19,6 @@ import {
   ArrowRight, 
   Navigation, 
   Clock, 
-  Sparkles, 
   Radio, 
   ExternalLink, 
   LogOut, 
@@ -30,6 +29,8 @@ import {
   Flame,
   Globe2,
   Compass,
+  Users,
+  Check,
   X
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -47,6 +48,7 @@ import { loadLanguagePreference } from '@/lib/locale-storage'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { notifySOSActivated, subscribeForProductionPush } from '@/lib/push-notifications'
+import { pingUnsafeBuddies } from '@/lib/location-sharing'
 import { getApiUrl } from '@/lib/api-client'
 import { SafeRideSession } from '@/lib/safe-ride-types'
 import { getActiveSafeRide, formatCountdown, calculateRemainingSeconds } from '@/lib/safe-ride-service'
@@ -131,11 +133,21 @@ export function SuperHome({ name }: { name: string }) {
   const [nearest, setNearest] = useState<{ taxi?: NearbyItem; shop?: NearbyItem; clinic?: NearbyItem; police?: NearbyItem }>({})
   const [isSOSHolding, setIsSOSHolding] = useState(false)
   const [holdProgress, setHoldProgress] = useState(0)
+  const [sosConfirmed, setSosConfirmed] = useState(false)
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isHoldingRef = useRef(false)
 
   // Safe Ride Session State
   const [activeRide, setActiveRide] = useState<SafeRideSession | null>(null)
   const [rideRemainingSecs, setRideRemainingSecs] = useState<number>(0)
+
+  // Clear timers on unmount
+  useEffect(() => {
+    return () => {
+      if (holdIntervalRef.current) clearInterval(holdIntervalRef.current)
+      if (holdTimer.current) clearTimeout(holdTimer.current)
+    }
+  }, [])
 
   // 1. Language Setup
   useEffect(() => {
@@ -203,10 +215,10 @@ export function SuperHome({ name }: { name: string }) {
       const fallbackShop = getNearbyMalls(loc.lat, loc.lng, 1)[0]
 
       const [taxiRes, shopRes, clinicRes, policeRes] = await Promise.allSettled([
-        fetch(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=taxi_ranks`).then((r) => r.json()),
-        fetch(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=malls_shops`).then((r) => r.json()),
-        fetch(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=clinics_hospitals`).then((r) => r.json()),
-        fetch(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=police_stations`).then((r) => r.json()),
+        fetch(getApiUrl(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=taxi_ranks`)).then((r) => r.json()),
+        fetch(getApiUrl(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=malls_shops`)).then((r) => r.json()),
+        fetch(getApiUrl(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=clinics_hospitals`)).then((r) => r.json()),
+        fetch(getApiUrl(`/api/nearby?lat=${loc.lat}&lng=${loc.lng}&category=police_stations`)).then((r) => r.json()),
       ])
 
       setNearest({
@@ -337,29 +349,27 @@ export function SuperHome({ name }: { name: string }) {
   const { greeting } = getGreetingByLanguage(language, name || 'friend')
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_36%),linear-gradient(180deg,#f6fffb_0%,#ffffff_44%,#f7fbf9_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
 
-        {/* ========================================================================= */}
-        {/* ACTIVE SAFE RIDE LIVE WIDGET (Shows whenever ride is active)              */}
-        {/* ========================================================================= */}
+        {/* Active Safe Ride Widget (When ride is in progress) */}
         {activeRide && (
-          <section className="animate-in fade-in zoom-in-95 duration-200">
+          <section className="animate-in fade-in duration-200">
             <div 
               onClick={() => router.push('/safe-ride')}
-              className="group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border-2 border-emerald-500 bg-gradient-to-r from-emerald-50 via-teal-50/70 to-white p-4 shadow-sm cursor-pointer hover:shadow-md transition"
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-primary/40 bg-card p-4 shadow-xs cursor-pointer hover:border-primary transition"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs">
-                  <Car className="h-6 w-6" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <Car className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600"></span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                     </span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary">
                       Watchdog Active • {activeRide.serviceName}
                     </span>
                   </div>
@@ -376,8 +386,8 @@ export function SuperHome({ name }: { name: string }) {
                   </p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Remaining</p>
                 </div>
-                <Button size="sm" className="bg-primary hover:bg-primary/95 text-white text-xs h-9 rounded-xl font-semibold shadow-xs">
-                  View Watchdog
+                <Button size="sm" className="bg-primary hover:bg-primary/95 text-primary-foreground text-xs h-8 rounded-lg font-semibold">
+                  View Safe Ride
                   <ArrowRight className="ml-1 h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -386,376 +396,25 @@ export function SuperHome({ name }: { name: string }) {
         )}
 
         {/* ========================================================================= */}
-        {/* HERO GREETING & DUAL EMERGENCY CONSOLE                                    */}
+        {/* 1. HEADER + AREA SELECTOR + RISK PILL                                      */}
         {/* ========================================================================= */}
-        <section className="rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_20px_50px_rgba(5,40,40,0.05)] sm:p-6">
-          <div className="flex flex-col gap-4">
-            
-            {/* Greeting Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-emerald-50 pb-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Phola Community Hub</p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                  {greeting}
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                  Your safe space for immediate protection, trusted circles, and Mzansi community services.
-                </p>
-              </div>
-
-              <Badge variant="secondary" className="self-start sm:self-center border border-emerald-200 bg-emerald-50 text-emerald-900 px-3 py-1 text-xs">
-                <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
-                Encrypted & Private
-              </Badge>
+        <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                {greeting}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Civic safety network for emergency response, trusted circles, and community services.
+              </p>
             </div>
 
-            {/* Emergency Action Dual Console */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-1">
-              
-              {/* Box 1: Press & Hold SOS with High-Urgency Crimson Styling & Progress Fill */}
-              <div 
-                role="button"
-                tabIndex={0}
-                aria-label="Hold SOS panic button for 1.3 seconds"
-                className={`relative overflow-hidden rounded-2xl border p-4 transition-all select-none cursor-pointer ${
-                  isSOSHolding 
-                    ? 'border-red-600 bg-red-600 text-white shadow-xl scale-[0.98] ring-4 ring-red-400/50' 
-                    : 'border-red-500/80 bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-red-600/25 hover:shadow-lg hover:shadow-red-600/35 active:scale-[0.98]'
-                }`}
-                onPointerDown={startSOSHold}
-                onPointerUp={cancelSOSHold}
-                onPointerLeave={cancelSOSHold}
-                onPointerCancel={cancelSOSHold}
-                onContextMenu={(e) => e.preventDefault()}
-              >
-                {/* Hold Linear Fill Bar */}
-                {isSOSHolding && (
-                  <div 
-                    className="absolute bottom-0 left-0 top-0 bg-red-950/40 transition-none"
-                    style={{ width: `${holdProgress}%` }}
-                  />
-                )}
-
-                <div className="relative z-10 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {/* Radial Progress Ring */}
-                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
-                      <svg className="absolute inset-0 h-12 w-12 -rotate-90" viewBox="0 0 44 44">
-                        <circle
-                          cx="22"
-                          cy="22"
-                          r="18"
-                          className="stroke-red-900/60"
-                          strokeWidth="3.5"
-                          fill="transparent"
-                        />
-                        <circle
-                          cx="22"
-                          cy="22"
-                          r="18"
-                          stroke="#ffffff"
-                          strokeWidth="3.5"
-                          strokeDasharray={113.1}
-                          strokeDashoffset={113.1 - (holdProgress / 100) * 113.1}
-                          strokeLinecap="round"
-                          fill="transparent"
-                          className="transition-[stroke-dashoffset] duration-75"
-                        />
-                      </svg>
-
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs shadow-xs">
-                        <Shield className={`h-5 w-5 text-white ${isSOSHolding ? 'animate-bounce' : ''}`} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                        {isSOSHolding ? 'TRANSMITTING SOS ALERT...' : 'EMERGENCY SOS'}
-                      </p>
-                      <p className="text-xs text-red-100/90 font-medium">
-                        {isSOSHolding 
-                          ? `HOLDING... ${Math.max(0, 1.3 - (holdProgress / 100) * 1.3).toFixed(1)}s` 
-                          : 'Press & hold 1.3s to alert trusted circle'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className={`text-xs font-mono font-bold uppercase tracking-wider rounded-xl px-3 py-1.5 transition-colors ${
-                    isSOSHolding ? 'bg-white text-red-700 animate-pulse shadow-sm' : 'bg-red-800/80 text-white border border-red-400/40'
-                  }`}>
-                    {isSOSHolding ? `${Math.round(holdProgress)}%` : 'HOLD SOS'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Box 2: GBV Command Helpline */}
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-br from-teal-50/70 to-white p-4 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-xs">
-                    <Phone className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                      <p className="text-sm font-bold text-foreground">GBV Command Centre</p>
-                    </div>
-                    <p className="text-xs text-emerald-800 font-medium">Toll-free 24/7: 0800 428 428</p>
-                  </div>
-                </div>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.location.href = 'tel:0800428428'}
-                  className="border-emerald-300 bg-white font-semibold text-emerald-900 hover:bg-emerald-50 text-xs shrink-0 shadow-2xs h-9 rounded-xl"
-                >
-                  <Phone className="mr-1 h-3.5 w-3.5 text-primary" />
-                  Call Free
-                </Button>
-              </div>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* UNIFIED SEARCH BAR WITH AUTOCOMPLETE & QUICK CATEGORIES                   */}
-        {/* ========================================================================= */}
-        <section className="relative space-y-2">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleSearchSubmit()
-            }}
-            className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-white px-3.5 py-2.5 shadow-2xs focus-within:border-primary transition"
-          >
-            <Search className="h-4 w-4 text-primary shrink-0" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onFocus={() => setIsSearchFocused(true)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleSearchSubmit()
-                }
-              }}
-              placeholder="Search services, report crime, taxi ranks, clinics..."
-              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            />
-            {search && (
-              <button 
-                type="button" 
-                onClick={() => setSearch('')}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-slate-100 transition"
-                title="Clear input"
-                aria-label="Clear search input"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <Button
-              type="submit"
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2.5 text-xs text-primary font-semibold hover:bg-emerald-50 rounded-lg shrink-0"
-            >
-              Search
-            </Button>
-          </form>
-
-          {/* Quick Suggestion Pills when focused and empty */}
-          {isSearchFocused && !search && (
-            <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1 animate-in fade-in duration-200">
-              <span className="text-[11px] text-muted-foreground mr-1">Suggested:</span>
-              {[
-                { label: 'Report GBV (Vault)', href: '/reports' },
-                { label: 'Police Stations', href: '/nearby?category=police_stations' },
-                { label: 'Safe Ride', href: '/safe-ride' },
-                { label: 'Clinics & Health', href: '/nearby?category=clinics_hospitals' },
-                { label: 'Taxi Ranks', href: '/nearby?category=taxi_ranks' },
-              ].map((pill) => (
-                <button
-                  key={pill.label}
-                  type="button"
-                  onMouseDown={() => {
-                    router.push(pill.href)
-                    setIsSearchFocused(false)
-                  }}
-                  className="rounded-lg bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100 transition"
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Autocomplete Dropdown */}
-          {filteredSearch.length > 0 && (
-            <Card className="absolute left-0 right-0 top-12 z-30 border-emerald-100 bg-white shadow-xl rounded-2xl overflow-hidden">
-              <CardContent className="p-2 space-y-1">
-                {filteredSearch.map((item) => (
-                  <button
-                    key={item.href + item.label}
-                    type="button"
-                    className="flex items-center justify-between w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-emerald-50 transition"
-                    onClick={() => {
-                      router.push(item.href)
-                      setIsSearchFocused(false)
-                      setSearch('')
-                    }}
-                  >
-                    <span className="font-medium text-foreground">{item.label}</span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-        </section>
-
-        {/* ========================================================================= */}
-        {/* CORE SAFETY & ACTION SUITE                                                */}
-        {/* ========================================================================= */}
-        <section className="space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-              Essential Tools & Protection
-            </h2>
-            <button 
-              type="button" 
-              onClick={() => router.push('/safety')} 
-              className="text-xs font-semibold text-primary hover:underline flex items-center"
-            >
-              All Tools <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            
-            {/* 1. Safe Ride Watchdog */}
-            <div 
-              onClick={() => router.push('/safe-ride')}
-              className="group flex flex-col justify-between rounded-2xl border border-amber-200/90 bg-gradient-to-b from-white to-amber-50/20 p-4 shadow-2xs hover:border-amber-400 hover:shadow-md hover:shadow-amber-500/10 cursor-pointer transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                    <Car className="h-5 w-5" />
-                  </div>
-                  <Badge variant="secondary" className="bg-amber-50 text-amber-900 border border-amber-200/80 text-[10px] font-bold uppercase tracking-wider">
-                    Watchdog
-                  </Badge>
-                </div>
-                <p className="text-sm font-bold text-foreground">Safe Ride Watchdog</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Arrival countdown and emergency check-in for your trips.
-                </p>
-              </div>
-              <div className="mt-3.5 pt-2.5 border-t border-amber-100/80 flex items-center justify-between text-xs font-semibold text-amber-700">
-                <span className="text-[11px] font-medium text-amber-800/80">Active GPS Tracking</span>
-                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
-              </div>
-            </div>
-
-            {/* 2. Report GBV Incident (VAULT) */}
-            <div 
-              onClick={() => router.push('/reports')}
-              className="group flex flex-col justify-between rounded-2xl border border-indigo-200/90 bg-gradient-to-b from-white to-indigo-50/20 p-4 shadow-2xs hover:border-indigo-400 hover:shadow-md hover:shadow-indigo-500/10 cursor-pointer transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                    <ShieldAlert className="h-5 w-5" />
-                  </div>
-                  <Badge variant="secondary" className="bg-indigo-50 text-indigo-900 border border-indigo-200/80 text-[10px] font-bold uppercase tracking-wider">
-                    Vault
-                  </Badge>
-                </div>
-                <p className="text-sm font-bold text-foreground">Report GBV (VAULT)</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Confidential encrypted vault with police docket generator.
-                </p>
-              </div>
-              <div className="mt-3.5 pt-2.5 border-t border-indigo-100/80 flex items-center justify-between text-xs font-semibold text-indigo-700">
-                <span className="text-[11px] font-medium text-indigo-800/80">Encrypted Vault</span>
-                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
-              </div>
-            </div>
-
-            {/* 3. Report Crime & Theft */}
-            <div 
-              onClick={() => router.push('/report')}
-              className="group flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/40 p-4 shadow-2xs hover:border-slate-400 hover:shadow-md hover:shadow-slate-500/10 cursor-pointer transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-500/10 text-slate-800 dark:bg-slate-800 dark:text-slate-200 group-hover:bg-slate-700 group-hover:text-white transition-colors">
-                    <FileWarning className="h-5 w-5" />
-                  </div>
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                    SAPS Crime Log
-                  </Badge>
-                </div>
-                <p className="text-sm font-bold text-foreground">Report Crime</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Robbery, assault, vehicle theft and police misconduct.
-                </p>
-              </div>
-              <div className="mt-3.5 pt-2.5 border-t border-slate-100/80 flex items-center justify-between text-xs font-semibold text-slate-800">
-                <span className="text-[11px] font-medium text-slate-600">SAPS Docket Ready</span>
-                <span className="flex items-center">Log <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
-              </div>
-            </div>
-
-            {/* 4. SOS Map & Safe Places */}
-            <div 
-              onClick={() => router.push('/sos')}
-              className="group flex flex-col justify-between rounded-2xl border border-emerald-200/90 bg-gradient-to-b from-white to-emerald-50/20 p-4 shadow-2xs hover:border-emerald-400 hover:shadow-md hover:shadow-emerald-500/10 cursor-pointer transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <Navigation className="h-5 w-5" />
-                  </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-bold uppercase tracking-wider">
-                    Emergency Radar
-                  </Badge>
-                </div>
-                <p className="text-sm font-bold text-foreground">Emergency Map</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Locate verified SAPS stations, trauma clinics and shelters.
-                </p>
-              </div>
-              <div className="mt-3.5 pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs font-semibold text-emerald-800">
-                <span className="text-[11px] font-medium text-emerald-700">Live GPS Radar</span>
-                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* LOCAL COMMUNITY RADAR (Pretoria / User's GPS)                             */}
-        {/* ========================================================================= */}
-        <section className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-2">
-              <Radio className="h-4 w-4 text-primary animate-pulse" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                Nearest to You (Local Radar)
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowAreaModal(true)}
-                className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-950 hover:bg-emerald-100 transition shadow-2xs"
-                title="Change manual location"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-muted transition"
+                title="Change location"
               >
                 <MapPin className="h-3.5 w-3.5 text-primary" />
                 <span>{selectedAreaName}</span>
@@ -772,60 +431,415 @@ export function SuperHome({ name }: { name: string }) {
                 GPS
               </button>
 
-              <Link 
-                href="/nearby" 
-                className="text-xs font-semibold text-muted-foreground hover:text-primary flex items-center ml-1"
-              >
-                Full List <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Active Area Real-Time Safety Assessment Micro-bar */}
-          {(() => {
-            const safety = evaluateLocationSafety(location.lat, location.lng)
-            return (
-              <div
-                className={`p-2.5 rounded-2xl border text-xs flex items-center justify-between gap-2 shadow-2xs transition-all ${
-                  safety.level === 'high'
-                    ? 'bg-red-50/90 border-red-200 text-red-900'
-                    : safety.level === 'moderate'
-                    ? 'bg-amber-50/90 border-amber-200 text-amber-950'
-                    : 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
-                }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
+              {(() => {
+                const safety = evaluateLocationSafety(location.lat, location.lng)
+                return (
                   <span
-                    className={`font-black uppercase tracking-wider text-[10px] px-2 py-0.5 rounded-md text-white ${
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider text-white ${
                       safety.level === 'high'
-                        ? 'bg-red-600'
+                        ? 'bg-destructive'
                         : safety.level === 'moderate'
                         ? 'bg-amber-600'
-                        : 'bg-emerald-600'
+                        : 'bg-primary'
                     }`}
                   >
                     {safety.badgeText}
                   </span>
-                  <span className="font-bold text-xs truncate">{safety.zoneName}</span>
-                </div>
-                <span className="text-[11px] opacity-85 truncate hidden sm:inline">{safety.advice}</span>
-              </div>
-            )
-          })()}
+                )
+              })()}
+            </div>
+          </div>
+        </section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            
+        {/* ========================================================================= */}
+        {/* 2. EMERGENCY ACTION STRIP (HIGH-CONTRAST CRIMSON HOLD SOS + GBV CALL CARD)*/}
+        {/* ========================================================================= */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Box 1: Unmistakable High-Contrast Crimson Hold SOS */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Hold SOS panic button for 1.3 seconds"
+            className={`relative overflow-hidden rounded-xl border p-4 transition-all select-none cursor-pointer ${
+              isSOSHolding
+                ? 'border-destructive bg-destructive text-destructive-foreground ring-4 ring-destructive/40'
+                : 'border-destructive bg-destructive text-destructive-foreground shadow-sm hover:brightness-105 active:scale-[0.99]'
+            }`}
+            onPointerDown={startSOSHold}
+            onPointerUp={cancelSOSHold}
+            onPointerLeave={cancelSOSHold}
+            onPointerCancel={cancelSOSHold}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {isSOSHolding && (
+              <div
+                className="absolute bottom-0 left-0 top-0 bg-black/30 transition-none"
+                style={{ width: `${holdProgress}%` }}
+              />
+            )}
+
+            <div className="relative z-10 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/20 text-white font-bold">
+                  <ShieldAlert className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold tracking-tight">
+                    {isSOSHolding ? 'TRANSMITTING DISTRESS ALERT...' : 'EMERGENCY SOS'}
+                  </p>
+                  <p className="text-xs text-white/90">
+                    {isSOSHolding
+                      ? `Hold for ${Math.max(0, 1.3 - (holdProgress / 100) * 1.3).toFixed(1)}s`
+                      : 'Hold 1.3s to notify Guardian Circle & dial'}
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs font-mono font-bold uppercase tracking-wider rounded-lg bg-black/25 px-2.5 py-1 text-white border border-white/20">
+                {isSOSHolding ? `${Math.round(holdProgress)}%` : 'HOLD SOS'}
+              </span>
+            </div>
+          </div>
+
+          {/* Box 2: GBV Command Centre Direct Call Card */}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Phone className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">GBV Command Centre</p>
+                <p className="text-xs text-muted-foreground">Toll-free 24/7: 0800 428 428</p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.location.href = 'tel:0800428428'}
+              className="border-border text-foreground hover:bg-muted text-xs h-9 rounded-lg font-semibold"
+            >
+              <Phone className="mr-1.5 h-3.5 w-3.5 text-primary" />
+              Call Free
+            </Button>
+          </div>
+        </section>
+
+        {/* SOS Confirmation Banner (Clear feedback for desktop & all devices) */}
+        {sosConfirmed && (
+          <div className="flex items-center justify-between gap-2 p-3 rounded-xl border border-destructive/30 bg-destructive/10 text-foreground text-xs shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-destructive shrink-0" />
+              <span className="font-semibold">
+                Emergency SOS triggered. Guardian Circle alerted and coordinates broadcast.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/sos" className="underline font-bold text-primary hover:text-primary/80">
+                Open SOS Map
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSosConfirmed(false)}
+                className="p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Dismiss confirmation"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 3. UNIFIED SEARCH BAR WITH AUTOCOMPLETE & QUICK CATEGORIES                */}
+        {/* ========================================================================= */}
+        <section className="relative space-y-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSearchSubmit()
+            }}
+            className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-xs focus-within:border-primary transition"
+          >
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleSearchSubmit()
+                }
+              }}
+              placeholder="Search services, police stations, clinics, transit..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            {search && (
+              <button 
+                type="button" 
+                onClick={() => setSearch('')}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition"
+                title="Clear input"
+                aria-label="Clear search input"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <Button
+              type="submit"
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2.5 text-xs text-primary font-semibold hover:bg-muted rounded-md shrink-0"
+            >
+              Search
+            </Button>
+          </form>
+
+          {/* Quick Suggestion Pills when focused and empty */}
+          {isSearchFocused && !search && (
+            <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1 animate-in fade-in duration-150">
+              <span className="text-[11px] text-muted-foreground mr-1">Suggested:</span>
+              {[
+                { label: 'Incident Vault', href: '/reports' },
+                { label: 'Police Stations', href: '/nearby?category=police_stations' },
+                { label: 'Safe Ride', href: '/safe-ride' },
+                { label: 'Clinics & Hospitals', href: '/nearby?category=clinics_hospitals' },
+                { label: 'Taxi Ranks', href: '/nearby?category=taxi_ranks' },
+              ].map((pill) => (
+                <button
+                  key={pill.label}
+                  type="button"
+                  onMouseDown={() => {
+                    router.push(pill.href)
+                    setIsSearchFocused(false)
+                  }}
+                  className="rounded-md bg-secondary border border-border px-2 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted transition"
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Autocomplete Dropdown */}
+          {filteredSearch.length > 0 && (
+            <Card className="absolute left-0 right-0 top-12 z-30 border-border bg-card shadow-lg rounded-xl overflow-hidden">
+              <CardContent className="p-1.5 space-y-0.5">
+                {filteredSearch.map((item) => (
+                  <button
+                    key={item.href + item.label}
+                    type="button"
+                    className="flex items-center justify-between w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted transition"
+                    onClick={() => {
+                      router.push(item.href)
+                      setIsSearchFocused(false)
+                      setSearch('')
+                    }}
+                  >
+                    <span className="font-medium text-foreground">{item.label}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 4. CORE TOOLS GRID (4 CARDS)                                               */}
+        {/* ========================================================================= */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Core Safety Tools
+            </h2>
+            <button 
+              type="button" 
+              onClick={() => router.push('/safety')} 
+              className="text-xs font-semibold text-primary hover:underline flex items-center"
+            >
+              All Tools <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. Safe Ride Watchdog */}
+            <div 
+              onClick={() => router.push('/safe-ride')}
+              className="group flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition-all"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Car className="h-4 w-4" />
+                  </div>
+                  <Badge variant="secondary" className="bg-secondary text-foreground text-[10px] font-semibold">
+                    Watchdog
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Safe Ride Watchdog</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Trip countdown and route deviation detection for e-hailing and transit.
+                </p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-xs font-semibold text-primary">
+                <span className="text-[11px] text-muted-foreground font-normal">Live Telemetry</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
+              </div>
+            </div>
+
+            {/* 2. Incident Vault */}
+            <div 
+              onClick={() => router.push('/reports')}
+              className="group flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition-all"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <ShieldAlert className="h-4 w-4" />
+                  </div>
+                  <Badge variant="secondary" className="bg-secondary text-foreground text-[10px] font-semibold">
+                    Vault
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Incident Vault</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Confidential encrypted records with Section 212 SAPS docket generation.
+                </p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-xs font-semibold text-primary">
+                <span className="text-[11px] text-muted-foreground font-normal">Encrypted Enclave</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
+              </div>
+            </div>
+
+            {/* 3. Emergency SOS Map */}
+            <div 
+              onClick={() => router.push('/sos')}
+              className="group flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition-all"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Navigation className="h-4 w-4" />
+                  </div>
+                  <Badge variant="secondary" className="bg-secondary text-foreground text-[10px] font-semibold">
+                    SOS Map
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Emergency SOS Map</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Locate verified police stations, trauma centres, and safe havens.
+                </p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-xs font-semibold text-primary">
+                <span className="text-[11px] text-muted-foreground font-normal">GPS Radar</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
+              </div>
+            </div>
+
+            {/* 4. Safety Hub & Hotlines */}
+            <div 
+              onClick={() => router.push('/safety')}
+              className="group flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition-all"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <Badge variant="secondary" className="bg-secondary text-foreground text-[10px] font-semibold">
+                    Hotlines
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">Safety Hub & Hotlines</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Verified emergency crisis lines, legal resources, and shelter directories.
+                </p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-xs font-semibold text-primary">
+                <span className="text-[11px] text-muted-foreground font-normal">Helplines</span>
+                <span className="flex items-center">Open <ChevronRight className="h-3.5 w-3.5 ml-0.5 group-hover:translate-x-0.5 transition" /></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 5. SAFETY GUIDE & TRUSTED CONTACTS ROW                                    */}
+        {/* ========================================================================= */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Card 1: Safety Guide */}
+          <div
+            onClick={() => router.push('/assistant')}
+            className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+                <Compass className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">Safety Guide</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Guidance on domestic violence rights, protection orders, and emergency safe routes.
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </div>
+
+          {/* Card 2: Trusted Contacts / Guardian Circle */}
+          <div
+            onClick={() => router.push('/settings')}
+            className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">Trusted Contacts</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Manage primary emergency contacts and automated distress notification alerts.
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 6. NEAREST SERVICES STRIP (4 CARDS)                                       */}
+        {/* ========================================================================= */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Radio className="h-4 w-4 text-primary" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Nearest Services ({selectedAreaName})
+              </h2>
+            </div>
+            <Link 
+              href="/nearby" 
+              className="text-xs font-semibold text-primary hover:underline flex items-center"
+            >
+              All Services <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Card 1: Nearest Police Station */}
-            <Card className="border-emerald-100 bg-white shadow-2xs rounded-2xl">
+            <Card className="border-border bg-card shadow-xs rounded-xl">
               <CardContent className="p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-primary">
-                      <Shield className="h-4 w-4" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-primary">
+                      <Shield className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Police Station</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Police Station</span>
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 font-mono text-xs">
+                  <Badge variant="secondary" className="font-mono text-[10px]">
                     {nearest.police ? formatDistance(nearest.police.distanceKm) : '--'}
                   </Badge>
                 </div>
@@ -834,14 +848,14 @@ export function SuperHome({ name }: { name: string }) {
                     {nearest.police?.name || 'Searching SAPS stations...'}
                   </p>
                   <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                    {nearest.police?.address || 'Verified SAPS station'}
+                    {nearest.police?.address || 'Verified police station'}
                   </p>
                 </div>
                 <Button 
                   size="sm" 
                   variant="outline" 
                   onClick={() => router.push('/nearby?category=police_stations')}
-                  className="w-full rounded-xl border-emerald-200 text-xs text-primary font-medium h-7"
+                  className="w-full rounded-lg border-border text-xs text-foreground font-medium h-7"
                 >
                   View Details
                 </Button>
@@ -849,16 +863,16 @@ export function SuperHome({ name }: { name: string }) {
             </Card>
 
             {/* Card 2: Nearest Clinic / Hospital */}
-            <Card className="border-emerald-100 bg-white shadow-2xs rounded-2xl">
+            <Card className="border-border bg-card shadow-xs rounded-xl">
               <CardContent className="p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-primary">
-                      <Hospital className="h-4 w-4" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-primary">
+                      <Hospital className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clinic / Health</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Clinic / Health</span>
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 font-mono text-xs">
+                  <Badge variant="secondary" className="font-mono text-[10px]">
                     {nearest.clinic ? formatDistance(nearest.clinic.distanceKm) : '--'}
                   </Badge>
                 </div>
@@ -874,7 +888,7 @@ export function SuperHome({ name }: { name: string }) {
                   size="sm" 
                   variant="outline" 
                   onClick={() => router.push('/nearby?category=clinics_hospitals')}
-                  className="w-full rounded-xl border-emerald-200 text-xs text-primary font-medium h-7"
+                  className="w-full rounded-lg border-border text-xs text-foreground font-medium h-7"
                 >
                   View Details
                 </Button>
@@ -882,16 +896,16 @@ export function SuperHome({ name }: { name: string }) {
             </Card>
 
             {/* Card 3: Nearest Taxi Rank */}
-            <Card className="border-emerald-100 bg-white shadow-2xs rounded-2xl">
+            <Card className="border-border bg-card shadow-xs rounded-xl">
               <CardContent className="p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-primary">
-                      <Bus className="h-4 w-4" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-primary">
+                      <Bus className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Taxi Rank</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Taxi Rank</span>
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-900 font-mono text-xs">
+                  <Badge variant="secondary" className="font-mono text-[10px]">
                     {nearest.taxi ? formatDistance(nearest.taxi.distanceKm) : '--'}
                   </Badge>
                 </div>
@@ -907,25 +921,57 @@ export function SuperHome({ name }: { name: string }) {
                   size="sm" 
                   variant="outline" 
                   onClick={() => router.push('/nearby?category=taxi_ranks')}
-                  className="w-full rounded-xl border-emerald-200 text-xs text-primary font-medium h-7"
+                  className="w-full rounded-lg border-border text-xs text-foreground font-medium h-7"
                 >
                   View Details
                 </Button>
               </CardContent>
             </Card>
 
+            {/* Card 4: Safe Retail Hub */}
+            <Card className="border-border bg-card shadow-xs rounded-xl">
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-primary">
+                      <Store className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Safe Retail Hub</span>
+                  </div>
+                  <Badge variant="secondary" className="font-mono text-[10px]">
+                    {nearest.shop ? formatDistance(nearest.shop.distanceKm) : '--'}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground line-clamp-1">
+                    {nearest.shop?.name || 'Searching hubs...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                    {nearest.shop?.address || 'Safe commercial center'}
+                  </p>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => router.push('/nearby?category=malls_shops')}
+                  className="w-full rounded-lg border-border text-xs text-foreground font-medium h-7"
+                >
+                  View Details
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
         {/* ========================================================================= */}
-        {/* MZANSI NEWS & COMMUNITY PULSE                                             */}
+        {/* 7. SOUTH AFRICA HEADLINES LIST                                            */}
         {/* ========================================================================= */}
         <section className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <Flame className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                Mzansi News & Updates
+              <Newspaper className="h-4 w-4 text-primary" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                South Africa News & Bulletins
               </h2>
             </div>
             <Button variant="ghost" size="sm" onClick={() => router.push('/news')} className="text-xs text-primary">
@@ -938,7 +984,7 @@ export function SuperHome({ name }: { name: string }) {
               <div
                 key={item.url}
                 onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
-                className="group flex flex-col justify-between rounded-2xl border border-emerald-100 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-sm cursor-pointer transition"
+                className="group flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-xs hover:border-primary/50 cursor-pointer transition"
               >
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
@@ -952,7 +998,7 @@ export function SuperHome({ name }: { name: string }) {
                   </p>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Verified SA Source</span>
+                  <span>Verified Source</span>
                   <span className="text-primary font-medium">Read Article</span>
                 </div>
               </div>
@@ -964,18 +1010,18 @@ export function SuperHome({ name }: { name: string }) {
 
       {/* AREA SELECTOR MODAL */}
       <Dialog open={showAreaModal} onOpenChange={setShowAreaModal}>
-        <DialogContent className="max-w-sm rounded-3xl border-emerald-100 p-5 shadow-2xl">
+        <DialogContent className="max-w-sm rounded-xl border-border p-5 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
               <Compass className="h-4 w-4 text-primary" />
               Select South Africa Area
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Select your city to instantly view nearby SAPS stations, emergency health facilities, and transit ranks.
+              Select your area to instantly view nearby police stations, health facilities, and transit points.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-3 space-y-1.5 max-h-72 overflow-y-auto">
+          <div className="mt-3 space-y-1 max-h-72 overflow-y-auto">
             {SA_RADAR_AREAS.map((area) => (
               <button
                 key={area.name}
@@ -985,14 +1031,14 @@ export function SuperHome({ name }: { name: string }) {
                   setSelectedAreaName(area.name)
                   setShowAreaModal(false)
                 }}
-                className="w-full flex items-center justify-between rounded-xl p-3 text-left text-xs font-semibold hover:bg-emerald-50 active:bg-emerald-100 transition border border-transparent hover:border-emerald-200"
+                className="w-full flex items-center justify-between rounded-lg p-2.5 text-left text-xs font-semibold hover:bg-muted active:bg-muted/80 transition border border-transparent hover:border-border"
               >
-                <div className="flex items-center gap-2.5">
-                  <MapPin className="h-4 w-4 text-primary" />
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
                   <span className="text-foreground">{area.name}</span>
                 </div>
                 {selectedAreaName === area.name && (
-                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-900 text-[10px]">
+                  <Badge variant="secondary" className="text-[10px]">
                     Active
                   </Badge>
                 )}
@@ -1008,7 +1054,7 @@ export function SuperHome({ name }: { name: string }) {
                 detectGPS()
                 setShowAreaModal(false)
               }}
-              className="flex-1 rounded-xl text-xs bg-primary text-white"
+              className="flex-1 rounded-lg text-xs bg-primary text-primary-foreground"
             >
               <Navigation className="h-3.5 w-3.5 mr-1" />
               Use My Live GPS
@@ -1017,7 +1063,7 @@ export function SuperHome({ name }: { name: string }) {
               variant="outline"
               size="sm"
               onClick={() => setShowAreaModal(false)}
-              className="rounded-xl text-xs"
+              className="rounded-lg text-xs border-border"
             >
               Cancel
             </Button>

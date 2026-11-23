@@ -5,75 +5,75 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Phola green / white palette */
-  --background: #ffffff;
-  --foreground: #0f172a; /* slate-900 */
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #0D6E6E; /* phola green */
-  --primary-foreground: #ffffff;
-  --secondary: #D9F3EC;
-  --secondary-foreground: #084F4F;
-  --muted: #f8f7fb;
-  --muted-foreground: #6b7280;
-  --accent: #7DDBB4;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e6e6e9;
-  --input: #ffffff;
-  --ring: #0D6E6E;
-  --chart-1: #0D6E6E;
+  /* Warm stone / deep slate-teal / crimson emergency palette */
+  --background: #F7F7F5;
+  --foreground: #111818;
+  --card: #FFFFFF;
+  --card-foreground: #111818;
+  --popover: #FFFFFF;
+  --popover-foreground: #111818;
+  --primary: #0B5D5D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EFEFED;
+  --secondary-foreground: #111818;
+  --muted: #F1F1EE;
+  --muted-foreground: #5A6565;
+  --accent: #E6F2F0;
+  --accent-foreground: #0B5D5D;
+  --destructive: #C81E1E;
+  --destructive-foreground: #FFFFFF;
+  --border: #E4E4DF;
+  --input: #FFFFFF;
+  --ring: #0B5D5D;
+  --chart-1: #0B5D5D;
   --chart-2: #138a78;
   --chart-3: #41b89d;
-  --chart-4: #7DDBB4;
+  --chart-4: #3AAFA9;
   --chart-5: #a8edcd;
-  --radius: 0.75rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #0D6E6E;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #D9F3EC;
-  --sidebar-accent-foreground: #084F4F;
-  --sidebar-border: #e6e6e9;
-  --sidebar-ring: #0D6E6E;
+  --radius: 0.625rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #111818;
+  --sidebar-primary: #0B5D5D;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E6F2F0;
+  --sidebar-accent-foreground: #0B5D5D;
+  --sidebar-border: #E4E4DF;
+  --sidebar-ring: #0B5D5D;
 }
 
 .dark {
-  --background: #062b2b;
-  --foreground: #ffffff;
-  --card: #0b3737;
-  --card-foreground: #ffffff;
-  --popover: #0b3737;
-  --popover-foreground: #ffffff;
-  --primary: #7DDBB4;
-  --primary-foreground: #062b2b;
-  --secondary: #0f4545;
-  --secondary-foreground: #ffffff;
-  --muted: #0b3737;
-  --muted-foreground: #b9ddd5;
-  --accent: #41b89d;
-  --accent-foreground: #062b2b;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #0f4545;
-  --input: #0b3737;
-  --ring: #7DDBB4;
-  --chart-1: #7DDBB4;
+  --background: #0D1111;
+  --foreground: #F3F5F4;
+  --card: #141A1A;
+  --card-foreground: #F3F5F4;
+  --popover: #141A1A;
+  --popover-foreground: #F3F5F4;
+  --primary: #3AAFA9;
+  --primary-foreground: #0D1111;
+  --secondary: #1C2424;
+  --secondary-foreground: #F3F5F4;
+  --muted: #1A2222;
+  --muted-foreground: #8C9999;
+  --accent: #1F2B2B;
+  --accent-foreground: #3AAFA9;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #242E2E;
+  --input: #1A2222;
+  --ring: #3AAFA9;
+  --chart-1: #3AAFA9;
   --chart-2: #41b89d;
   --chart-3: #138a78;
-  --chart-4: #0D6E6E;
+  --chart-4: #0B5D5D;
   --chart-5: #a8edcd;
-  --sidebar: #062b2b;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #7DDBB4;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #0f4545;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #0f4545;
-  --sidebar-ring: #7DDBB4;
+  --sidebar: #141A1A;
+  --sidebar-foreground: #F3F5F4;
+  --sidebar-primary: #3AAFA9;
+  --sidebar-primary-foreground: #0D1111;
+  --sidebar-accent: #1C2424;
+  --sidebar-accent-foreground: #3AAFA9;
+  --sidebar-border: #242E2E;
+  --sidebar-ring: #3AAFA9;
 }
 
 @theme inline {
@@ -145,170 +145,6 @@
   animation: phola-splash 1.8s cubic-bezier(.2,.8,.2,1) both;
 }
 
-@keyframes assistant-edge-flow {
-  0% {
-    transform: translateX(-12%);
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(12%);
-    opacity: 0.45;
-  }
-}
-
-@keyframes assistant-sweep-spin {
-  0% {
-    transform: rotate(0deg) scale(1);
-    opacity: 0.34;
-  }
-  50% {
-    opacity: 0.72;
-  }
-  100% {
-    transform: rotate(360deg) scale(1.05);
-    opacity: 0.34;
-  }
-}
-
-@keyframes assistant-corner-pulse {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-}
-
-.assistant-edge {
-  position: absolute;
-  background: linear-gradient(90deg, rgba(255, 92, 92, 0.08), rgba(255, 167, 38, 0.34), rgba(125, 219, 180, 0.52), rgba(80, 164, 255, 0.34), rgba(168, 237, 205, 0.08));
-  filter: blur(18px);
-  animation: assistant-edge-flow 2.6s ease-in-out infinite;
-}
-
-.assistant-edge-top,
-.assistant-edge-bottom {
-  left: 3%;
-  right: 3%;
-  height: 14px;
-}
-
-.assistant-edge-top {
-  top: 0;
-}
-
-.assistant-edge-bottom {
-  bottom: 0;
-  transform: scaleX(-1);
-}
-
-.assistant-edge-left,
-.assistant-edge-right {
-  top: 3%;
-  bottom: 3%;
-  width: 14px;
-  background: linear-gradient(180deg, rgba(255, 92, 92, 0.08), rgba(255, 167, 38, 0.34), rgba(125, 219, 180, 0.82), rgba(80, 164, 255, 0.34), rgba(168, 237, 205, 0.08));
-}
-
-.assistant-edge-left {
-  left: 0;
-}
-
-.assistant-edge-right {
-  right: 0;
-  transform: scaleY(-1);
-}
-
-.assistant-corner {
-  position: absolute;
-  width: 88px;
-  height: 88px;
-  border-radius: 9999px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 167, 38, 0.6) 22%, rgba(125, 219, 180, 0.55) 42%, rgba(80, 164, 255, 0.32) 60%, rgba(13, 110, 110, 0) 74%);
-  filter: blur(10px);
-  animation: assistant-corner-pulse 1.8s ease-in-out infinite;
-}
-
-.assistant-sweep {
-  position: absolute;
-  inset: -18%;
-  border-radius: 9999px;
-  background:
-    conic-gradient(
-      from 0deg,
-      rgba(255, 92, 92, 0) 0deg,
-      rgba(255, 92, 92, 0.45) 45deg,
-      rgba(255, 167, 38, 0.78) 90deg,
-      rgba(125, 219, 180, 0.72) 150deg,
-      rgba(80, 164, 255, 0.82) 210deg,
-      rgba(168, 237, 205, 0.62) 280deg,
-      rgba(255, 92, 92, 0) 360deg
-    );
-  mix-blend-mode: screen;
-  filter: blur(34px) saturate(1.3);
-  animation: assistant-sweep-spin 5.5s linear infinite;
-  pointer-events: none;
-}
-
-.assistant-sweep-delayed {
-  animation-delay: -2.2s;
-  opacity: 0.62;
-  filter: blur(42px) saturate(1.5);
-}
-
-.assistant-corner-tl {
-  top: -22px;
-  left: -22px;
-}
-
-.assistant-corner-tr {
-  top: -22px;
-  right: -22px;
-  animation-delay: 0.2s;
-}
-
-.assistant-corner-bl {
-  bottom: -22px;
-  left: -22px;
-  animation-delay: 0.35s;
-}
-
-.assistant-corner-br {
-  right: -22px;
-  bottom: -22px;
-  animation-delay: 0.5s;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .assistant-edge,
-  .assistant-corner,
-  .assistant-sweep {
-    animation: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-splash { animation: none; }
-}
-
-/* While splash is active, dim/blur the main app content and prevent interaction */
-.phola-splash-active .app-content {
-  opacity: 0.12;
-  filter: blur(4px) saturate(0.95);
-  transform: scale(0.995);
-  transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease;
-  pointer-events: none;
-}
-
-.app-content {
-  transition: opacity 420ms ease, filter 420ms ease, transform 420ms ease;
-}
-
 /* PWA safe area padding for mobile */
 /* PWA safe area bottom helper */
 @supports (padding: env(safe-area-inset-bottom)) {
@@ -320,15 +156,15 @@
 /* Mapbox GL JS Emergency Markers */
 @keyframes pulse-emergency {
   0% {
-    box-shadow: 0 0 0 0 rgba(13, 110, 110, 0.75);
+    box-shadow: 0 0 0 0 rgba(200, 30, 30, 0.75);
     transform: scale(0.96);
   }
   60% {
-    box-shadow: 0 0 0 16px rgba(13, 110, 110, 0);
+    box-shadow: 0 0 0 16px rgba(200, 30, 30, 0);
     transform: scale(1.08);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(13, 110, 110, 0);
+    box-shadow: 0 0 0 0 rgba(200, 30, 30, 0);
     transform: scale(0.96);
   }
 }
@@ -337,12 +173,12 @@
   position: relative;
   width: 24px;
   height: 24px;
-  background-color: #0D6E6E;
-  border: 3.5px solid #ffffff;
+  background-color: #C81E1E;
+  border: 3px solid #ffffff;
   border-radius: 50%;
   cursor: pointer;
   animation: pulse-emergency 1.8s infinite;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .pulse-emergency-marker::after {
@@ -465,49 +301,49 @@
 .saps-station-marker {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #0D6E6E 0%, #084F4F 100%);
-  border: 2.5px solid #ffffff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.32);
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-.saps-station-marker:hover {
-  transform: scale(1.2);
-}
-
-.hospital-marker {
-  width: 30px;
-  height: 30px;
-  background-color: #059669;
+  background-color: #0B5D5D;
   border: 2px solid #ffffff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.saps-station-marker:hover {
+  transform: scale(1.15);
+}
+
+.hospital-marker {
+  width: 30px;
+  height: 30px;
+  background-color: #0B5D5D;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 .hospital-marker:hover {
-  transform: scale(1.18);
+  transform: scale(1.15);
 }
 
 .nav-user-puck {
   width: 34px;
   height: 34px;
-  background-color: #0D6E6E;
-  border: 3.5px solid #ffffff;
+  background-color: #0B5D5D;
+  border: 3px solid #ffffff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(13, 110, 110, 0.45);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
   color: #ffffff;
   cursor: pointer;
   z-index: 50;
@@ -519,16 +355,17 @@
 }
 
 .mapboxgl-popup-content {
-  border-radius: 14px !important;
+  border-radius: 10px !important;
   padding: 12px 14px !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid rgba(13, 110, 110, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #E4E4DF !important;
+  background: #ffffff !important;
   font-family: inherit !important;
 }
 .mapboxgl-popup-close-button {
   font-size: 16px !important;
   padding: 4px 8px !important;
-  color: #64748b !important;
+  color: #5A6565 !important;
 }
 
 /* Destination Route Marker Flag */

@@ -258,12 +258,15 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
     }
   }
 
-  const persistLocalVaultRecord = (recordId: string, payload: Record<string, any>) => {
+  const persistLocalVaultRecord = (recordId: string, payload: Record<string, any>, replaceId?: string) => {
     if (typeof window === 'undefined' || !user?.id) return
     try {
       const key = `phola_vault_local_notes_${user.id}`
       const raw = window.localStorage.getItem(key)
-      const list: any[] = raw ? JSON.parse(raw) : []
+      let list: any[] = raw ? JSON.parse(raw) : []
+      if (replaceId && replaceId !== recordId) {
+        list = list.filter((item) => item.id !== replaceId)
+      }
       const nowIso = new Date().toISOString()
       const existingIdx = list.findIndex((item) => item.id === recordId)
       const fullRecord = {
@@ -328,7 +331,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
           .select('id')
           .single()
         if (!dbErr && data?.id) savedId = data.id
-      } else if (!incidentId) {
+      } else {
         const { data, error: dbErr } = await supabase
           .from('incidents')
           .insert({
@@ -340,7 +343,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         if (!dbErr && data?.id) savedId = data.id
       }
 
-      persistLocalVaultRecord(savedId, payload)
+      persistLocalVaultRecord(savedId, payload, incidentId)
       router.push('/reports')
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Failed to save. Please try again.'
@@ -377,7 +380,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
           .select('id')
           .single()
         if (!dbErr && data?.id) savedId = data.id
-      } else if (!incidentId) {
+      } else {
         const { data, error: dbErr } = await supabase
           .from('incidents')
           .insert({
@@ -389,7 +392,7 @@ export function ReportForm({ incidentId, initialData }: ReportFormProps) {
         if (!dbErr && data?.id) savedId = data.id
       }
 
-      persistLocalVaultRecord(savedId, payload)
+      persistLocalVaultRecord(savedId, payload, incidentId)
 
       void triggerIncidentPushEvent({
         crimeType: formData.crime_type,

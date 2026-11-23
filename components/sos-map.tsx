@@ -43,7 +43,6 @@ import {
   ArrowUpLeft,
   CheckCircle2,
   RotateCcw,
-  Sparkles,
   ExternalLink,
   ShieldCheck,
   WifiOff,
@@ -766,9 +765,9 @@ export function SOSMap() {
         <div style="min-width: 190px; font-family: inherit;">
           <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${place.name}</div>
           <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${place.address}</div>
-          <div style="display:flex; align-items:center; gap: 8px; font-size: 11px; color: #0D6E6E; font-weight: 600; margin-top: 6px;">
-            <span>📍 ${place.distanceText}</span>
-            <span>⏱️ ${place.duration}</span>
+          <div style="display:flex; align-items:center; gap: 8px; font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 6px;">
+            <span>${place.distanceText}</span>
+            <span>${place.duration}</span>
           </div>
         </div>
       `
@@ -1066,7 +1065,7 @@ export function SOSMap() {
             destEl.className = 'destination-route-marker'
             destEl.innerHTML = `
               <div class="destination-flag-pill">
-                <span class="destination-icon">${place.type === 'hospital' ? '🏥' : '🛡️'}</span>
+                <span class="destination-icon">${place.type === 'hospital' ? 'H' : 'SAPS'}</span>
                 <span class="destination-name">${place.name}</span>
                 <span class="eta-tag">${computedRoute.duration}</span>
               </div>
@@ -1163,7 +1162,7 @@ export function SOSMap() {
         </div>
         <div class="buddy-name-pill">
           <span class="buddy-live-dot"></span>
-          <span class="buddy-name-text">${buddy.buddyDistress ? '🚨 UNSAFE: ' : ''}${buddy.buddyName}</span>
+          <span class="buddy-name-text">${buddy.buddyDistress ? 'UNSAFE: ' : ''}${buddy.buddyName}</span>
           ${currentLocation ? `<span class="buddy-dist-tag">${formatDistance(distKm)}</span>` : ''}
         </div>
       `
@@ -1171,22 +1170,22 @@ export function SOSMap() {
       const popupHtml = buddy.buddyDistress
         ? `
         <div style="min-width: 210px; font-family: inherit;">
-          <div style="font-weight: 800; font-size: 13px; color: #b91c1c;">🚨 ${buddy.buddyName} (UNSAFE)</div>
+          <div style="font-weight: 800; font-size: 13px; color: var(--destructive);">${buddy.buddyName} (UNSAFE)</div>
           <div style="font-size: 11px; color: #7f1d1d; margin-top: 3px; font-style: italic;">&quot;${buddy.buddyDistressMessage || 'I feel unsafe right now!'}&quot;</div>
           <div style="font-size: 11px; color: #64748b; margin-top: 4px;">${buddy.buddyEmail}</div>
           <div style="display: flex; gap: 8px; font-size: 11px; color: #dc2626; font-weight: 700; margin-top: 5px;">
-            <span>📍 ${formatDistance(distKm)} away</span>
-            <span>🚨 DISTRESS RINGING</span>
+            <span>${formatDistance(distKm)} away</span>
+            <span>DISTRESS ACTIVE</span>
           </div>
         </div>
       `
         : `
         <div style="min-width: 190px; font-family: inherit;">
-          <div style="font-weight: 700; font-size: 13px; color: #064E3B;">🟢 ${buddy.buddyName}</div>
+          <div style="font-weight: 700; font-size: 13px; color: var(--primary);">${buddy.buddyName}</div>
           <div style="font-size: 11px; color: #64748b; margin-top: 1px;">${buddy.buddyEmail}</div>
           <div style="display: flex; gap: 8px; font-size: 11px; color: #047857; font-weight: 600; margin-top: 5px;">
-            <span>📍 ${formatDistance(distKm)} away</span>
-            <span>⏱️ Live GPS</span>
+            <span>${formatDistance(distKm)} away</span>
+            <span>Live GPS</span>
           </div>
         </div>
       `
@@ -2038,8 +2037,8 @@ export function SOSMap() {
                           ? `In ${formatMeters(route.steps[currentStepIndex].distanceMeters)}`
                           : 'Now'}
                       </p>
-                      <span className="text-[10px] font-bold bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded-md">
-                        {isVoiceMuted ? 'Voice Muted' : '🔊 AI Voice On'}
+                      <span className="text-[10px] font-bold bg-muted text-foreground px-1.5 py-0.5 rounded-md">
+                        {isVoiceMuted ? 'Voice Muted' : 'Voice Guidance'}
                       </span>
                     </div>
                     <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight line-clamp-2">
@@ -2439,7 +2438,7 @@ export function SOSMap() {
                           onClick={() => {
                             const mapLink = `https://maps.google.com/?q=${currentLocation.lat},${currentLocation.lng}`
                             window.location.href = `sms:${emergencyContactPhone}?body=${encodeURIComponent(
-                              `🚨 EMERGENCY DISTRESS: I am stranded without internet. GPS: ${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}. Heading towards: ${nearestStation.name} (${offlineShortCardinal} ${offlineBearing}°). Live map: ${mapLink}`
+                              `EMERGENCY DISTRESS: I am stranded without internet. GPS: ${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}. Heading towards: ${nearestStation.name} (${offlineShortCardinal} ${offlineBearing}°). Live map: ${mapLink}`
                             )}`
                           }}
                         >

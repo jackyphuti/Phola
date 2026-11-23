@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
-import { CheckCircle2, ArrowRight, Smartphone, Globe, ShieldCheck, Sparkles } from 'lucide-react'
+import { CheckCircle2, ArrowRight, Smartphone, Globe, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -67,7 +67,7 @@ function VerifiedContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.12),_transparent_55%),linear-gradient(180deg,#f8fcf9_0%,#ffffff_50%,#f0fdf4_100%)] p-6 safe-top safe-bottom">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 safe-top safe-bottom">
       <Button
         type="button"
         variant="outline"
@@ -82,13 +82,13 @@ function VerifiedContent() {
         <LanguageSelector compact />
 
         <div className="flex flex-col items-center space-y-3">
-          <div className="w-18 h-18 rounded-2xl bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center overflow-hidden shadow-xs ring-4 ring-emerald-100">
+          <div className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-xs">
             <Image
               src="/phola-icon.svg"
               alt="Phola"
-              width={56}
-              height={56}
-              className="h-12 w-12"
+              width={48}
+              height={48}
+              className="h-10 w-10"
               priority
             />
           </div>
@@ -98,22 +98,19 @@ function VerifiedContent() {
           </div>
         </div>
 
-        <Card className="text-center rounded-[2rem] border-2 border-emerald-200 shadow-xl overflow-hidden bg-white">
+        <Card className="text-center rounded-xl border border-border shadow-md overflow-hidden bg-card">
           <CardHeader className="pb-3 pt-6">
-            <div className="relative w-16 h-16 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center mx-auto mb-3 text-emerald-700 shadow-xs">
-              <CheckCircle2 className="w-10 h-10 stroke-[2.2]" />
-              <div className="absolute -top-1 -right-1 bg-amber-400 text-white rounded-full p-1">
-                <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
-              </div>
+            <div className="relative w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3 text-primary shadow-xs">
+              <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
             </div>
             
             <div className="flex justify-center mb-1">
-              <Badge variant="secondary" className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold uppercase tracking-wider">
+              <Badge variant="secondary" className="bg-muted text-foreground border border-border text-[10px] font-bold uppercase tracking-wider">
                 Confirmed & Verified
               </Badge>
             </div>
 
-            <CardTitle className="text-xl font-extrabold text-foreground">
+            <CardTitle className="text-xl font-bold text-foreground">
               Account Verified!
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -121,12 +118,12 @@ function VerifiedContent() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-3.5 pb-6">
+          <CardContent className="space-y-3 pb-6">
             {/* Primary Action: Open Native Mobile App */}
             {isMobile && (
               <Button
                 onClick={handleOpenApp}
-                className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition"
+                className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm shadow-xs flex items-center justify-center gap-2 transition"
               >
                 <Smartphone className="w-4 h-4" />
                 <span>Open in Phola App</span>
@@ -137,14 +134,10 @@ function VerifiedContent() {
             <Button
               onClick={handleContinueInBrowser}
               variant={isMobile ? 'outline' : 'default'}
-              className={`w-full h-12 rounded-2xl font-bold text-sm shadow-xs flex items-center justify-center gap-2 ${
-                isMobile 
-                  ? 'border-emerald-300 text-emerald-900 hover:bg-emerald-50' 
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
+              className="w-full h-11 rounded-lg font-bold text-sm shadow-xs flex items-center justify-center gap-2"
             >
               <Globe className="w-4 h-4" />
-              <span>Continue Exploring in Browser</span>
+              <span>Continue in Browser</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
 

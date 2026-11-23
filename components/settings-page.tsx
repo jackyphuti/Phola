@@ -199,7 +199,10 @@ export function SettingsPage() {
       setContacts(local)
     }
 
-    if (!user?.id) return
+    if (!user?.id) {
+      setIsLoadingContacts(false)
+      return
+    }
     setIsLoadingContacts(local.length === 0)
 
     try {
@@ -290,9 +293,11 @@ export function SettingsPage() {
             .single()
 
           if (!error && data) {
-            setContacts((prev) =>
-              prev.map((c) => (c.id === newContact.id ? (data as EmergencyContact) : c))
-            )
+            setContacts((prev) => {
+              const next = prev.map((c) => (c.id === newContact.id ? (data as EmergencyContact) : c))
+              saveStoredEmergencyContacts(next, user.id)
+              return next
+            })
           }
         }
 
@@ -312,7 +317,7 @@ export function SettingsPage() {
     saveStoredEmergencyContacts(updated, user?.id)
     setMessage({ type: 'success', text: 'Emergency contact removed' })
 
-    if (user?.id) {
+    if (user?.id && !contactId.startsWith('ec_')) {
       try {
         void Promise.race([
           supabase.from('emergency_contacts').delete().eq('id', contactId).eq('user_id', user.id),
@@ -845,7 +850,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(13,110,110,0.08),_transparent_34%),linear-gradient(180deg,#f7fffc_0%,#ffffff_46%,#f5fbf8_100%)] pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="min-h-screen bg-background pt-20 sm:pt-24 pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]">
       {isPhotoPreviewOpen && photoDataUrl && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-md">
@@ -1839,9 +1844,9 @@ export function SettingsPage() {
             {/* Current Active Language Pill + Change Action Button */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-emerald-100 bg-emerald-50/40 dark:bg-muted/30">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-2xl" aria-hidden="true">
-                  {SUPPORTED_LANGUAGES.find((l) => l.code === currentLanguage)?.flag || '🇿🇦'}
-                </span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Globe className="h-5 w-5" />
+                </div>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground font-medium">Currently Selected Language</p>
                   <p className="text-sm font-bold text-foreground truncate">
