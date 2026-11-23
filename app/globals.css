@@ -5,8 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Warm stone / deep slate-teal / crimson emergency palette */
-  --background: #F7F7F5;
+  /* Material 3 Tonal Surface Architecture & Warm Slate Palette */
+  --surface-canvas: #F3F5F4;
+  --surface-workspace: #FFFFFF;
+  --surface-tonal: #EDF1F0;
+  --background: #F3F5F4;
   --foreground: #111818;
   --card: #FFFFFF;
   --card-foreground: #111818;
@@ -14,15 +17,15 @@
   --popover-foreground: #111818;
   --primary: #0B5D5D;
   --primary-foreground: #FFFFFF;
-  --secondary: #EFEFED;
+  --secondary: #EDF1F0;
   --secondary-foreground: #111818;
-  --muted: #F1F1EE;
+  --muted: #EDF1F0;
   --muted-foreground: #5A6565;
   --accent: #E6F2F0;
   --accent-foreground: #0B5D5D;
   --destructive: #C81E1E;
   --destructive-foreground: #FFFFFF;
-  --border: #E4E4DF;
+  --border: #E2E6E5;
   --input: #FFFFFF;
   --ring: #0B5D5D;
   --chart-1: #0B5D5D;
@@ -35,22 +38,25 @@
   --sidebar-foreground: #111818;
   --sidebar-primary: #0B5D5D;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #E6F2F0;
+  --sidebar-accent: #EDF1F0;
   --sidebar-accent-foreground: #0B5D5D;
-  --sidebar-border: #E4E4DF;
+  --sidebar-border: #E2E6E5;
   --sidebar-ring: #0B5D5D;
 }
 
 .dark {
-  --background: #0D1111;
+  --surface-canvas: #0B0F0F;
+  --surface-workspace: #121818;
+  --surface-tonal: #1A2222;
+  --background: #0B0F0F;
   --foreground: #F3F5F4;
-  --card: #141A1A;
+  --card: #121818;
   --card-foreground: #F3F5F4;
-  --popover: #141A1A;
+  --popover: #121818;
   --popover-foreground: #F3F5F4;
   --primary: #3AAFA9;
-  --primary-foreground: #0D1111;
-  --secondary: #1C2424;
+  --primary-foreground: #0B0F0F;
+  --secondary: #1A2222;
   --secondary-foreground: #F3F5F4;
   --muted: #1A2222;
   --muted-foreground: #8C9999;
@@ -58,7 +64,7 @@
   --accent-foreground: #3AAFA9;
   --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
-  --border: #242E2E;
+  --border: #232D2D;
   --input: #1A2222;
   --ring: #3AAFA9;
   --chart-1: #3AAFA9;
@@ -66,19 +72,22 @@
   --chart-3: #138a78;
   --chart-4: #0B5D5D;
   --chart-5: #a8edcd;
-  --sidebar: #141A1A;
+  --sidebar: #121818;
   --sidebar-foreground: #F3F5F4;
   --sidebar-primary: #3AAFA9;
-  --sidebar-primary-foreground: #0D1111;
-  --sidebar-accent: #1C2424;
+  --sidebar-primary-foreground: #0B0F0F;
+  --sidebar-accent: #1A2222;
   --sidebar-accent-foreground: #3AAFA9;
-  --sidebar-border: #242E2E;
+  --sidebar-border: #232D2D;
   --sidebar-ring: #3AAFA9;
 }
 
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-workspace: var(--surface-workspace);
+  --color-surface-tonal: var(--surface-tonal);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -131,6 +140,12 @@
     @apply bg-background text-foreground;
     overscroll-behavior-y: none;
   }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
 }
 
 /* Splash animation */

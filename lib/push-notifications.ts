@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { getApiUrl } from '@/lib/api-client'
+import { Capacitor } from '@capacitor/core'
+import { registerNativePush, scheduleNativeLocalNotification } from '@/lib/native-notifications'
 
 const DEFAULT_VAPID_PUBLIC_KEY =
   'BOOUybTE1QlN-P9ypAn8XWeM7oscyJd81BhYib6SyVm-VjHiJrHOVSFbX7irisgWgYgbizikEC3s-tt_xQn8yj8'
@@ -90,6 +92,12 @@ export async function registerNotificationServiceWorker(): Promise<ServiceWorker
 
 export async function subscribeForProductionPush(): Promise<boolean> {
   if (typeof window === 'undefined') return false
+
+  // On Native Android & iOS: delegate to native push registration & notification channels
+  if (Capacitor.isNativePlatform()) {
+    return await registerNativePush()
+  }
+
   if (!('serviceWorker' in navigator)) return false
 
   const permission = await requestNotificationPermission()
@@ -157,6 +165,16 @@ export async function showSystemNotification(
     distress?: boolean
   }
 ) {
+  // On Native Android & iOS: delegate to high-priority local notifications & channels
+  if (Capacitor.isNativePlatform()) {
+    return await scheduleNativeLocalNotification({
+      title,
+      body,
+      href: options?.href,
+      distress: options?.distress,
+    })
+  }
+
   const permission = await requestNotificationPermission()
   if (permission !== 'granted') return
 

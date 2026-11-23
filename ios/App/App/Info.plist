@@ -48,6 +48,7 @@
 		<string>location</string>
 		<string>fetch</string>
 		<string>processing</string>
+		<string>remote-notification</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Phola requires your live location to display nearby safe havens, provide emergency navigation, and share your GPS with emergency services and contacts.</string>

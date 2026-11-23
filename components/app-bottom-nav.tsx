@@ -19,36 +19,88 @@ import {
   Siren,
   CloudSun,
   Sun,
-  ShieldAlert
+  ShieldAlert,
+  PanelLeftClose,
+  PanelLeftOpen,
+  MoreHorizontal
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { LanguageSelector } from '@/components/language-selector'
 import { safeExit } from '@/lib/safe-exit'
 import { triggerHapticFeedback } from '@/lib/biometric'
+import { UniversalSearch } from '@/components/universal-search'
 
-const tabs = [
-  { label: 'Home', href: '/dashboard', icon: Home },
-  { label: 'Safe Ride Watchdog', href: '/safe-ride', icon: Car },
-  { label: 'Safety Hub & Hotlines', href: '/safety', icon: Shield },
-  { label: 'Emergency SOS Map', href: '/sos', icon: Siren },
-  { label: 'Nearby Services', href: '/nearby', icon: MapPin },
-  { label: 'Incident Vault', href: '/reports', icon: FileText },
-  { label: 'South Africa News', href: '/news', icon: Newspaper },
-  { label: 'Safety Guide', href: '/assistant', icon: Compass },
-  { label: 'Profile & Settings', href: '/settings', icon: User },
+interface NavItem {
+  label: string
+  href: string
+  icon: typeof Home
+  exact?: boolean
+}
+
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'Emergency',
+    items: [
+      { label: 'Home', href: '/dashboard', icon: Home, exact: true },
+      { label: 'SOS Map', href: '/sos', icon: Siren },
+      { label: 'Safe Ride', href: '/safe-ride', icon: Car },
+    ],
+  },
+  {
+    title: 'Personal',
+    items: [
+      { label: 'Incident Vault', href: '/reports', icon: FileText },
+      { label: 'Safety Guide', href: '/assistant', icon: Compass },
+      { label: 'Safety Hub', href: '/safety', icon: Shield },
+    ],
+  },
+  {
+    title: 'Local',
+    items: [
+      { label: 'Nearby Services', href: '/nearby', icon: MapPin },
+      { label: 'South Africa News', href: '/news', icon: Newspaper },
+      { label: 'Settings', href: '/settings', icon: User },
+    ],
+  },
 ]
 
 export function AppBottomNav() {
   const router = useRouter()
   const pathname = usePathname()
   const { signOut } = useAuth()
-  const [isHidden, setIsHidden] = useState<boolean>(true)
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false)
+  const [isRailCollapsed, setIsRailCollapsed] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
   // Global Stealth Weather Decoy State
   const [isDecoyActive, setIsDecoyActive] = useState(false)
   const [decoyTapCount, setDecoyTapCount] = useState(0)
+
+  // Initialize and persist rail state
+  useEffect(() => {
+    setIsMounted(true)
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('phola_nav_rail_collapsed') === 'true'
+      setIsRailCollapsed(saved)
+      document.documentElement.setAttribute('data-rail', saved ? 'collapsed' : 'expanded')
+    }
+  }, [])
+
+  const toggleRail = () => {
+    const next = !isRailCollapsed
+    setIsRailCollapsed(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('phola_nav_rail_collapsed', String(next))
+      document.documentElement.setAttribute('data-rail', next ? 'collapsed' : 'expanded')
+    }
+    triggerHapticFeedback('light')
+  }
 
   const handleSafeExit = () => {
     triggerHapticFeedback('heavy')
@@ -67,26 +119,21 @@ export function AppBottomNav() {
   }
 
   const handleSignOut = async () => {
-    setIsHidden(true)
+    setIsMobileDrawerOpen(false)
     await signOut()
     router.replace('/auth/login')
   }
 
+  // Auto-close mobile drawer on route navigation
   useEffect(() => {
-    setIsMounted(true)
-    setIsHidden(true)
-  }, [])
-
-  // Auto-close drawer whenever pathname changes
-  useEffect(() => {
-    setIsHidden(true)
+    setIsMobileDrawerOpen(false)
   }, [pathname])
 
-  // Close drawer on Escape key
+  // Escape key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsHidden(true)
+        setIsMobileDrawerOpen(false)
         if (isDecoyActive) setIsDecoyActive(false)
       }
     }
@@ -94,14 +141,12 @@ export function AppBottomNav() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isDecoyActive])
 
-  // Do not render on public auth pages or root landing
+  // Hide on auth or public landing pages
   if (pathname && (pathname === '/' || pathname.startsWith('/auth/'))) {
     return null
   }
 
-  if (!isMounted) {
-    return null
-  }
+  if (!isMounted) return null
 
   return (
     <>
@@ -116,7 +161,6 @@ export function AppBottomNav() {
               <span>Updated 2m ago</span>
             </div>
 
-            {/* Weather Widget (Tap 3x to Exit) */}
             <div 
               onClick={handleDecoyTap} 
               className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs flex flex-col items-center cursor-pointer active:scale-98 transition"
@@ -129,7 +173,6 @@ export function AppBottomNav() {
               </span>
             </div>
 
-            {/* Simulated Weekly Weather */}
             <div className="rounded-2xl bg-white border border-slate-200/80 p-4 space-y-2.5 shadow-2xs">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Weekly Forecast</h4>
               <div className="flex justify-between text-xs text-slate-600 pt-1">
@@ -140,7 +183,6 @@ export function AppBottomNav() {
               </div>
             </div>
 
-            {/* Simulated Innocent Grocery Notes */}
             <div className="rounded-2xl bg-white border border-slate-200/80 p-4 space-y-2 shadow-2xs">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Personal Grocery Notes</h4>
               <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
@@ -164,259 +206,316 @@ export function AppBottomNav() {
       )}
 
       {/* ========================================================================= */}
-      {/* GOOGLE-STYLE TOP APP BAR (Pinned header, perfectly vertically centered)    */}
+      {/* PINNED TOP APP BAR (All Breakpoints)                                      */}
       {/* ========================================================================= */}
-      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center justify-between border-b border-emerald-100/90 bg-white/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md dark:border-border dark:bg-card/95 safe-top">
-        {/* Left: Hamburger Button + Logo + Title */}
-        <div className="flex items-center gap-2 sm:gap-3 my-auto">
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-14 sm:h-16 items-center justify-between border-b border-border bg-card/95 px-3 sm:px-6 shadow-2xs backdrop-blur-md safe-top">
+        {/* Left: Rail Collapse Toggle (Desktop) or Brand & Mobile Drawer Trigger */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Desktop Rail Toggle */}
           <button
             type="button"
-            onClick={() => setIsHidden(!isHidden)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-700 hover:bg-emerald-50 active:bg-emerald-100 transition-colors dark:text-foreground dark:hover:bg-muted"
-            title="Main menu"
-            aria-label="Open navigation menu"
+            onClick={toggleRail}
+            className="hidden lg:flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title={isRailCollapsed ? 'Expand Navigation Rail' : 'Collapse Navigation Rail'}
+            aria-label="Toggle Navigation Rail"
           >
-            <Menu className="h-5 w-5 text-emerald-950 dark:text-emerald-100" />
+            {isRailCollapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
           </button>
 
+          {/* Mobile Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileDrawerOpen(true)}
+            className="flex lg:hidden h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-muted transition-colors"
+            title="Open Menu"
+            aria-label="Open Navigation Menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Brand Logo & Name */}
           <Link
             href="/dashboard"
             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
           >
-            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-primary/10 shadow-2xs">
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-primary/10 shadow-2xs">
               <Image
                 src="/phola-icon.svg"
                 alt="Phola"
-                width={26}
-                height={26}
+                width={24}
+                height={24}
                 className="h-5 w-5"
                 priority
               />
             </div>
-            <span className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+            <span className="text-base sm:text-lg font-bold tracking-tight text-foreground">
               Phola
             </span>
           </Link>
         </div>
 
-        {/* Right: 11-Language Selector + Stealth Cloak + Quick Biometric Lock */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 my-auto">
-          {/* 11 Official SA Languages Minimal Pill */}
+        {/* Center: Universal Search Bar */}
+        <div className="flex-1 max-w-lg mx-3 sm:mx-6">
+          <UniversalSearch />
+        </div>
+
+        {/* Right: Language Selector + Stealth Cloak + Quick Safe Exit */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <div className="hidden xs:flex">
             <LanguageSelector minimal />
           </div>
 
-          {/* Stealth Weather Cloak Quick Trigger */}
           <button
             type="button"
             onClick={() => setIsDecoyActive(true)}
             className="inline-flex items-center justify-center h-8 sm:h-9 px-2 sm:px-2.5 rounded-full text-xs font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800 hover:bg-amber-100/80 active:scale-95 transition-all shadow-2xs"
-            title="Stealth Cloak (Immediately disguise screen as weather report)"
+            title="Stealth Cloak (Disguise screen as weather)"
             aria-label="Stealth Decoy"
           >
             <CloudSun className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
             <span className="hidden md:inline ml-1 text-[11px]">Stealth</span>
           </button>
 
-          {/* Quick Safe Exit Emergency Button */}
           <button
             type="button"
             onClick={handleSafeExit}
-            className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border border-rose-200/90 dark:border-rose-800 hover:bg-rose-100/90 active:scale-95 transition-all shadow-2xs"
-            title="Quick Safe Exit (Instantly wipes sensitive session data and exits to neutral screen)"
+            className="inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-full text-xs font-bold text-destructive-foreground bg-destructive hover:bg-destructive/90 active:scale-95 transition-all shadow-2xs"
+            title="Safe Exit"
             aria-label="Quick Safe Exit"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Safe Exit</span>
           </button>
         </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* DRAWER BACKDROP (z-50)                                                    */}
-      {/* ========================================================================= */}
-      {!isHidden && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs transition-opacity duration-200"
-          onClick={() => setIsHidden(true)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* ========================================================================= */}
-      {/* SIDE NAVIGATION DRAWER (z-50, always sits above offline banner z-30)       */}
+      {/* DESKTOP NAVIGATION RAIL (lg: and up, persistent & collapsible)              */}
       {/* ========================================================================= */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 z-50 flex flex-col w-72 bg-card border-r border-border shadow-2xl transition-transform duration-250 ease-out safe-top safe-bottom ${
-          isHidden ? '-translate-x-full' : 'translate-x-0'
+        className={`hidden lg:flex fixed left-0 top-14 sm:top-16 bottom-0 z-30 flex-col bg-card border-r border-border transition-all duration-200 ease-in-out ${
+          isRailCollapsed ? 'w-[72px]' : 'w-64'
         }`}
       >
-        {/* Drawer Header */}
-        <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-border shrink-0">
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setIsHidden(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-foreground hover:bg-muted active:bg-muted/80 transition-colors"
-              title="Close menu"
-              aria-label="Close navigation menu"
-            >
-              <Menu className="h-5 w-5 text-foreground" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
-                <Image
-                  src="/phola-icon.svg"
-                  alt="Phola"
-                  width={22}
-                  height={22}
-                  className="h-4 w-4"
-                />
-              </div>
-              <span className="text-lg font-bold tracking-tight text-foreground">Phola</span>
-            </div>
-          </div>
+        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-5">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.title} className="space-y-1">
+              {!isRailCollapsed && (
+                <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                  {section.title}
+                </div>
+              )}
+              {section.items.map((item) => {
+                const isActive = item.exact
+                  ? pathname === item.href
+                  : pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`) ||
+                    (item.href === '/reports' && pathname === '/notes')
+                const Icon = item.icon
 
-          <button
-            type="button"
-            onClick={() => setIsHidden(true)}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            title="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => triggerHapticFeedback('light')}
+                    title={isRailCollapsed ? item.label : undefined}
+                    className={`flex items-center rounded-lg transition-all ${
+                      isRailCollapsed
+                        ? 'justify-center h-10 w-10 mx-auto'
+                        : 'justify-between px-3 py-2 text-[13px] font-semibold'
+                    } ${
+                      isActive
+                        ? 'bg-surface-tonal text-primary font-bold shadow-2xs'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                      {!isRailCollapsed && <span className="truncate">{item.label}</span>}
+                    </div>
+                    {!isRailCollapsed && isActive && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </div>
 
-        {/* Tab Items List - Auto-closes drawer on item click */}
-        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
-          {tabs.map((tab) => {
-            const isActive =
-              pathname === tab.href ||
-              pathname?.startsWith(`${tab.href}/`) ||
-              (tab.href === '/reports' && pathname === '/notes')
-            const Icon = tab.icon
-
-            return (
-              <button
-                key={tab.href}
-                type="button"
-                onClick={() => {
-                  setIsHidden(true)
-                  router.push(tab.href)
-                }}
-                className={`w-full flex items-center justify-between rounded-lg px-3.5 py-3 text-sm font-semibold transition-all ${
-                  isActive
-                    ? 'bg-accent text-foreground border border-border shadow-xs'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span>{tab.label}</span>
-                </div>
-                {isActive && (
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                )}
-              </button>
-            )
-          })}
-        </nav>
-
-        {/* Drawer Footer Actions */}
-        <div className="p-3 border-t border-border space-y-2 shrink-0">
+        {/* Rail Footer */}
+        <div className="p-2 border-t border-border shrink-0">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="w-full justify-start rounded-lg text-xs font-semibold text-destructive border-border hover:bg-destructive/10 transition-colors"
             onClick={handleSignOut}
+            title={isRailCollapsed ? 'Sign Out' : undefined}
+            className={`w-full text-destructive hover:bg-destructive/10 rounded-lg text-xs font-semibold ${
+              isRailCollapsed ? 'justify-center p-0 h-10' : 'justify-start px-3'
+            }`}
           >
-            <LogOut className="h-4 w-4 mr-2 text-destructive" />
-            Logout
+            <LogOut className="h-4 w-4 shrink-0 text-destructive" />
+            {!isRailCollapsed && <span className="ml-2">Sign Out</span>}
           </Button>
-          <p className="text-[10px] text-center text-muted-foreground">Phola Safety Network • South Africa</p>
         </div>
       </aside>
 
       {/* ========================================================================= */}
-      {/* 5-TAB MOBILE BOTTOM NAVIGATION BAR (md:hidden, fixed bottom)               */}
+      {/* MOBILE SLIDE-OVER DRAWER (For Secondary Routes & "More" Tab)              */}
+      {/* ========================================================================= */}
+      {isMobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileDrawerOpen(false)}
+            aria-hidden="true"
+          />
+
+          <aside className="fixed left-0 top-0 bottom-0 z-50 flex flex-col w-72 bg-card border-r border-border shadow-2xl safe-top safe-bottom animate-in slide-in-from-left duration-200">
+            {/* Header */}
+            <div className="flex h-14 items-center justify-between px-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+                  <Image src="/phola-icon.svg" alt="Phola" width={20} height={20} className="h-4 w-4" />
+                </div>
+                <span className="text-base font-bold text-foreground">Phola Navigation</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileDrawerOpen(false)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Nav List */}
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.title} className="space-y-1">
+                  <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {section.title}
+                  </div>
+                  {section.items.map((item) => {
+                    const isActive = pathname === item.href || (item.href === '/reports' && pathname === '/notes')
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setIsMobileDrawerOpen(false)}
+                        className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold transition-all ${
+                          isActive
+                            ? 'bg-surface-tonal text-primary font-bold'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <span>{item.label}</span>
+                        </div>
+                        {isActive && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                      </Link>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-border space-y-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSignOut}
+                className="w-full justify-start rounded-lg text-xs font-semibold text-destructive border-border hover:bg-destructive/10"
+              >
+                <LogOut className="h-4 w-4 mr-2 text-destructive" />
+                Sign Out
+              </Button>
+              <p className="text-[10px] text-center text-muted-foreground">Phola Safety Network • South Africa</p>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5-TAB MOBILE BOTTOM NAVIGATION BAR (< lg: fixed bottom)                   */}
       {/* ========================================================================= */}
       <nav
         aria-label="Mobile Navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 md:hidden flex items-center justify-around h-[calc(4.25rem+env(safe-area-inset-bottom,0px))] pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-1.5 bg-card/95 border-t border-border shadow-lg backdrop-blur-xl px-2"
+        className="fixed bottom-0 left-0 right-0 z-40 lg:hidden flex items-center justify-around h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[calc(env(safe-area-inset-bottom,0px)+0.25rem)] pt-1 bg-card/95 border-t border-border shadow-lg backdrop-blur-xl px-2"
       >
         {/* Tab 1: Home */}
         <Link
           href="/dashboard"
           onClick={() => triggerHapticFeedback('light')}
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
-            pathname === '/dashboard'
-              ? 'text-primary font-bold scale-105'
-              : 'text-slate-500 hover:text-foreground'
+            pathname === '/dashboard' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Home className={`h-5 w-5 ${pathname === '/dashboard' ? 'text-primary stroke-[2.5]' : ''}`} />
           <span className="text-[10px] mt-0.5 font-medium">Home</span>
         </Link>
 
-        {/* Tab 2: Services */}
+        {/* Tab 2: SOS (Crimson High-Contrast) */}
         <Link
-          href="/nearby"
-          onClick={() => triggerHapticFeedback('light')}
+          href="/sos"
+          onClick={() => triggerHapticFeedback('medium')}
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
-            pathname === '/nearby'
-              ? 'text-primary font-bold scale-105'
-              : 'text-muted-foreground hover:text-foreground'
+            pathname === '/sos' ? 'text-destructive font-bold' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          <MapPin className={`h-5 w-5 ${pathname === '/nearby' ? 'text-primary stroke-[2.5]' : ''}`} />
-          <span className="text-[10px] mt-0.5 font-medium">Services</span>
+          <Siren className={`h-5 w-5 ${pathname === '/sos' ? 'text-destructive stroke-[2.5]' : 'text-destructive/80'}`} />
+          <span className="text-[10px] mt-0.5 font-bold text-destructive">SOS</span>
         </Link>
 
-        {/* Tab 3: Raised Center Emergency SOS Trigger (High-urgency Crimson) */}
-        <div className="flex flex-col items-center justify-center -mt-6 px-1 shrink-0">
-          <Link
-            href="/sos"
-            onClick={() => triggerHapticFeedback('medium')}
-            aria-label="Emergency SOS Map"
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg border-4 border-card active:scale-95 transition-transform"
-          >
-            <Siren className="h-6 w-6 text-white relative z-10" />
-          </Link>
-          <span className="text-[10px] font-extrabold text-destructive mt-0.5 tracking-tight">SOS</span>
-        </div>
-
-        {/* Tab 4: Safe Ride */}
+        {/* Tab 3: Safe Ride */}
         <Link
           href="/safe-ride"
           onClick={() => triggerHapticFeedback('light')}
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
-            pathname === '/safe-ride'
-              ? 'text-primary font-bold scale-105'
-              : 'text-muted-foreground hover:text-foreground'
+            pathname === '/safe-ride' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Car className={`h-5 w-5 ${pathname === '/safe-ride' ? 'text-primary stroke-[2.5]' : ''}`} />
           <span className="text-[10px] mt-0.5 font-medium">Safe Ride</span>
         </Link>
 
-        {/* Tab 5: Vault */}
+        {/* Tab 4: Vault */}
         <Link
           href="/reports"
           onClick={() => triggerHapticFeedback('light')}
           className={`flex flex-col items-center justify-center flex-1 py-1 text-center transition-all ${
-            pathname === '/reports' || pathname === '/notes'
-              ? 'text-primary font-bold scale-105'
-              : 'text-muted-foreground hover:text-foreground'
+            pathname === '/reports' || pathname === '/notes' ? 'text-primary font-bold' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <FileText className={`h-5 w-5 ${pathname === '/reports' || pathname === '/notes' ? 'text-primary stroke-[2.5]' : ''}`} />
           <span className="text-[10px] mt-0.5 font-medium">Vault</span>
         </Link>
+
+        {/* Tab 5: More (Opens Slide-over Drawer) */}
+        <button
+          type="button"
+          onClick={() => {
+            triggerHapticFeedback('light')
+            setIsMobileDrawerOpen(true)
+          }}
+          className="flex flex-col items-center justify-center flex-1 py-1 text-center text-muted-foreground hover:text-foreground transition-all"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+          <span className="text-[10px] mt-0.5 font-medium">More</span>
+        </button>
       </nav>
     </>
   )
 }
 
-// Re-export alias
 export { AppBottomNav as AppSideNav }

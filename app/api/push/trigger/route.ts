@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { captureException } from '@sentry/nextjs'
 import { sendWebPushBatch } from '@/lib/server-web-push'
+import { sendNativePushBatch } from '@/lib/server-fcm'
 import { checkRateLimit, rateLimitResponse, validateJsonBody } from '@/lib/api'
 import { getAuthenticatedUser } from '@/lib/server-auth'
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
@@ -92,38 +93,77 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: subscriptionsError.message }, { status: 500 })
   }
 
-  if (!Array.isArray(subscriptions) || subscriptions.length === 0) {
-    return NextResponse.json({ ok: true, sent: 0 })
+  let webSent = 0
+  let webStale = 0
+  let webFailed = 0
+
+  if (Array.isArray(subscriptions) && subscriptions.length > 0) {
+    const result = await sendWebPushBatch(subscriptions, payload)
+    webSent = result.successIds.length
+    webStale = result.staleIds.length
+    webFailed = result.failures.length
+
+    if (result.successIds.length > 0) {
+      await dbClient
+        .from('push_subscriptions')
+        .update({
+          last_success_at: new Date().toISOString(),
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', result.successIds)
+    }
+
+    if (result.staleIds.length > 0) {
+      await dbClient
+        .from('push_subscriptions')
+        .update({
+          is_active: false,
+          last_error: 'Push endpoint expired',
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', result.staleIds)
+    }
   }
 
-  const result = await sendWebPushBatch(subscriptions, payload)
+  // Also query native device push tokens (FCM/APNs)
+  let nativeSent = 0
+  try {
+    const { data: deviceTokens } = await dbClient
+      .from('device_push_tokens')
+      .select('token')
+      .eq('user_id', userId)
+      .eq('is_active', true)
 
-  if (result.successIds.length > 0) {
-    await dbClient
-      .from('push_subscriptions')
-      .update({
-        last_success_at: new Date().toISOString(),
-        last_error: null,
-        updated_at: new Date().toISOString(),
-      })
-      .in('id', result.successIds)
-  }
-
-  if (result.staleIds.length > 0) {
-    await dbClient
-      .from('push_subscriptions')
-      .update({
-        is_active: false,
-        last_error: 'Push endpoint expired',
-        updated_at: new Date().toISOString(),
-      })
-      .in('id', result.staleIds)
+    if (Array.isArray(deviceTokens) && deviceTokens.length > 0) {
+      const tokens = deviceTokens.map((t: { token: string }) => t.token)
+      const nativeResult = await sendNativePushBatch(
+        tokens,
+        {
+          title: payload.title,
+          body: payload.body,
+          href: payload.href,
+          distress: payload.distress,
+        },
+        async (invalidTokens) => {
+          await dbClient
+            .from('device_push_tokens')
+            .update({ is_active: false })
+            .in('token', invalidTokens)
+        }
+      )
+      nativeSent = nativeResult.successCount
+    }
+  } catch (err) {
+    console.warn('[push-trigger] Native push dispatch error:', err)
   }
 
   return NextResponse.json({
     ok: true,
-    sent: result.successIds.length,
-    stale: result.staleIds.length,
-    failed: result.failures.length,
+    sent: webSent + nativeSent,
+    webSent,
+    nativeSent,
+    stale: webStale,
+    failed: webFailed,
   })
 }

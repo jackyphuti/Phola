@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import { getAuthenticatedUser } from '@/lib/server-auth'
 import { sendWebPushBatch, type StoredPushSubscription } from '@/lib/server-web-push'
+import { sendNativePushBatch } from '@/lib/server-fcm'
 import { z } from 'zod'
 
 function getSupabaseAdmin() {
@@ -66,6 +67,40 @@ async function dispatchPushToRecipients(params: {
       await sendWebPushBatch(collected, payload)
     } catch (err) {
       console.warn('[location-share] sendWebPushBatch warning:', err)
+    }
+  }
+
+  // 3. Dispatch Native FCM/APNs High-Priority Push (Android & iOS)
+  if (userIds.length > 0) {
+    try {
+      const dbClient = getSupabaseAdmin() || supabase
+      const { data: deviceTokens } = await dbClient
+        .from('device_push_tokens')
+        .select('token')
+        .in('user_id', userIds)
+        .eq('is_active', true)
+
+      if (Array.isArray(deviceTokens) && deviceTokens.length > 0) {
+        const tokens = deviceTokens.map((t: { token: string }) => t.token)
+        await sendNativePushBatch(
+          tokens,
+          {
+            title: String(payload.title || 'Phola Safety Alert'),
+            body: String(payload.body || 'You have an urgent safety update.'),
+            href: typeof payload.href === 'string' ? payload.href : '/sos',
+            distress: Boolean(payload.distress),
+            shareId: typeof payload.shareId === 'string' ? payload.shareId : undefined,
+          },
+          async (invalidTokens) => {
+            await dbClient
+              .from('device_push_tokens')
+              .update({ is_active: false })
+              .in('token', invalidTokens)
+          }
+        )
+      }
+    } catch (err) {
+      console.warn('[location-share] sendNativePushBatch warning:', err)
     }
   }
 }

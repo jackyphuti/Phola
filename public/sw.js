@@ -32,7 +32,7 @@ async function checkGuardianUpdatesInBackground() {
             if (lastNotifiedAt !== buddy.buddyDistressAt) {
               notifiedDistressMap.set(buddy.shareId, buddy.buddyDistressAt)
               await self.registration.showNotification(
-                `🚨 EMERGENCY: ${buddy.buddyName || 'Your Buddy'} Feels Unsafe!`,
+                `EMERGENCY: ${buddy.buddyName || 'Your Buddy'} Feels Unsafe!`,
                 {
                   body: buddy.buddyDistressMessage || 'Distress ping triggered! Tap to track live GPS location on map.',
                   icon: '/icon-light-32x32.png',
@@ -46,8 +46,8 @@ async function checkGuardianUpdatesInBackground() {
                     distress: true,
                   },
                   actions: [
-                    { action: 'track', title: '📍 Track Live on Map' },
-                    { action: 'saps', title: '🚔 Call SAPS (10111)' },
+                    { action: 'track', title: 'Track Live on Map' },
+                    { action: 'saps', title: 'Call SAPS (10111)' },
                   ],
                 }
               )
@@ -63,7 +63,7 @@ async function checkGuardianUpdatesInBackground() {
         if (inv.shareId && !notifiedInviteSet.has(inv.shareId)) {
           notifiedInviteSet.add(inv.shareId)
           await self.registration.showNotification(
-            `📍 New Guardian Circle Invite`,
+            `New Guardian Circle Invite`,
             {
               body: `${inv.fromName || inv.fromEmail} invited you to share live locations on Phola. Tap to accept.`,
               icon: '/icon-light-32x32.png',
@@ -76,7 +76,7 @@ async function checkGuardianUpdatesInBackground() {
                 distress: false,
               },
               actions: [
-                { action: 'accept', title: '✅ Open & Accept' },
+                { action: 'accept', title: 'Open & Accept' },
               ],
             }
           )
@@ -283,12 +283,12 @@ self.addEventListener('push', (event) => {
     },
     actions: isDistress
       ? [
-          { action: 'track', title: '📍 Track Live on Map' },
-          { action: 'saps', title: '🚔 Call SAPS (10111)' },
+          { action: 'track', title: 'Track Live on Map' },
+          { action: 'saps', title: 'Call SAPS (10111)' },
         ]
       : isInvite
       ? [
-          { action: 'accept', title: '✅ Open & Accept' },
+          { action: 'accept', title: 'Open & Accept' },
         ]
       : [],
   }
