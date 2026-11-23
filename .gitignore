@@ -40,6 +40,12 @@ package-lock.json
 supabase/.temp/
 supabase/.branches/
 
+# Firebase & Google Services credentials
+google-services.json
+GoogleService-Info.plist
+**/google-services.json
+**/GoogleService-Info.plist
+
 # Swift / xtool build outputs
 /.build
 /Packages
