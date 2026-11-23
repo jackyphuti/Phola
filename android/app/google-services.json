@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "685813462495",
+    "project_id": "phola-a8741",
+    "storage_bucket": "phola-a8741.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:685813462495:android:0be6c1bf7adab322b3c06a",
+        "android_client_info": {
+          "package_name": "com.phola.phola"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPSAlUxb6PRdPsEK7uXJ48wk2nmVEo31Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -23,6 +23,11 @@ const config: CapacitorConfig = {
         androidScheme: 'http',
       }
     : undefined,
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
 };
 
 export default config;
